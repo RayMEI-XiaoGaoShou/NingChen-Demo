@@ -1,0 +1,41 @@
+.first-round-guide-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 46;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-lg);
+    background: rgba(3, 3, 5, 0.8);
+}
+
+.first-round-guide-modal {
+    width: min(560px, 100%);
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-lg);
+    text-align: left;
+}
+
+.first-round-guide-title {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-xl);
+    letter-spacing: 4px;
+    margin-bottom: var(--spacing-md);
+}
+
+.first-round-guide-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.first-round-guide-body p {
+    color: var(--color-text-primary);
+    line-height: 1.9;
+}
+
+.first-round-guide-button {
+    min-width: 220px;
+    margin-top: var(--spacing-lg);
+}

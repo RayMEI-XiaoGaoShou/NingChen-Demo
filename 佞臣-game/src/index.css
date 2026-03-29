@@ -1,0 +1,247 @@
+:root {
+    /* 水墨暗金核心色系 */
+    --color-bg-deep: #0a0a0c;
+    /* 极暗背景 */
+    --color-bg-card: rgba(22, 22, 26, 0.7);
+    /* 半透明暗色卡片背景 */
+    --color-bg-primary: #121215;
+    /* 主背景 */
+    --color-accent-gold: #c9b065;
+    /* 核心暗金色 */
+    --color-accent-gold-glow: rgba(201, 176, 101, 0.2);
+    --color-text-primary: #eae5d9;
+    /* 米白正文文字 */
+    --color-text-secondary: #a69e8a;
+    /* 辅助次要文字 */
+    --color-text-dim: #736d5c;
+    /* 极暗文字 */
+    --color-border-gold: rgba(201, 176, 101, 0.4);
+    /* 暗金边框 */
+    --color-border: rgba(255, 255, 255, 0.1);
+    /* 普通常规边框 */
+
+    /* 状态颜色 */
+    --color-safe: #3b6b4f;
+    --color-safe-light: #6fb589;
+    --color-danger: #8b2626;
+    --color-danger-light: #d44c4c;
+    --color-warning: #996e36;
+    --color-warning-light: #e6b365;
+
+    /* 字体家族 */
+    --font-heading: 'Noto Serif SC', serif;
+    /* 标题与特殊文本用宋体 */
+    --font-primary: 'Noto Sans SC', sans-serif;
+    /* 正文用黑体 */
+
+    /* 字号体系 */
+    --font-size-xs: 12px;
+    --font-size-sm: 14px;
+    --font-size-md: 16px;
+    --font-size-lg: 20px;
+    --font-size-xl: 28px;
+    --font-size-2xl: 40px;
+    --font-size-3xl: 64px;
+
+    /* 间距与圆角 */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+
+    /* 过渡动画 */
+    --transition-fast: 0.2s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === Google Fonts === */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+/* === 基础清空与排版 === */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    margin: 0;
+    font-family: var(--font-primary);
+    background: var(--color-bg-deep);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+
+    /* 全局噪点纹理，提升水墨质感 */
+    background-image: radial-gradient(circle at 50% 150%, rgba(201, 176, 101, 0.05) 0%, transparent 60%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.02'/%3E%3C/svg%3E");
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+button {
+    font-family: var(--font-primary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--color-text-primary);
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+ul {
+    list-style: none;
+}
+
+/* === 定制暗金滚动条 === */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-deep);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border-gold);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-accent-gold);
+}
+
+/* === 公共组件与动画 === */
+
+/* 毛玻璃容器 */
+.glass-panel {
+    background: var(--color-bg-card);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* 带暗金边光的面板 */
+.gold-panel {
+    background: var(--color-bg-card);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border-gold);
+    box-shadow: inset 0 0 20px rgba(201, 176, 101, 0.05),
+        0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+/* 全局动画关键帧 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes typeWriter {
+    from {
+        width: 0;
+    }
+
+    to {
+        width: 100%;
+    }
+}
+
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+/* 动画工具类 */
+.animate-fade-in {
+    animation: fadeIn 0.6s ease-out forwards;
+}
+
+.animate-slide-up {
+    animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-delay-1 {
+    animation-delay: 0.1s;
+}
+
+.animate-delay-2 {
+    animation-delay: 0.2s;
+}
+
+.animate-delay-3 {
+    animation-delay: 0.3s;
+}
+
+.animate-delay-4 {
+    animation-delay: 0.4s;
+}
+
+/* 基础通用按钮 */
+.btn-primary {
+    background: transparent;
+    border: 1px solid var(--color-accent-gold);
+    color: var(--color-accent-gold);
+    padding: var(--spacing-sm) var(--spacing-xl);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-md);
+    letter-spacing: 4px;
+    text-indent: 4px;
+    /* 补齐 letter-spacing */
+    transition: all var(--transition-fast);
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: rgba(201, 176, 101, 0.15);
+    box-shadow: 0 0 15px rgba(201, 176, 101, 0.3);
+    text-shadow: 0 0 8px rgba(201, 176, 101, 0.5);
+}
+
+.btn-primary:active:not(:disabled) {
+    transform: scale(0.98);
+}
