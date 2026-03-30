@@ -1,4 +1,5 @@
 import { PROLOGUE_SECTIONS } from '../../data/prologueContent'
+import { MAP_ASSETS } from '../../data/mediaAssets'
 import { useGameStore } from '../../stores/gameStore'
 import './Prologue.css'
 
@@ -22,17 +23,31 @@ export function Prologue() {
 
             <div className="prologue-sections">
                 {PROLOGUE_SECTIONS.map((section, index) => (
-                    <section
-                        key={section.title}
-                        className={`glass-panel prologue-section animate-slide-up animate-delay-${Math.min(index + 1, 4)}`}
-                    >
-                        <h2 className="prologue-section-title">{section.title}</h2>
-                        <div className="prologue-section-body">
-                            {section.paragraphs.map(paragraph => (
-                                <p key={paragraph}>{paragraph}</p>
-                            ))}
-                        </div>
-                    </section>
+                    <div key={section.title} className="prologue-section-group">
+                        <section
+                            className={`glass-panel prologue-section animate-slide-up animate-delay-${Math.min(index + 1, 4)}`}
+                        >
+                            <h2 className="prologue-section-title">{section.title}</h2>
+                            <div className="prologue-section-body">
+                                {section.paragraphs.map(paragraph => (
+                                    <p key={paragraph}>{paragraph}</p>
+                                ))}
+                            </div>
+                        </section>
+                        {index === 0 && (
+                            <section className="gold-panel prologue-map-card animate-slide-up animate-delay-2">
+                                <div className="prologue-map-header">
+                                    <h3 className="prologue-map-title">南北形势图</h3>
+                                    <span className="prologue-map-label">{MAP_ASSETS.initial.label}</span>
+                                </div>
+                                <img
+                                    className="prologue-map-image"
+                                    src={MAP_ASSETS.initial.src}
+                                    alt="南北初局地图"
+                                />
+                            </section>
+                        )}
+                    </div>
                 ))}
             </div>
 

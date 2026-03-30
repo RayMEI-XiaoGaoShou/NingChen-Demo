@@ -5,20 +5,46 @@
 
 import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
-import { getPolicyQuestionByRound } from '../../data/policyQuestions'
+import { getPolicyQuestionForRound } from '../../data/policyQuestions'
+import { parsePolicyReasonInput } from '../../game/aiNativeEngine'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import './EmpressLetter.css'
 
 export function EmpressLetter() {
-    const { currentRound, nextPhase, selectPolicy, firstRoundGuideSeen, markFirstRoundGuideSeen, openGameplayGuide } = useGameStore()
+    const {
+        currentRound,
+        nextPhase,
+        selectPolicy,
+        firstRoundGuideSeen,
+        markFirstRoundGuideSeen,
+        openGameplayGuide,
+        shuCampaign,
+        huainanCampaign,
+    } = useGameStore()
     const [selected, setSelected] = useState<number | null>(null)
     const [reason, setReason] = useState('')
-    const policyQ = getPolicyQuestionByRound(currentRound)
+    const [isSubmitting, setIsSubmitting] = useState(false)
+    const policyQ = getPolicyQuestionForRound(currentRound, {
+        shuCampaignState: shuCampaign.state,
+        huainanCampaignState: huainanCampaign.state,
+    })
 
-    const handleSubmit = () => {
-        if (selected === null) return
-        selectPolicy(selected, reason)
+    const handleSubmit = async () => {
+        if (selected === null || !policyQ || isSubmitting) return
+        setIsSubmitting(true)
+        const selectedOption = policyQ.options[selected]
+        const policyParse = await parsePolicyReasonInput({
+            round: currentRound,
+            topic: policyQ.topic,
+            question: policyQ.question,
+            reason,
+            meta: {
+                legitimacyEffect: selectedOption?.legitimacyEffect ?? 'steady',
+                aiScoringFocus: policyQ.aiScoringFocus,
+            },
+        })
+        selectPolicy(selected, reason, policyParse)
         nextPhase()
     }
 
@@ -87,9 +113,9 @@ export function EmpressLetter() {
                                 <button
                                     className="btn-primary btn-submit"
                                     onClick={handleSubmit}
-                                    disabled={selected === null}
+                                    disabled={selected === null || isSubmitting}
                                 >
-                                    奏 上
+                                    {isSubmitting ? '解析附言中…' : '奏 上'}
                                 </button>
                             </div>
                         </>

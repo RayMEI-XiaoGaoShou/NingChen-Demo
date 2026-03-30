@@ -6,15 +6,18 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
+import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPrompt } from '../../ai/prompts'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './SchemeFeedback.css'
 
 export function SchemeFeedback() {
-    const { npcFeedbacks, currentSchemes, npcs, addNpcFeedback, updateNpcFeedback, nextPhase, currentRound, firstRoundGuideSeen, markFirstRoundGuideSeen, openGameplayGuide } = useGameStore()
+    const { npcFeedbacks, currentSchemes, npcs, intelProgress, pendingStructuredSchemeIds, addNpcFeedback, updateNpcFeedback, updateSchemeParse, markSchemeParsePending, nextPhase, currentRound, firstRoundGuideSeen, markFirstRoundGuideSeen, openGameplayGuide } = useGameStore()
     const allDone = npcFeedbacks.every(f => !f.isLoading)
+    const allParsed = currentSchemes.every(action => Boolean(action.northParse)) && pendingStructuredSchemeIds.length === 0
 
     useEffect(() => {
         if (npcFeedbacks.length > 0 || currentSchemes.length === 0) return
@@ -32,8 +35,6 @@ export function SchemeFeedback() {
             const previousActions = currentSchemes
                 .slice(0, index)
                 .filter(item => item.targetNpcId === action.targetNpcId).length
-            const success = previewSchemeSuccess(action, targetNpc, previousActions, action.resolutionRoll ?? 0.5)
-
             addNpcFeedback({
                 id: feedbackId,
                 npcId: targetNpc.id,
@@ -46,22 +47,66 @@ export function SchemeFeedback() {
                 source: getAiModeLabel(),
             })
 
-            chatCompletion(
-                buildNpcPrompt({
+            const relatedNpc = action.relatedNpcId ? npcs.find(npc => npc.id === action.relatedNpcId) ?? null : null
+            const parsePromise = action.northParse
+                ? Promise.resolve(action.northParse)
+                : (markSchemeParsePending(feedbackId), parseNorthSchemeInput({
+                    round: currentRound,
                     npc: targetNpc,
-                    schemeType: action.schemeType,
                     speech: action.playerSpeech,
-                    success,
-                }),
-                { temperature: 0.75, maxTokens: 200, tag: `npc_${action.schemeType}_${success ? 'success' : 'failure'}` },
-            ).then(reply => {
+                    relatedNpc,
+                }).then(parsed => {
+                    updateSchemeParse(feedbackId, parsed)
+                    return parsed
+                }))
+
+            parsePromise.then(parsed => {
+                const success = previewSchemeSuccess(
+                    { ...action, northParse: parsed },
+                    targetNpc,
+                    previousActions,
+                    action.resolutionRoll ?? 0.5,
+                    {
+                        round: currentRound,
+                        unlockedSecrets: intelProgress[targetNpc.id] ?? 0,
+                        northParse: parsed,
+                    },
+                )
+                return chatCompletion(
+                    buildNpcPrompt({
+                        npc: targetNpc,
+                        schemeType: action.schemeType,
+                        speech: action.playerSpeech,
+                        success,
+                    }),
+                    { temperature: 0.75, maxTokens: 200, tag: `npc_${action.schemeType}_${success ? 'success' : 'failure'}` },
+                )
+            }).then(reply => {
                 const source = getAiMode() === 'fallback' ? '本地兜底' : getAiModeLabel()
                 updateNpcFeedback(feedbackId, reply.trim() || `${targetNpc.name}似有反应，却未置可否……`, source)
             }).catch(() => {
                 updateNpcFeedback(feedbackId, `${targetNpc.name}似有反应，却未置可否……`, '本地兜底')
             })
         })
-    }, [addNpcFeedback, currentSchemes, npcs, npcFeedbacks.length, updateNpcFeedback])
+    }, [addNpcFeedback, currentRound, currentSchemes, intelProgress, markSchemeParsePending, npcs, npcFeedbacks.length, updateNpcFeedback, updateSchemeParse])
+
+    useEffect(() => {
+        currentSchemes.forEach(action => {
+            if (!action.id || action.northParse || pendingStructuredSchemeIds.includes(action.id)) return
+            const targetNpc = npcs.find(npc => npc.id === action.targetNpcId)
+            if (!targetNpc) return
+            const relatedNpc = action.relatedNpcId ? npcs.find(npc => npc.id === action.relatedNpcId) ?? null : null
+            markSchemeParsePending(action.id)
+            parseNorthSchemeInput({
+                round: currentRound,
+                npc: targetNpc,
+                speech: action.playerSpeech,
+                relatedNpc,
+            }).then(parsed => {
+                updateSchemeParse(action.id!, parsed)
+            })
+        })
+    }, [currentRound, currentSchemes, markSchemeParsePending, npcs, pendingStructuredSchemeIds, updateSchemeParse])
 
     return (
         <div className="page-container scheme-feedback animate-fade-in">
@@ -96,7 +141,7 @@ export function SchemeFeedback() {
                         style={{ animationDelay: `${0.1 + i * 0.15}s` }}
                     >
                         <div className="feedback-header">
-                            <div className="feedback-avatar">{fb.npcName.charAt(0)}</div>
+                            <NpcPortrait name={fb.npcName} className="feedback-avatar" />
                             <div className="feedback-meta">
                                 <span className="feedback-npc-name">{fb.npcName}</span>
                                 <span className="feedback-scheme-label">
@@ -127,9 +172,11 @@ export function SchemeFeedback() {
                 <button
                     className="btn-primary btn-proceed"
                     onClick={nextPhase}
-                    disabled={!allDone}
+                    disabled={!allDone || !allParsed}
                 >
-                    {allDone ? '查 看 结 算' : '等待暗线回报…'}
+                    {allDone
+                        ? (allParsed ? '查 看 结 算' : '等待结构化解析…')
+                        : '等待暗线回报…'}
                 </button>
             </div>
         </div>

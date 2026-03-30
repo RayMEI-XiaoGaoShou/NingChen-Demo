@@ -66,9 +66,52 @@
     gap: var(--spacing-lg);
 }
 
+.prologue-section-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
 .prologue-section {
     padding: var(--spacing-xl);
     border-radius: var(--radius-lg);
+}
+
+.prologue-map-card {
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+}
+
+.prologue-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.prologue-map-title {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-md);
+    letter-spacing: 2px;
+}
+
+.prologue-map-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    border: 1px solid rgba(201, 176, 101, 0.28);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.prologue-map-image {
+    width: 100%;
+    display: block;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(201, 176, 101, 0.2);
+    background: rgba(8, 8, 12, 0.58);
 }
 
 .prologue-section-title {
@@ -127,5 +170,10 @@
     .prologue-section-title {
         font-size: var(--font-size-lg);
         letter-spacing: 4px;
+    }
+
+    .prologue-map-header {
+        flex-direction: column;
+        align-items: flex-start;
     }
 }

@@ -103,6 +103,27 @@ export async function chatCompletion(
     }
 }
 
+export async function chatCompletionJson<T>(
+    messages: ChatMessage[],
+    options?: { temperature?: number; maxTokens?: number; tag?: string }
+): Promise<T | null> {
+    try {
+        const text = await chatCompletion(messages, options)
+        const cleaned = text
+            .trim()
+            .replace(/^```json\s*/i, '')
+            .replace(/^```\s*/i, '')
+            .replace(/```$/i, '')
+            .trim()
+
+        if (!cleaned) return null
+        return JSON.parse(cleaned) as T
+    } catch (error) {
+        console.warn('[AI] JSON 结构化解析失败，改走本地回退', error)
+        return null
+    }
+}
+
 async function mujianCompletion(
     messages: ChatMessage[],
     temperature: number,

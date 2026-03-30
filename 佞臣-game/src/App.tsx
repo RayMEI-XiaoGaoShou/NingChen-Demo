@@ -16,6 +16,8 @@ import { Ending } from './components/Ending/Ending'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
 import { Prologue } from './components/Prologue/Prologue'
 import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
+import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
+import { useMediaStore } from './stores/mediaStore'
 import { buildPersistedSnapshot, clearGameSnapshot, loadGameSnapshot, saveGameSnapshot, type PersistedGameSnapshot } from './game/saveEngine'
 
 function App() {
@@ -24,6 +26,7 @@ function App() {
     const helpOverlayOpen = useGameStore(s => s.helpOverlayOpen)
     const hydrateSnapshot = useGameStore(s => s.hydrateSnapshot)
     const resetGame = useGameStore(s => s.resetGame)
+    const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const [resumeSnapshot, setResumeSnapshot] = useState<PersistedGameSnapshot | null>(null)
 
     useEffect(() => {
@@ -80,7 +83,25 @@ function App() {
     return (
         <div className="app">
             <header className="app-header">
+                <span className="app-header-spacer" />
                 <span className="app-logo">佞 臣</span>
+                <button
+                    className="btn-audio"
+                    onClick={() => {
+                        if (isMuted) {
+                            setMuted(false)
+                            requestPlayback()
+                            return
+                        }
+                        if (!audioReady) {
+                            requestPlayback()
+                            return
+                        }
+                        setMuted(true)
+                    }}
+                >
+                    {isMuted || !audioReady ? '开声' : '静音'}
+                </button>
             </header>
             <main className="app-content">
                 {resumeSnapshot && (
@@ -121,6 +142,7 @@ function App() {
                     </div>
                 )}
             </main>
+            <GlobalAudio />
             {/* NPC 详情弹窗（全局浮层） */}
             <NPCDetail />
         </div>

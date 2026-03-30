@@ -9,10 +9,12 @@ import type {
     NationDimensions,
     NPC,
     PolicyAftereffect,
+    PolicyReasonParseResult,
     PolicyResolutionMeta,
 } from './types'
 import { NORTH_GROWTH, SOUTH_GROWTH, applyGrowthCap } from '../data/nationStats'
 import { getRoundRuleContext } from '../data/roundRuleConfig'
+import { fallbackPolicyParseFromReason } from './aiNativeEngine'
 
 /**
  * 应用自然增长（每回合结束时调用）
@@ -62,7 +64,8 @@ export function calculatePolicyEffect(
     reasonText: string,
     meta: PolicyResolutionMeta = {},
 ): Partial<NationDimensions> {
-    const reasonModifier = calculateReasonModifier(optionEffects, reasonText, meta)
+    const parse = meta.policyParse ?? fallbackPolicyParseFromReason(reasonText, meta)
+    const reasonModifier = calculateReasonModifier(parse)
 
     const result: Partial<NationDimensions> = {}
     for (const [key, value] of Object.entries(optionEffects)) {
@@ -73,55 +76,17 @@ export function calculatePolicyEffect(
     return result
 }
 
-function calculateReasonModifier(
-    optionEffects: Partial<NationDimensions>,
-    reasonText: string,
-    meta: PolicyResolutionMeta,
-): number {
-    const trimmed = reasonText.trim()
-    if (!trimmed) return 1
-
-    let modifier = 0.82
-    if (trimmed.length >= 8) modifier += 0.1
-    if (trimmed.length >= 18) modifier += 0.12
-    if (trimmed.length >= 36) modifier += 0.1
-
-    const dimensionKeywords: Record<keyof NationDimensions, string[]> = {
-        finance: ['财', '税', '商', '国库', '经费', '开源', '节流'],
-        grain: ['粮', '仓', '屯田', '漕运', '户籍', '田亩', '荒地'],
-        military: ['军', '兵', '战', '防', '水师', '练兵', '寿春'],
-        socialOrder: ['民', '安', '秩序', '流民', '人心', '赈', '地方'],
-        governance: ['统', '政', '官', '执行', '中枢', '边镇', '整顿'],
-    }
-
-    const distinctMatched = new Set<keyof NationDimensions>()
-    for (const [dimension, value] of Object.entries(optionEffects) as Array<[keyof NationDimensions, number | undefined]>) {
-        if (!value || value === 0) continue
-        const keywords = dimensionKeywords[dimension]
-        if (keywords.some(keyword => trimmed.includes(keyword))) {
-            distinctMatched.add(dimension)
-        }
-    }
-
-    modifier += Math.min(distinctMatched.size * 0.09, 0.27)
-
-    if (/(风险|代价|短期|长期|门阀|后勤|执行|地方|窗口|权衡|先后|缓急|转运|掣肘|名分|军心|人心|中枢)/.test(trimmed)) {
-        modifier += 0.12
-    }
-
-    if (matchesPolicyFocus(trimmed, meta.aiScoringFocus)) {
-        modifier += 0.1
-    }
-
-    if (meta.legitimacyEffect === 'up' && /(人心|名分|安民|稳|抚|渐进|法统|秩序)/.test(trimmed)) {
-        modifier += 0.08
-    }
-
-    if (meta.legitimacyEffect === 'down' && /(权宜|急征|强压|重税|严控|高压|急攻)/.test(trimmed)) {
-        modifier += 0.04
-    }
-
-    return Math.max(0.7, Math.min(1.55, modifier))
+function calculateReasonModifier(parse: PolicyReasonParseResult): number {
+    return Math.max(
+        0.65,
+        Math.min(
+            1.8,
+            0.7
+            + parse.focusAlignment * 0.4
+            + parse.executionClarity * 0.35
+            + parse.legitimacyAlignment * 0.18,
+        ),
+    )
 }
 
 export function buildPolicyAftereffect(params: {
@@ -132,10 +97,15 @@ export function buildPolicyAftereffect(params: {
     immediateEffects: Partial<NationDimensions>
     reasonText: string
     aiScoringFocus?: string
+    policyParse?: PolicyReasonParseResult
 }): PolicyAftereffect {
     const legitimacyTone = params.legitimacyEffect ?? 'steady'
-    const focusMatched = matchesPolicyFocus(params.reasonText, params.aiScoringFocus)
-    const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, focusMatched)
+    const parse = params.policyParse ?? fallbackPolicyParseFromReason(params.reasonText, {
+        legitimacyEffect: legitimacyTone,
+        aiScoringFocus: params.aiScoringFocus,
+    })
+    const focusMatched = parse.focusAlignment >= 0.48
+    const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, parse)
     const summaryBase = params.nextRoundFeedback?.trim() || `${params.topic}的后续影响已经开始显现。`
     const legitimacyClause =
         legitimacyTone === 'up'
@@ -144,11 +114,17 @@ export function buildPolicyAftereffect(params: {
                 ? '施政阻力与名分争议开始浮现'
                 : '其效验正在地方执行中逐步显形'
     const focusClause = focusMatched ? '你先前的论证切中了此题真正关节。' : '先前论证未尽贴题，后效偏于平平。'
+    const pathClause =
+        parse.executionClarity >= 0.65
+            ? '地方官知道该先做什么。'
+            : parse.costAwareness >= 0.55
+                ? '朝廷虽得其利，仍须分神压住各处掣肘。'
+                : '政令下去之后，尚有不少空隙待补。'
 
     return {
         sourceRound: params.round,
         topic: params.topic,
-        summary: `${summaryBase} ${legitimacyClause} ${focusClause}`.trim(),
+        summary: `${summaryBase} ${legitimacyClause} ${focusClause} ${pathClause}`.trim(),
         effects,
         legitimacyTone,
         focusMatched,
@@ -158,9 +134,18 @@ export function buildPolicyAftereffect(params: {
 function buildAftereffectDimensions(
     immediateEffects: Partial<NationDimensions>,
     legitimacyTone: 'up' | 'down' | 'steady',
-    focusMatched: boolean,
+    parse: PolicyReasonParseResult,
 ): Partial<NationDimensions> {
-    const followUpFactor = focusMatched ? 0.38 : 0.22
+    const followUpFactor = Math.max(
+        0.18,
+        Math.min(
+            0.52,
+            0.14
+            + parse.costAwareness * 0.16
+            + parse.legitimacyAlignment * 0.12
+            + parse.focusAlignment * 0.1,
+        ),
+    )
     const effects: Partial<NationDimensions> = {}
 
     for (const [key, value] of Object.entries(immediateEffects) as Array<[keyof NationDimensions, number | undefined]>) {
@@ -177,35 +162,6 @@ function buildAftereffectDimensions(
     }
 
     return effects
-}
-
-function matchesPolicyFocus(reasonText: string, aiScoringFocus?: string): boolean {
-    if (!aiScoringFocus) return false
-    const trimmed = reasonText.trim()
-    if (!trimmed) return false
-
-    const focusLexicon: Array<[RegExp, string[]]> = [
-        [/门阀|豪族|士族/, ['门阀', '豪族', '士族', '地方']],
-        [/执行|成本|路径|州郡|地方/, ['执行', '成本', '路径', '州郡', '地方']],
-        [/流民|人口|资源/, ['流民', '编户', '屯田', '分流', '劳力', '人口']],
-        [/财政|国库|节流|开源/, ['财政', '国库', '经费', '节流', '开源']],
-        [/后勤|粮|漕运|仓/, ['后勤', '粮', '漕运', '仓', '屯粮']],
-        [/窗口|时机|优先/, ['窗口', '时机', '先', '优先', '缓急']],
-        [/情报|耳目|密探/, ['情报', '耳目', '密探', '边郡']],
-        [/名分|法统|人心|秩序/, ['名分', '法统', '人心', '秩序', '安民']],
-        [/军|兵|战役|边镇/, ['军', '兵', '战役', '边镇', '练兵']],
-    ]
-
-    let matchedGroups = 0
-    for (const [focusPattern, keywords] of focusLexicon) {
-        if (!focusPattern.test(aiScoringFocus)) continue
-        if (keywords.some(keyword => trimmed.includes(keyword))) {
-            matchedGroups++
-        }
-    }
-
-    if (matchedGroups > 0) return true
-    return aiScoringFocus.split(/[、，。；：\s]/).filter(Boolean).some(fragment => fragment.length >= 2 && trimmed.includes(fragment))
 }
 
 function roundOneDecimal(value: number): number {

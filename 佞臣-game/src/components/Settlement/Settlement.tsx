@@ -1,8 +1,3 @@
-// ========================================
-// 北周结算页 — P2 更新
-// 天道判官 AI 叙事 + 真实结算数据
-// ========================================
-
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
@@ -17,9 +12,17 @@ import './Settlement.css'
 
 export function Settlement() {
     const {
-        nextPhase, lastSettlement, northPower, southPower,
-        currentSchemes, npcs, currentRound, northStats, southStats,
-        firstRoundGuideSeen, markFirstRoundGuideSeen,
+        nextPhase,
+        lastSettlement,
+        northPower,
+        southPower,
+        currentSchemes,
+        npcs,
+        currentRound,
+        northStats,
+        southStats,
+        firstRoundGuideSeen,
+        markFirstRoundGuideSeen,
         openGameplayGuide,
     } = useGameStore()
 
@@ -27,25 +30,19 @@ export function Settlement() {
     const [isLoading, setIsLoading] = useState(true)
     const [empressReply, setEmpressReply] = useState<string | null>(null)
 
-    const schemeName = (type: string) =>
-        SCHEMES.find(s => s.type === type)?.name ?? type
+    const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
 
-    // P2: 天道判官叙事生成
     useEffect(() => {
         async function generateNarration() {
             if (!lastSettlement) return
 
             const event = ROUND_EVENTS[currentRound - 1]
-
-            // 构建信任变化摘要
             const trustSummary = Object.entries(lastSettlement.trustChanges)
                 .map(([id, delta]) => {
                     const npc = npcs.find(n => n.id === id)
                     return `${npc?.name ?? id} ${delta > 0 ? '+' : ''}${delta}`
                 })
-                .join('，') || '无变化'
-
-
+                .join('；') || '无变化'
 
             const messages = buildJudgePrompt({
                 round: currentRound,
@@ -109,19 +106,20 @@ export function Settlement() {
                     onClose={() => markFirstRoundGuideSeen('settlement')}
                 />
             )}
+
             <div className="page-utility-row animate-slide-up">
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
                     玩法说明
                 </button>
             </div>
-            <h2 className="page-title animate-slide-up">北 周 结 算</h2>
+
+            <h2 className="page-title animate-slide-up">本 回 合 结 算</h2>
 
             <div className="settlement-content">
-                {/* 天道判官叙事 (卷轴样式) */}
                 <div className="scroll-container animate-slide-up animate-delay-1">
                     <div className="judge-narration gold-panel">
                         <div className="scroll-decorator top"></div>
-                        <h3 className="judge-title">📜 天道判官曰</h3>
+                        <h3 className="judge-title">天道判官卷</h3>
                         <div className="narration-content">
                             {isLoading ? (
                                 <div className="loading-state">
@@ -136,9 +134,15 @@ export function Settlement() {
                     </div>
                 </div>
 
-                {/* 计谋结果 */}
                 <div className="results-section animate-slide-up animate-delay-2">
                     <h3 className="section-title">计谋筹算结果</h3>
+                    {lastSettlement?.judgeFacts.aiNativeSummary?.schemeHints?.length ? (
+                        <div className="glass-panel subtle-hints">
+                            {lastSettlement.judgeFacts.aiNativeSummary.schemeHints.map(hint => (
+                                <p key={hint} className="result-text">{hint}</p>
+                            ))}
+                        </div>
+                    ) : null}
                     <div className="results-list">
                         {lastSettlement?.schemeResults.map((result, i) => {
                             const action = currentSchemes[i]
@@ -159,7 +163,6 @@ export function Settlement() {
                                         </div>
                                     </div>
                                     <p className="result-text">{result.feedbackText}</p>
-
                                     <div className="result-effects">
                                         {result.trustChange !== 0 && (
                                             <span className={`effect-tag ${result.trustChange > 0 ? 'positive' : 'negative'}`}>
@@ -169,8 +172,11 @@ export function Settlement() {
                                         {Object.entries(result.northDimensionChanges).map(([dim, val]) => {
                                             if (val === 0) return null
                                             const dimNames: Record<string, string> = {
-                                                finance: '财政', grain: '粮赋', military: '军事',
-                                                socialOrder: '社会', governance: '统治',
+                                                finance: '财政',
+                                                grain: '粮赋',
+                                                military: '军事',
+                                                socialOrder: '社会秩序',
+                                                governance: '统治穿透力',
                                             }
                                             return (
                                                 <span key={dim} className={`effect-tag ${(val as number) > 0 ? 'positive' : 'negative'}`}>
@@ -185,54 +191,28 @@ export function Settlement() {
                     </div>
                 </div>
 
-                {/* 国力变化 */}
-                <div className="changes-summary animate-slide-up animate-delay-4">
-                    <h3 className="section-title">大局推演</h3>
-                    <div className="power-dashboard">
-                        <div className="radar-section">
-                            <RadarChart data={lastSettlement?.northStatsAfter ?? northStats} size={220} label="北周国力五维" />
-                        </div>
-                        <div className="radar-section">
-                            <RadarChart data={lastSettlement?.southStatsAfter ?? southStats} size={220} label="南陈国力五维" />
-                        </div>
-                        <div className="relative-power-section glass-panel">
-                            <h4 className="summary-label">南陈相对北周</h4>
-                            <span className={`relative-badge level-${getRelativePowerLevel(northPower, southPower)}`}>
-                                {getRelativePowerLabel(northPower, southPower)}
-                            </span>
-
-                            <div className="summary-item mt-md">
-                                <span className="summary-label">南征风险评估</span>
-                                <span className={`summary-value ${(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.0 ? 'danger' : 'safe'}`}>
-                                    {(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.2 ? '危 急' :
-                                        (lastSettlement?.invasionPoliticalRatio ?? 0) >= 0.8 ? '警 戒' : '暂 缓'}
-                                </span>
-                            </div>
-                            <div className="summary-item mt-md">
-                                <span className="summary-label">南征窗口</span>
-                                <span className="summary-value">{lastSettlement?.judgeFacts?.invasionSummary.split('；')[0] ?? '待判'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
                 {lastSettlement?.policyReport && (
-                    <div className="results-section animate-slide-up animate-delay-4">
+                    <div className="results-section animate-slide-up animate-delay-3">
                         <h3 className="section-title">南陈回信</h3>
                         <div className="result-card glass-panel success empress-report">
-                                <div className="result-header">
-                                    <div className="result-info">
-                                        <span className="result-scheme">本回合问政回批</span>
-                                        <span className="result-index">{lastSettlement.policyReport.optionLabel}. {lastSettlement.policyReport.optionContent}</span>
-                                    </div>
+                            <div className="result-header">
+                                <div className="result-info">
+                                    <span className="result-scheme">本回合问政回批</span>
+                                    <span className="result-index">
+                                        {lastSettlement.policyReport.optionLabel}. {lastSettlement.policyReport.optionContent}
+                                    </span>
                                 </div>
+                            </div>
                             <p className="result-text">{isLoading ? '女帝密批正在送达……' : empressReply}</p>
                             <div className="result-effects">
                                 {Object.entries(lastSettlement.policyReport.effects).map(([dim, val]) => {
                                     if (!val) return null
                                     const dimNames: Record<string, string> = {
-                                        finance: '财政', grain: '粮赋', military: '军事',
-                                        socialOrder: '民生秩序', governance: '统治穿透力',
+                                        finance: '财政',
+                                        grain: '粮赋',
+                                        military: '军事',
+                                        socialOrder: '民生秩序',
+                                        governance: '统治穿透力',
                                     }
                                     return (
                                         <span key={`south-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
@@ -254,12 +234,18 @@ export function Settlement() {
                             {lastSettlement.policyAftereffect && (
                                 <div className="policy-aftereffect">
                                     <p className="result-text">{lastSettlement.policyAftereffect.summary}</p>
+                                    {lastSettlement.judgeFacts.aiNativeSummary?.policyHints?.map(hint => (
+                                        <p key={hint} className="result-text">{hint}</p>
+                                    ))}
                                     <div className="result-effects">
                                         {Object.entries(lastSettlement.policyAftereffect.effects).map(([dim, val]) => {
                                             if (!val) return null
                                             const dimNames: Record<string, string> = {
-                                                finance: '财政', grain: '粮赋', military: '军事',
-                                                socialOrder: '民生秩序', governance: '统治穿透力',
+                                                finance: '财政',
+                                                grain: '粮赋',
+                                                military: '军事',
+                                                socialOrder: '民生秩序',
+                                                governance: '统治穿透力',
                                             }
                                             return (
                                                 <span key={`south-after-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
@@ -273,6 +259,51 @@ export function Settlement() {
                         </div>
                     </div>
                 )}
+
+                <div className="changes-summary animate-slide-up animate-delay-4">
+                    <h3 className="section-title">大局推演</h3>
+                    {lastSettlement?.campaignReports?.length ? (
+                        <div className="glass-panel subtle-hints">
+                            {lastSettlement.campaignReports.map(report => (
+                                <p key={report} className="result-text">{report}</p>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    <div className="power-dashboard">
+                        <div className="radar-section">
+                            <RadarChart data={lastSettlement?.northStatsAfter ?? northStats} size={220} label="北周国力五维" />
+                        </div>
+                        <div className="radar-section">
+                            <RadarChart data={lastSettlement?.southStatsAfter ?? southStats} size={220} label="南陈国力五维" />
+                        </div>
+                    </div>
+
+                    <div className="summary-grid glass-panel">
+                        <div className="summary-item">
+                            <span className="summary-label">南陈相对北周</span>
+                            <span className={`relative-badge level-${getRelativePowerLevel(northPower, southPower)}`}>
+                                {getRelativePowerLabel(northPower, southPower)}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">南征风险评估</span>
+                            <span className={`summary-value ${(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.0 ? 'danger' : 'safe'}`}>
+                                {(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.2
+                                    ? '危急'
+                                    : (lastSettlement?.invasionPoliticalRatio ?? 0) >= 0.8
+                                        ? '警戒'
+                                        : '暂缓'}
+                            </span>
+                        </div>
+                        <div className="summary-item">
+                            <span className="summary-label">南征窗口</span>
+                            <span className="summary-value">
+                                {lastSettlement?.judgeFacts?.invasionSummary.split('；')[0] ?? '待判'}
+                            </span>
+                        </div>
+                    </div>
+                </div>
 
                 {lastSettlement?.externalActionReports && lastSettlement.externalActionReports.length > 0 && (
                     <div className="results-section animate-slide-up animate-delay-4">
@@ -332,9 +363,22 @@ export function Settlement() {
                     </div>
                 )}
 
+                {lastSettlement?.judgeFacts.aiNativeSummary?.backlashHints?.length ? (
+                    <div className="results-section animate-slide-up animate-delay-4">
+                        <h3 className="section-title">余波暗动</h3>
+                        <div className="results-list">
+                            {lastSettlement.judgeFacts.aiNativeSummary.backlashHints.map(hint => (
+                                <div key={hint} className="result-card glass-panel failure">
+                                    <p className="result-text">{hint}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
                 <div className="action-footer animate-slide-up animate-delay-4">
                     <button className="btn-primary btn-next" onClick={nextPhase}>
-                        继 续
+                        继续
                     </button>
                 </div>
             </div>

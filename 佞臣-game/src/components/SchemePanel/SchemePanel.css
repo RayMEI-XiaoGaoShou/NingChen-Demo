@@ -1,14 +1,17 @@
 .scheme-panel {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: flex-start;
     padding-top: var(--spacing-xl);
     padding-bottom: var(--spacing-2xl);
+    width: 100%;
 }
 
 .scheme-modal {
     width: 100%;
-    max-width: 800px;
+    max-width: 100%;
+    margin: 0 auto;
     padding: var(--spacing-2xl);
     border-radius: var(--radius-lg);
     display: flex;
@@ -16,30 +19,36 @@
 }
 
 .scheme-header {
-    text-align: center;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    column-gap: var(--spacing-md);
     margin-bottom: var(--spacing-2xl);
     border-bottom: 1px solid var(--color-border-gold);
     padding-bottom: var(--spacing-xl);
-    position: relative;
 }
 
 .modal-title {
     font-family: var(--font-heading);
     font-size: var(--font-size-xl);
     color: var(--color-accent-gold);
-    letter-spacing: 16px;
-    text-indent: 16px;
-    margin-bottom: var(--spacing-sm);
+    letter-spacing: 8px;
+    text-indent: 8px;
+    margin: 0;
+    text-align: center;
 }
 
 .scheme-counter {
     color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
     letter-spacing: 2px;
+    justify-self: end;
+    text-align: right;
 }
 
 .scheme-body {
     flex: 1;
+    width: 100%;
 }
 
 /* 步骤设计 */
@@ -75,10 +84,11 @@
 .scheme-select-grid {
     display: grid;
     gap: var(--spacing-sm);
+    width: 100%;
 }
 
 .npc-select-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .scheme-select-grid {
@@ -108,6 +118,32 @@
 .npc-select-btn {
     justify-content: space-between;
     align-items: center;
+    width: 100%;
+}
+
+.npc-select-main {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    min-width: 0;
+}
+
+.npc-select-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(201, 176, 101, 0.35);
+    background: rgba(201, 176, 101, 0.08);
+    color: var(--color-accent-gold);
+    object-fit: cover;
+    flex-shrink: 0;
+    display: block;
+}
+
+.npc-portrait-fallback.npc-select-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .npc-select-btn.disabled {
@@ -149,6 +185,12 @@
     font-size: var(--font-size-md);
     color: var(--color-text-primary);
     letter-spacing: 2px;
+}
+
+.npc-select-main .npc-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .scheme-desc {
@@ -373,9 +415,6 @@
 }
 
 .btn-back-inline {
-    position: absolute;
-    left: 0;
-    top: 0;
     padding: 8px 14px;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(201, 176, 101, 0.35);
@@ -383,9 +422,38 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     letter-spacing: 2px;
+    justify-self: start;
+    white-space: nowrap;
 }
 
 .btn-back-inline:hover {
     color: var(--color-text-primary);
     border-color: var(--color-accent-gold);
+}
+
+@media (max-width: 640px) {
+    .scheme-modal {
+        padding: var(--spacing-lg);
+    }
+
+    .scheme-header {
+        grid-template-columns: 1fr;
+        row-gap: var(--spacing-sm);
+        justify-items: center;
+    }
+
+    .btn-back-inline,
+    .scheme-counter {
+        justify-self: center;
+        text-align: center;
+    }
+
+    .modal-title {
+        letter-spacing: 4px;
+        text-indent: 4px;
+    }
+
+    .npc-select-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }

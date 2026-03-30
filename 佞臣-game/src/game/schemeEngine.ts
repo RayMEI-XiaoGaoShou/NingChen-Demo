@@ -1,11 +1,14 @@
 import { getSchemeByType } from '../data/schemes'
 import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExternalAction } from '../data/roundRuleConfig'
+import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
 import type {
     AlignmentBias,
     CourtFactionId,
+    DelayedBacklash,
     ExternalStatus,
     NationDimensions,
     NPC,
+    NorthSchemeParseResult,
     SchemeAction,
     SchemeType,
 } from './types'
@@ -36,11 +39,14 @@ export interface SchemeResult {
     factionEffects: Partial<Record<CourtFactionId, FactionVector>>
     nationEffects: Partial<NationDimensions>
     specialAction: 'secession' | 'rebellion' | null
+    northParse: NorthSchemeParseResult
+    delayedBacklash: DelayedBacklash[]
 }
 
 export interface SchemeContext {
     round: number
     unlockedSecrets: number
+    northParse?: NorthSchemeParseResult
 }
 
 const EMPTY_VECTOR: FactionVector = {
@@ -146,48 +152,21 @@ function calculateSuccessRate(
     return clamp(rate + schemeModifiers[schemeType], 0.08, 0.96)
 }
 
-function extractKeywords(text: string): string[] {
-    return Array.from(
-        new Set(
-            text
-                .split(/[，。；：、！？\s（）()"'“”‘’]+/)
-                .map(part => part.trim())
-                .filter(part => part.length >= 2),
-        ),
-    ).slice(0, 14)
-}
-
-function calculateSpeechScore(action: SchemeAction, targetNpc: NPC): number {
-    const speech = action.playerSpeech.trim()
-    if (!speech) return 0
-
-    let score = 0.08
-    if (speech.length >= 10) score += 0.1
-    if (speech.length >= 22) score += 0.1
-    if (speech.length >= 40) score += 0.08
-    if (speech.length > 90) score -= 0.05
-
-    const positiveMatched = [
-        targetNpc.softSpot,
-        targetNpc.publicStance,
-        targetNpc.schemeHooks,
-        targetNpc.publicPersona,
-    ]
-        .flatMap(extractKeywords)
-        .some(keyword => speech.includes(keyword))
-
-    const negativeMatched = [targetNpc.triggerPoint]
-        .flatMap(extractKeywords)
-        .some(keyword => speech.includes(keyword))
-
-    if (positiveMatched) score += 0.3
-    if (negativeMatched) score -= 0.45
-
-    if (/(粮|饷|边患|诏令|兵权|门阀|流民|西线|草原|归政|寿春|河北|中枢|节度|仓廪)/.test(speech)) {
-        score += 0.12
-    }
-
-    return clamp(score, -0.65, 0.72)
+function getNorthParse(
+    action: SchemeAction,
+    targetNpc: NPC,
+    round: number,
+    relatedNpc: NPC | null,
+    contextParse?: NorthSchemeParseResult,
+): NorthSchemeParseResult {
+    return contextParse
+        ?? action.northParse
+        ?? fallbackNorthParseFromSpeech({
+            speech: action.playerSpeech,
+            npc: targetNpc,
+            round,
+            relatedNpc,
+        })
 }
 
 function makeVector(partial?: Partial<FactionVector>): FactionVector {
@@ -516,14 +495,11 @@ export function previewSchemeSuccess(
     targetNpc: NPC,
     existingActionsOnTarget: number,
     roll: number,
+    context: Partial<SchemeContext> = {},
 ): boolean {
     const trustThreshold = getTrustThreshold(action.schemeType)
-    const speechScore = calculateSpeechScore(action, targetNpc)
-    const successRate = clamp(
-        calculateSuccessRate(action.schemeType, targetNpc.trust, trustThreshold, existingActionsOnTarget > 0) + speechScore * 0.22,
-        0.05,
-        0.98,
-    )
+    const parse = getNorthParse(action, targetNpc, context.round ?? 1, null, context.northParse)
+    const successRate = calculateParsedSuccessRate(action.schemeType, targetNpc.trust, trustThreshold, existingActionsOnTarget > 0, parse)
     return roll < successRate
 }
 
@@ -537,14 +513,19 @@ export function settleScheme(
     const { round = 1, unlockedSecrets = 0 } = context
     const roll = action.resolutionRoll ?? Math.random()
     const schemeAllowed = isSchemeAllowed(action.schemeType, targetNpc, round, unlockedSecrets)
-    const success = schemeAllowed && previewSchemeSuccess(action, targetNpc, existingActionsOnTarget, roll)
-    const speechScore = calculateSpeechScore(action, targetNpc)
-    const trustMultiplier = success
-        ? 1 + Math.max(0, speechScore) * 1.05
-        : 1 + Math.max(0, -speechScore) * 0.55
-    const chainMultiplier = success
-        ? 1 + Math.max(0, speechScore) * 1.25
-        : 1
+    const northParse = getNorthParse(action, targetNpc, round, relatedNpc, context.northParse)
+    const success = schemeAllowed && previewSchemeSuccess(action, targetNpc, existingActionsOnTarget, roll, context)
+    const personMultiplier = success
+        ? clamp(0.9 + northParse.characterFit * 0.85 + northParse.executability * 0.35, 0.8, 2.1)
+        : clamp(0.95 + northParse.exposureRisk * 0.45 - northParse.executability * 0.15, 0.9, 1.35)
+    const factionMultiplier = success
+        ? clamp(0.85 + northParse.eventFit * 0.55 + northParse.structuralPenetration * 1.0, 0.75, 2.4)
+        : clamp(0.9 + northParse.exposureRisk * 0.2, 0.9, 1.3)
+    const nationMultiplier = success && northParse.structuralPenetration >= 0.45
+        ? clamp(0.8 + northParse.structuralPenetration * 1.4 + northParse.eventFit * 0.4, 0.8, 2.8)
+        : success
+            ? 0.65
+            : 1
 
     const template: {
         person: PersonEffects
@@ -554,19 +535,20 @@ export function settleScheme(
         ? getSuccessTemplate(action, targetNpc, relatedNpc)
         : { ...getFailureTemplate(action, targetNpc), specialAction: null }
 
-    const personEffects = scalePersonEffects(template.person, trustMultiplier)
+    const personEffects = scalePersonEffects(template.person, personMultiplier)
     let factionEffects: Partial<Record<CourtFactionId, FactionVector>> = {}
     for (const [factionId, vector] of Object.entries(template.factionEffects) as Array<[CourtFactionId, FactionVector | undefined]>) {
         if (!vector) continue
-        factionEffects[factionId] = scaleVector(vector, chainMultiplier)
+        factionEffects[factionId] = scaleVector(vector, factionMultiplier)
     }
 
     let nationEffects = deriveNationEffectFromFactionEffects(factionEffects)
     nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects))
     nationEffects = mergeDimensions(
         nationEffects,
-        deriveMilitarySpillover(action, targetNpc, relatedNpc, round, success, speechScore),
+        scaleDimensions(deriveMilitarySpillover(action, targetNpc, relatedNpc, round, success, northParse), nationMultiplier),
     )
+    nationEffects = scaleDimensions(nationEffects, nationMultiplier)
 
     if (template.specialAction === 'secession') {
         nationEffects = mergeDimensions(nationEffects, scaleDimensions({
@@ -575,7 +557,7 @@ export function settleScheme(
             military: -(targetNpc.militaryPower / 14),
             socialOrder: -(targetNpc.militaryPower / 22),
             governance: -(targetNpc.militaryPower / 16),
-        }, chainMultiplier))
+        }, Math.max(factionMultiplier, nationMultiplier)))
     }
 
     if (template.specialAction === 'rebellion') {
@@ -585,10 +567,11 @@ export function settleScheme(
             military: -(targetNpc.militaryPower / 7),
             socialOrder: -(targetNpc.militaryPower / 10),
             governance: -(targetNpc.militaryPower / 9),
-        }, chainMultiplier))
+        }, Math.max(factionMultiplier, nationMultiplier)))
     }
 
     const feedbackText = generateFeedback(action, targetNpc, success)
+    const delayedBacklash = deriveDelayedBacklash(action, targetNpc, success, northParse, round)
 
     return {
         trustChange: personEffects.trustDelta,
@@ -600,6 +583,8 @@ export function settleScheme(
         factionEffects,
         nationEffects,
         specialAction: template.specialAction,
+        northParse,
+        delayedBacklash,
     }
 }
 
@@ -664,7 +649,7 @@ function deriveMilitarySpillover(
     relatedNpc: NPC | null,
     round: number,
     success: boolean,
-    speechScore: number,
+    parse: NorthSchemeParseResult,
 ): Partial<NationDimensions> {
     if (!success) return {}
     if (!['alienate', 'frame', 'slander', 'advise'].includes(action.schemeType)) return {}
@@ -682,7 +667,7 @@ function deriveMilitarySpillover(
 
     const baseForce = militaryActors.reduce((sum, npc) => sum + npc.militaryPower, 0) / militaryActors.length
     const forceFactor = baseForce >= 70 ? 1.15 : baseForce >= 50 ? 1 : 0.78
-    const speechFactor = 1 + Math.max(0, speechScore) * 0.5 + (warSpeech ? 0.2 : 0)
+    const speechFactor = 1 + parse.eventFit * 0.35 + parse.structuralPenetration * 0.45 + (warSpeech ? 0.2 : 0)
     const scale = spilloverStrength * forceFactor * speechFactor
 
     switch (action.schemeType) {
@@ -714,6 +699,90 @@ function deriveMilitarySpillover(
         default:
             return {}
     }
+}
+
+function calculateParsedSuccessRate(
+    schemeType: SchemeType,
+    trust: number,
+    trustThreshold: number,
+    sameNpcSameRound: boolean,
+    parse: NorthSchemeParseResult,
+): number {
+    const baseRate = calculateSuccessRate(schemeType, trust, trustThreshold, sameNpcSameRound)
+    const characterBoost = parse.characterFit * 0.18 + parse.executability * 0.12
+    const eventBoost = parse.eventFit * 0.12
+    return clamp(baseRate + characterBoost + eventBoost - parse.exposureRisk * 0.08, 0.05, 0.98)
+}
+
+function deriveDelayedBacklash(
+    action: SchemeAction,
+    targetNpc: NPC,
+    success: boolean,
+    parse: NorthSchemeParseResult,
+    round: number,
+): DelayedBacklash[] {
+    const highWeightTarget = /丞相|太后|燕王|中常侍|上柱国|节度/.test(targetNpc.title) || targetNpc.canExecute
+
+    if (parse.exposureRisk >= 0.82 && highWeightTarget) {
+        return [{
+            npcId: targetNpc.id,
+            npcName: targetNpc.name,
+            type: 'shock',
+            intensity: roundValue(0.74 + parse.exposureRisk * 0.24),
+            summary: `${targetNpc.name}近来口风骤紧，朝中借边议兵之声亦随之转炽。`,
+            sourceRound: round,
+        }]
+    }
+
+    if (parse.exposureRisk >= 0.58) {
+        return [{
+            npcId: targetNpc.id,
+            npcName: targetNpc.name,
+            type: 'guarded',
+            intensity: roundValue(0.4 + parse.exposureRisk * 0.35),
+            summary: `${targetNpc.name}表面仍循旧章，然近来言语间已多了一层提防。`,
+            sourceRound: round,
+        }]
+    }
+
+    if (success && parse.structuralPenetration < 0.2 && parse.eventFit < 0.25) {
+        return [{
+            npcId: targetNpc.id,
+            npcName: targetNpc.name,
+            type: 'misdirected',
+            intensity: roundValue(0.34 + (1 - parse.eventFit) * 0.3),
+            summary: '朝议虽似略有转动，实则主战与安内的借口已悄悄换了方向。',
+            sourceRound: round,
+        }]
+    }
+
+    if (!success && parse.exposureRisk >= 0.42) {
+        return [{
+            npcId: targetNpc.id,
+            npcName: targetNpc.name,
+            type: 'exposed',
+            intensity: roundValue(0.28 + parse.exposureRisk * 0.25),
+            summary: '朝中虽未明言，萧郎近日行止却似已多惹几分注目。',
+            sourceRound: round,
+        }]
+    }
+
+    if (action.schemeType === 'rebellion' && parse.exposureRisk >= 0.36) {
+        return [{
+            npcId: targetNpc.id,
+            npcName: targetNpc.name,
+            type: 'exposed',
+            intensity: roundValue(0.3 + parse.exposureRisk * 0.22),
+            summary: `${targetNpc.name}虽未当场失色，然边镇间已有人暗自记下了你的话锋。`,
+            sourceRound: round,
+        }]
+    }
+
+    return []
+}
+
+function roundValue(value: number): number {
+    return Math.round(value * 100) / 100
 }
 
 function clamp(value: number, min: number, max: number): number {

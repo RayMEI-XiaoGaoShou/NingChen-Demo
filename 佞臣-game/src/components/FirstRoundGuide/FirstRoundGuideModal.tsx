@@ -17,7 +17,7 @@ export function FirstRoundGuideModal({ title, body, onClose }: FirstRoundGuideMo
                     ))}
                 </div>
                 <button className="btn-primary first-round-guide-button" onClick={onClose}>
-                    知道了
+                    进入此页
                 </button>
             </div>
         </div>

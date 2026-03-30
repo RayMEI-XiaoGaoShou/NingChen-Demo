@@ -3,7 +3,7 @@
 // 数据来源：南陈问政题库.md
 // ========================================
 
-import type { PolicyQuestion } from '../game/types'
+import type { CampaignOutcomeState, PolicyQuestion } from '../game/types'
 
 export const POLICY_QUESTIONS: PolicyQuestion[] = [
     {
@@ -310,4 +310,118 @@ export const POLICY_QUESTIONS: PolicyQuestion[] = [
 
 export function getPolicyQuestionByRound(round: number): PolicyQuestion | null {
     return POLICY_QUESTIONS.find(question => question.round === round) ?? null
+}
+
+const ROUND_11_BRANCH_QUESTIONS: Record<Exclude<CampaignOutcomeState, 'idle'>, PolicyQuestion> = {
+    gained: {
+        id: 'Q11_GAINED',
+        round: 11,
+        topic: '新地治理',
+        background: '蜀地方向已有战果，新得之地若不能迅速接稳，前线所得很快就会变成后方负担。',
+        question: '蜀地新得，人心未附、军政未稳。新得之地当以何策治理？',
+        options: [
+            { label: 'A', content: '军镇接管', effects: { governance: 3, socialOrder: -1 }, riskNote: '军管过久会失人心' },
+            { label: 'B', content: '文官接管', effects: { socialOrder: 2, governance: 1 }, riskNote: '文官初到控制力弱' },
+            { label: 'C', content: '混合安抚', effects: { governance: 2, socialOrder: 1, grain: 1 }, riskNote: '过渡管理复杂' },
+            { label: 'D', content: '以蜀治蜀', effects: { socialOrder: 2, governance: -1 }, riskNote: '本地势力可能坐大' },
+        ],
+        aiScoringFocus: '是否考虑军政过渡的时间成本',
+        nextRoundFeedback: '新得蜀地的治理成效会继续反馈到南陈的国力积累中',
+    },
+    stalemate: {
+        id: 'Q11_STALEMATE',
+        round: 11,
+        topic: '蜀地续战与接管并行',
+        background: '蜀地战局未定，南陈既要维持前线压力，又要准备一旦得手后的接管秩序。',
+        question: '蜀地未定而战机尚在，是加压续战，还是先把接管框架搭好？',
+        options: [
+            { label: 'A', content: '加压续战', effects: { military: 2, grain: -1, finance: -1 }, riskNote: '后方承压更重' },
+            { label: 'B', content: '先搭接管框架', effects: { governance: 2, socialOrder: 1 }, riskNote: '前线推进会慢下来' },
+            { label: 'C', content: '军政并推', effects: { military: 1, governance: 1, finance: -1 }, riskNote: '资源分散' },
+            { label: 'D', content: '暂稳战线', effects: { socialOrder: 2, finance: 1, military: -1 }, riskNote: '可能错失蜀地窗口' },
+        ],
+        aiScoringFocus: '是否理解僵持局里续战与接管必须同步预置',
+        nextRoundFeedback: '蜀地僵持会继续消耗南陈的资源调度能力',
+    },
+    failed: {
+        id: 'Q11_FAILED',
+        round: 11,
+        topic: '征蜀失手后的止损',
+        background: '征蜀未成，军心、财用与士气都受到震动，南陈必须迅速决定如何止损。',
+        question: '征蜀未果之后，是先收军整补，还是强撑西线姿态？',
+        options: [
+            { label: 'A', content: '收军整补', effects: { military: 1, finance: 1, socialOrder: 1 }, riskNote: '会被视作失去进取之机' },
+            { label: 'B', content: '强撑西线姿态', effects: { military: 1, governance: 1, finance: -2 }, riskNote: '易再伤国库' },
+            { label: 'C', content: '安抚士卒与伤民', effects: { socialOrder: 2, military: -1 }, riskNote: '前线威慑下降' },
+            { label: 'D', content: '转向内政整饬', effects: { governance: 2, finance: 1, military: -1 }, riskNote: '短期战机更难再起' },
+        ],
+        aiScoringFocus: '是否能在失利后先稳住国本与军心',
+        nextRoundFeedback: '止损效果会影响南陈后续是否还能重新争取战略主动',
+    },
+}
+
+const ROUND_17_BRANCH_QUESTIONS: Record<Exclude<CampaignOutcomeState, 'idle'>, PolicyQuestion> = {
+    gained: {
+        id: 'Q17_GAINED',
+        round: 17,
+        topic: '扩大战果还是稳住新占区',
+        background: '淮南已有所得，南陈需要决定是继续扩大战果，还是先把新占区真正吃稳。',
+        question: '淮南既已得势，当继续进取，还是先稳住新占区与粮运？',
+        options: [
+            { label: 'A', content: '乘胜扩张', effects: { military: 3, grain: -2, finance: -1 }, riskNote: '过快推进会拉长补给线' },
+            { label: 'B', content: '稳住新占区', effects: { governance: 2, socialOrder: 2 }, riskNote: '可能错失更大战果' },
+            { label: 'C', content: '军政并推', effects: { military: 1, governance: 1, grain: -1 }, riskNote: '执行难度高' },
+            { label: 'D', content: '以守待变', effects: { grain: 1, finance: 1, socialOrder: 1 }, riskNote: '士气与锐气会下滑' },
+        ],
+        aiScoringFocus: '是否理解战果扩大与稳占经营之间的取舍',
+        nextRoundFeedback: '淮南得手后的经营将影响南陈终局前的持续支撑力',
+    },
+    stalemate: {
+        id: 'Q17_STALEMATE',
+        round: 17,
+        topic: '久战之治',
+        background: '淮南久战，前线要粮要兵，后方民生日渐凋敝。',
+        question: '淮南久战不决，前线后方皆疫。当军粮优先、民生优先，还是收缩战线？',
+        options: [
+            { label: 'A', content: '军粮优先', effects: { military: 2, socialOrder: -2, grain: -1 }, riskNote: '民变风险上升' },
+            { label: 'B', content: '民生优先', effects: { socialOrder: 2, grain: 1, military: -2 }, riskNote: '前线可能失势' },
+            { label: 'C', content: '局部收缩战线', effects: { military: 1, socialOrder: 1, governance: -1 }, riskNote: '士气会受损' },
+            { label: 'D', content: '以战养战', effects: { military: 2, finance: 1, socialOrder: -1, governance: -1 }, riskNote: '占领区民心尽失', legitimacyEffect: 'down' },
+        ],
+        aiScoringFocus: '是否认识到久战对五维的全面消耗',
+        nextRoundFeedback: '会带到边镇经营与多线治理',
+    },
+    failed: {
+        id: 'Q17_FAILED',
+        round: 17,
+        topic: '前线受挫后的守线与止损',
+        background: '淮南受挫后，南陈需在军心、民生与防线之间快速找回平衡。',
+        question: '淮南失势之后，当先稳军心、收战线，还是再挤资源强撑前线？',
+        options: [
+            { label: 'A', content: '稳军心再收线', effects: { socialOrder: 2, military: 1 }, riskNote: '进攻节奏会明显放缓' },
+            { label: 'B', content: '强撑前线', effects: { military: 2, finance: -2, grain: -1 }, riskNote: '后方会迅速叫苦' },
+            { label: 'C', content: '减压养民', effects: { socialOrder: 2, grain: 1, military: -1 }, riskNote: '北周压力暂时下降' },
+            { label: 'D', content: '整顿军政秩序', effects: { governance: 2, finance: 1, military: -1 }, riskNote: '短期难见战果' },
+        ],
+        aiScoringFocus: '是否先守住国本，再为后续重整留空间',
+        nextRoundFeedback: '失利后的止损效果会直接影响南陈终局前的再动员能力',
+    },
+}
+
+export function getPolicyQuestionForRound(
+    round: number,
+    campaigns: {
+        shuCampaignState: CampaignOutcomeState
+        huainanCampaignState: CampaignOutcomeState
+    },
+): PolicyQuestion | null {
+    if (round === 11 && campaigns.shuCampaignState !== 'idle') {
+        return ROUND_11_BRANCH_QUESTIONS[campaigns.shuCampaignState]
+    }
+
+    if (round === 17 && campaigns.huainanCampaignState !== 'idle') {
+        return ROUND_17_BRANCH_QUESTIONS[campaigns.huainanCampaignState]
+    }
+
+    return getPolicyQuestionByRound(round)
 }

@@ -38,13 +38,33 @@ describe('saveEngine', () => {
         currentSchemes: [],
         selectedPolicyOption: null,
         policyReason: '',
+        selectedPolicyParse: null,
         npcFeedbacks: [],
+        pendingStructuredSchemeIds: [],
         lastSettlement: null,
         lastPolicyReport: null,
         lastPolicyAftereffect: null,
+        pendingBacklash: [],
+        recentBacklash: [],
         roundHistory: [],
         endingReport: null,
         battleReport: null,
+        shuCampaign: {
+            state: 'idle' as const,
+            sourceRound: null,
+            summary: '',
+            ongoingNorthImpact: {},
+            ongoingSouthImpact: {},
+            remainingRounds: 0,
+        },
+        huainanCampaign: {
+            state: 'idle' as const,
+            sourceRound: null,
+            summary: '',
+            ongoingNorthImpact: {},
+            ongoingSouthImpact: {},
+            remainingRounds: 0,
+        },
     })
 
     it('does not persist a pristine opening state', () => {
@@ -59,5 +79,24 @@ describe('saveEngine', () => {
 
         expect(snapshot).toBeTruthy()
         expect(snapshot?.prologueStep).toBe('GAMEPLAY_GUIDE')
+    })
+
+    it('persists campaign state in snapshots', () => {
+        const snapshot = buildPersistedSnapshot({
+            ...createBaseState(),
+            prologueStep: 'INGAME',
+            shuCampaign: {
+                state: 'gained',
+                sourceRound: 10,
+                summary: '蜀地已得手',
+                ongoingNorthImpact: { governance: -1.2 },
+                ongoingSouthImpact: { grain: 1.1 },
+                remainingRounds: 2,
+            },
+        })
+
+        expect(snapshot).toBeTruthy()
+        expect(snapshot?.shuCampaign.state).toBe('gained')
+        expect(snapshot?.shuCampaign.remainingRounds).toBe(2)
     })
 })

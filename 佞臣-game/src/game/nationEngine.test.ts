@@ -109,6 +109,29 @@ describe('calculatePolicyEffect', () => {
         expect(aligned.governance).toBeGreaterThan(plain.governance ?? 0)
         expect(aligned.socialOrder).toBeGreaterThan(plain.socialOrder ?? 0)
     })
+
+    it('lets clear execution and cost-aware policy reasons outperform generic righteous wording', () => {
+        const strong = calculatePolicyEffect(
+            { grain: 3, governance: 1 },
+            '先把流民编户屯田，再分州郡定口粮与执行责任，避免地方推诿，先稳春耕后谈扩军。',
+            {
+                legitimacyEffect: 'up',
+                aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
+            },
+        )
+
+        const weak = calculatePolicyEffect(
+            { grain: 3, governance: 1 },
+            '当以仁政安民。',
+            {
+                legitimacyEffect: 'up',
+                aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
+            },
+        )
+
+        expect(strong.grain).toBeGreaterThan(weak.grain ?? 0)
+        expect(strong.governance).toBeGreaterThan(weak.governance ?? 0)
+    })
 })
 
 describe('buildPolicyAftereffect', () => {

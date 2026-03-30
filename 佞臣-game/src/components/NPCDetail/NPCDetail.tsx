@@ -1,13 +1,9 @@
-// ========================================
-// NPC 详情页（弹窗） — P1 更新
-// 读取 NPC 从 gameStore
-// ========================================
-
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getAlignmentLabel, getExternalStatusLabel, getLoyaltyLabel, getTrustLabel, getTrustLevel } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
 
 export function NPCDetail() {
@@ -29,8 +25,10 @@ export function NPCDetail() {
     const knownIntel = npc.secretThreads.slice(0, knownIntelCount)
 
     const factionNames: Record<string, string> = {
-        emperor: '帝党', empress: '后党',
-        longxi: '陇右勋贵', prairie: '内附草原',
+        emperor: '帝党',
+        empress: '后党',
+        longxi: '陇右勋贵',
+        prairie: '内附草原',
     }
 
     return (
@@ -44,6 +42,10 @@ export function NPCDetail() {
                     <span className={`npc-detail-faction faction-${npc.factionId}`}>
                         {factionNames[npc.factionId]}
                     </span>
+                </div>
+
+                <div className="npc-detail-portrait-wrap">
+                    <NpcPortrait name={npc.name} className="npc-detail-portrait" />
                 </div>
 
                 <div className={`trust-badge trust-${trustLevel}`}>
@@ -74,11 +76,9 @@ export function NPCDetail() {
                     </div>
                 </div>
 
-                <div className="npc-detail-section">
-                    <h4>{npc.powerBase === 'court' ? '朝堂根基' : '外部筹码'}</h4>
-                    {npc.powerBase === 'court' ? (
-                        <p>此人为朝堂势力节点，影响更多体现在诏令、军政与朝堂话语权。</p>
-                    ) : (
+                {npc.powerBase === 'external' && (
+                    <div className="npc-detail-section">
+                        <h4>外部筹码</h4>
                         <div className="detail-metrics">
                             <span className="metric-chip">军力 {npc.militaryPower}</span>
                             <span className="metric-chip">忠诚 {npc.loyaltyToCourt}</span>
@@ -86,8 +86,8 @@ export function NPCDetail() {
                             <span className="metric-chip">{getAlignmentLabel(npc.alignmentBias)}</span>
                             <span className="metric-chip">{getExternalStatusLabel(npc.externalStatus)}</span>
                         </div>
-                    )}
-                </div>
+                    </div>
+                )}
 
                 <div className="npc-detail-section">
                     <h4>已知情报</h4>

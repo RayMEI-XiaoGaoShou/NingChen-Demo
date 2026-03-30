@@ -86,6 +86,12 @@
     display: inline-block;
 }
 
+.section-subheading {
+    margin: -4px 0 var(--spacing-md);
+    color: var(--color-text-dim);
+    line-height: 1.7;
+}
+
 /* Faction Grid */
 .faction-grid {
     display: grid;
@@ -105,17 +111,12 @@
 }
 
 
-.faction-secondary {
-    margin-top: var(--spacing-sm);
-    color: var(--color-text-dim);
-    font-size: var(--font-size-xs);
-}
-
 .faction-card-header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
     margin-bottom: var(--spacing-sm);
+    gap: var(--spacing-md);
 }
 
 .faction-name {
@@ -128,6 +129,7 @@
 .faction-value {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    flex-shrink: 0;
 }
 
 .faction-bar {
@@ -141,6 +143,15 @@
     height: 100%;
     border-radius: 2px;
     transition: width 1s ease-out;
+}
+
+.faction-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+    color: var(--color-text-dim);
+    font-size: var(--font-size-xs);
 }
 
 .faction-emperor .faction-fill,
@@ -195,13 +206,19 @@
     border-radius: 50%;
     background: rgba(201, 176, 101, 0.1);
     border: 1px solid var(--color-border-gold);
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-family: var(--font-heading);
     font-size: var(--font-size-lg);
     color: var(--color-accent-gold);
     flex-shrink: 0;
+    object-fit: cover;
+    overflow: hidden;
+    display: block;
+}
+
+.npc-portrait-fallback.npc-avatar-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .npc-info {
@@ -350,8 +367,8 @@
 
 .external-card-header {
     display: flex;
-    justify-content: space-between;
-    gap: var(--spacing-sm);
+    flex-direction: column;
+    gap: 4px;
 }
 
 .external-name {
@@ -363,32 +380,6 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-dim);
     line-height: 1.5;
-}
-
-.external-bias {
-    align-self: flex-start;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: var(--font-size-xs);
-    border: 1px solid currentColor;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
-.bias-emperor {
-    color: var(--color-faction-emperor);
-}
-
-.bias-empress {
-    color: var(--color-faction-empress);
-}
-
-.bias-swing {
-    color: var(--color-warning-light);
-}
-
-.bias-self {
-    color: var(--color-danger-light);
 }
 
 .external-stats {

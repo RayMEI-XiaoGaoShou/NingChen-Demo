@@ -9,16 +9,18 @@ import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
+import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/schemeEngine'
 import { getHighlightedNpcIds } from '../../game/roundIntelEngine'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt } from '../../ai/prompts'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import type { SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
 
 export function SchemePanel() {
-    const { currentRound, schemeCount, maxSchemes, addScheme, nextPhase, prevPhase, npcs, intelProgress, currentSchemes, addNpcFeedback, updateNpcFeedback, firstRoundGuideSeen, markFirstRoundGuideSeen, openGameplayGuide } = useGameStore()
+    const { currentRound, schemeCount, maxSchemes, addScheme, nextPhase, prevPhase, npcs, intelProgress, currentSchemes, addNpcFeedback, updateNpcFeedback, markSchemeParsePending, updateSchemeParse, firstRoundGuideSeen, markFirstRoundGuideSeen, openGameplayGuide } = useGameStore()
 
     const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
     const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(null)
@@ -47,7 +49,7 @@ export function SchemePanel() {
 
     const createActionId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
 
-    const handleExecute = () => {
+    const handleExecute = async () => {
         if (!selectedNpcId || !selectedScheme || !selectedNpc) return
         const actionId = createActionId()
         const resolutionRoll = Math.random()
@@ -63,10 +65,10 @@ export function SchemePanel() {
         }
 
         addScheme(action)
+        markSchemeParsePending(actionId)
 
         // ★ 异步后台：启动 NPC AI 反馈（不等待）
         const schemeName = schemeNames[selectedScheme] || selectedScheme
-        const success = previewSchemeSuccess(action, selectedNpc, existingActions, resolutionRoll)
 
         addNpcFeedback({
             id: actionId,
@@ -80,14 +82,34 @@ export function SchemePanel() {
             source: getAiModeLabel(),
         })
 
-        // 后台发送 AI 请求（fire and forget）
+        // 后台发送结构化解析与 NPC AI 请求（fire and forget）
         const npcSnapshot = { ...selectedNpc }
         const speechSnapshot = speech
         const knownSecretThreads = npcSnapshot.secretThreads.slice(0, intelProgress[npcSnapshot.id] ?? 0)
-        chatCompletion(
-            buildNpcPrompt({ npc: npcSnapshot, schemeType: selectedScheme, speech: speechSnapshot, success, knownSecretThreads }),
-            { temperature: 0.75, maxTokens: 200, tag: `npc_${selectedScheme}_${success ? 'success' : 'failure'}` },
-        ).then(reply => {
+        const relatedNpcSnapshot = relatedNpcId ? npcs.find(npc => npc.id === relatedNpcId) ?? null : null
+        parseNorthSchemeInput({
+            round: currentRound,
+            npc: npcSnapshot,
+            speech: speechSnapshot,
+            relatedNpc: relatedNpcSnapshot,
+        }).then(parsed => {
+            updateSchemeParse(actionId, parsed)
+            const success = previewSchemeSuccess(
+                { ...action, northParse: parsed },
+                npcSnapshot,
+                existingActions,
+                resolutionRoll,
+                {
+                    round: currentRound,
+                    unlockedSecrets: intelProgress[selectedNpc.id] ?? 0,
+                    northParse: parsed,
+                },
+            )
+            return chatCompletion(
+                buildNpcPrompt({ npc: npcSnapshot, schemeType: selectedScheme, speech: speechSnapshot, success, knownSecretThreads }),
+                { temperature: 0.75, maxTokens: 200, tag: `npc_${selectedScheme}_${success ? 'success' : 'failure'}` },
+            )
+        }).then(reply => {
             const source = getAiMode() === 'fallback' ? '本地兜底' : getAiModeLabel()
             updateNpcFeedback(actionId, reply.trim() || `${npcSnapshot.name}似有反应，却未置可否……`, source)
         }).catch(() => {
@@ -158,7 +180,10 @@ export function SchemePanel() {
                                                 setRelatedNpcId(null)
                                             }}
                                         >
-                                            <span className="npc-name">{npc.name}</span>
+                                            <div className="npc-select-main">
+                                                <NpcPortrait name={npc.name} className="npc-select-avatar" />
+                                                <span className="npc-name">{npc.name}</span>
+                                            </div>
                                             <span className={`trust-tag trust-${getTrustLevel(npc.trust)}`}>
                                                 {getTrustLabel(npc.trust)}
                                             </span>
@@ -208,7 +233,10 @@ export function SchemePanel() {
                                                 className={`npc-select-btn ${relatedNpcId === npc.id ? 'selected' : ''}`}
                                                 onClick={() => setRelatedNpcId(npc.id)}
                                             >
-                                                <span className="npc-name">{npc.name}</span>
+                                                <div className="npc-select-main">
+                                                    <NpcPortrait name={npc.name} className="npc-select-avatar" />
+                                                    <span className="npc-name">{npc.name}</span>
+                                                </div>
                                             </button>
                                         ))}
                                     </div>

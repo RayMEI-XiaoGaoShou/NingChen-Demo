@@ -3,7 +3,12 @@
 // 天道判官 + NPC Agent + 女帝来信
 // ========================================
 
-import type { NPC, SchemeType, NationDimensions } from '../game/types'
+import type {
+    NationDimensions,
+    NPC,
+    PolicyResolutionMeta,
+    SchemeType,
+} from '../game/types'
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant'
@@ -231,6 +236,79 @@ export function buildEmpressFeedbackPrompt(params: {
 已产生的实际影响：${effectSummary}
 
 请写一段给萧宝颖的密批。`,
+        },
+    ]
+}
+
+const STRUCTURED_PARSE_SYSTEM = `你是《佞臣》的结构化裁判。你只能输出 JSON，不得输出解释、代码块或多余文字。所有数值字段都必须落在 0 到 1 之间。`
+
+export function buildNorthSchemeParsePrompt(params: {
+    round: number
+    npc: NPC
+    speech: string
+    eventName: string
+    eventBriefing: string
+}): ChatMessage[] {
+    return [
+        { role: 'system', content: STRUCTURED_PARSE_SYSTEM },
+        {
+            role: 'user',
+            content: `请分析这句北周施计说辞，只输出 JSON。
+
+回合：第${params.round}回合
+事件：${params.eventName}
+局势：${params.eventBriefing}
+目标人物：${params.npc.name}（${params.npc.title}）
+公开人设：${params.npc.publicPersona}
+公开立场：${params.npc.publicStance}
+性格：${params.npc.personality}
+软肋：${params.npc.softSpot}
+逆鳞：${params.npc.triggerPoint}
+说辞：${params.speech}
+
+输出字段：
+{
+  "characterFit": 0-1,
+  "eventFit": 0-1,
+  "structuralPenetration": 0-1,
+  "executability": 0-1,
+  "exposureRisk": 0-1,
+  "dominantIntent": "neutral|induce|threaten|divide|empathize|strategize",
+  "evidence": ["不超过3条的短句"]
+}`,
+        },
+    ]
+}
+
+export function buildPolicyReasonParsePrompt(params: {
+    round: number
+    topic: string
+    question: string
+    reason: string
+    meta: PolicyResolutionMeta
+}): ChatMessage[] {
+    return [
+        { role: 'system', content: STRUCTURED_PARSE_SYSTEM },
+        {
+            role: 'user',
+            content: `请分析这段南陈问政附言，只输出 JSON。
+
+回合：第${params.round}回合
+问政母题：${params.topic}
+题目：${params.question}
+附言：${params.reason}
+法统方向：${params.meta.legitimacyEffect ?? 'steady'}
+题目评分重点：${params.meta.aiScoringFocus ?? '未提供'}
+
+输出字段：
+{
+  "focusAlignment": 0-1,
+  "executionClarity": 0-1,
+  "costAwareness": 0-1,
+  "legitimacyAlignment": 0-1,
+  "policyStance": "neutral|balanced|aggressive|conservative|expedient",
+  "evidence": ["不超过3条的短句"]
+}`,
         },
     ]
 }

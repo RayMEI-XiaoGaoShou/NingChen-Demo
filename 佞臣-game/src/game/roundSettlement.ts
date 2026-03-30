@@ -1,4 +1,4 @@
-import { getPolicyQuestionByRound } from '../data/policyQuestions'
+import { getPolicyQuestionForRound } from '../data/policyQuestions'
 import { INITIAL_RELATIONSHIP_EDGES, RELATIONSHIP_STRUCTURES } from '../data/npcRelationships'
 import { getRoundIntel } from '../data/roundIntel'
 import { ROUND_EVENTS } from '../data/rounds'
@@ -15,15 +15,20 @@ import {
 } from './nationEngine'
 import { applyRelationshipShock, combineStructureEffects } from './relationshipEngine'
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
+import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 import { calculateCompositePower } from './types'
 import type {
+    AiNativeSummary,
+    CampaignState,
     CourtFactionId,
+    DelayedBacklash,
     Faction,
     FactionCollapseReport,
     GameResult,
     NationDimensions,
     NPC,
     PolicyAftereffect,
+    PolicyReasonParseResult,
     RelationshipEdge,
     RelationshipReport,
     SchemeAction,
@@ -58,6 +63,7 @@ export interface JudgeFacts {
     northSummary: string
     southSummary: string
     invasionSummary: string
+    aiNativeSummary: AiNativeSummary
 }
 
 export interface RoundSettlementResult {
@@ -82,7 +88,11 @@ export interface RoundSettlementResult {
     summaryText: string
     policyReport: PolicySettlementReport | null
     policyAftereffect: PolicyAftereffect | null
+    delayedBacklash: DelayedBacklash[]
     judgeFacts: JudgeFacts
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
+    campaignReports: string[]
 }
 
 export function settleRound(params: {
@@ -96,11 +106,16 @@ export function settleRound(params: {
     intelProgress: Record<string, number>
     policyOptionIndex: number | null
     policyReason: string
+    policyParse?: PolicyReasonParseResult | null
+    shuCampaign?: CampaignState
+    huainanCampaign?: CampaignState
 }): RoundSettlementResult {
-    const { round, schemes, policyOptionIndex, policyReason, intelProgress } = params
+    const { round, schemes, policyOptionIndex, policyReason, policyParse, intelProgress } = params
 
     let northStats = { ...params.northStats }
     let southStats = { ...params.southStats }
+    let shuCampaign = cloneCampaign(params.shuCampaign)
+    let huainanCampaign = cloneCampaign(params.huainanCampaign)
     let updatedNpcs = params.npcs.map(npc => ({ ...npc }))
     let factionsAfter = params.factions.map(faction => ({ ...faction }))
     let relationshipsAfter = (params.relationships ?? INITIAL_RELATIONSHIP_EDGES).map(edge => ({ ...edge }))
@@ -111,8 +126,34 @@ export function settleRound(params: {
     let factionCollapseReports: FactionCollapseReport[] = []
     let policyReport: PolicySettlementReport | null = null
     let policyAftereffect: PolicyAftereffect | null = null
+    let delayedBacklash: DelayedBacklash[] = []
+    const campaignReports: string[] = []
 
     northStats = applyDimensionChanges(northStats, getEventImpact(round))
+
+    if (round >= 11 && round <= 12) {
+        const fallout = tickCampaignFallout(shuCampaign)
+        if (fallout.applied) {
+            northStats = applyDimensionChanges(northStats, fallout.northImpact)
+            southStats = applyDimensionChanges(southStats, fallout.southImpact)
+            shuCampaign = fallout.nextCampaign
+            if (fallout.nextCampaign.state !== 'idle') {
+                campaignReports.push('蜀地方向余波仍在继续发酵。')
+            }
+        }
+    }
+
+    if (round >= 17 && round <= 18) {
+        const fallout = tickCampaignFallout(huainanCampaign)
+        if (fallout.applied) {
+            northStats = applyDimensionChanges(northStats, fallout.northImpact)
+            southStats = applyDimensionChanges(southStats, fallout.southImpact)
+            huainanCampaign = fallout.nextCampaign
+            if (fallout.nextCampaign.state !== 'idle') {
+                campaignReports.push('淮南方向的战果余波尚未停歇。')
+            }
+        }
+    }
 
     const eventIntelUnlocks = getRoundIntel(round)?.autoUnlocks ?? {}
     for (const [npcId, count] of Object.entries(eventIntelUnlocks)) {
@@ -142,6 +183,7 @@ export function settleRound(params: {
         )
 
         schemeResults.push(result)
+        delayedBacklash = delayedBacklash.concat(result.delayedBacklash)
 
         applyPersonEffects(targetNpc, result.personEffects.trustDelta, result.personEffects.loyaltyDelta, result.personEffects.alignmentShift, result.personEffects.externalStatus)
         trustChanges[targetNpc.id] = (trustChanges[targetNpc.id] ?? 0) + result.personEffects.trustDelta
@@ -209,13 +251,17 @@ export function settleRound(params: {
     )
 
     if (policyOptionIndex !== null) {
-        const question = getPolicyQuestionByRound(round)
+        const question = getPolicyQuestionForRound(round, {
+            shuCampaignState: shuCampaign.state,
+            huainanCampaignState: huainanCampaign.state,
+        })
         const option = question?.options[policyOptionIndex]
         if (question && option) {
             const legitimacyTone = option.legitimacyEffect ?? 'steady'
             const policyEffect = calculatePolicyEffect(option.effects, policyReason, {
                 legitimacyEffect: legitimacyTone,
                 aiScoringFocus: question.aiScoringFocus,
+                policyParse: policyParse ?? undefined,
             })
             southStats = applyDimensionChanges(southStats, policyEffect)
             policyAftereffect = buildPolicyAftereffect({
@@ -226,6 +272,7 @@ export function settleRound(params: {
                 immediateEffects: policyEffect,
                 reasonText: policyReason,
                 aiScoringFocus: question.aiScoringFocus,
+                policyParse: policyParse ?? undefined,
             })
             policyReport = {
                 sourceRound: round,
@@ -240,6 +287,48 @@ export function settleRound(params: {
                 scoringFocus: question.aiScoringFocus,
             }
         }
+    }
+
+    if (round === 10) {
+        const evaluation = evaluateShuCampaignOutcome({
+            round,
+            southStats,
+            northStats,
+            northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
+            policyBoost: derivePolicyBoost(policyReport),
+        })
+        northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
+        southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
+        shuCampaign = {
+            state: evaluation.state,
+            sourceRound: evaluation.sourceRound,
+            summary: evaluation.summary,
+            ongoingNorthImpact: evaluation.ongoingNorthImpact,
+            ongoingSouthImpact: evaluation.ongoingSouthImpact,
+            remainingRounds: evaluation.remainingRounds,
+        }
+        campaignReports.push(evaluation.summary)
+    }
+
+    if (round === 16) {
+        const evaluation = evaluateHuainanCampaignOutcome({
+            round,
+            southStats,
+            northStats,
+            northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
+            policyBoost: derivePolicyBoost(policyReport),
+        })
+        northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
+        southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
+        huainanCampaign = {
+            state: evaluation.state,
+            sourceRound: evaluation.sourceRound,
+            summary: evaluation.summary,
+            ongoingNorthImpact: evaluation.ongoingNorthImpact,
+            ongoingSouthImpact: evaluation.ongoingSouthImpact,
+            remainingRounds: evaluation.remainingRounds,
+        }
+        campaignReports.push(evaluation.summary)
     }
 
     northStats = applyNaturalGrowth(northStats, true)
@@ -276,6 +365,8 @@ export function settleRound(params: {
         invasionCheck,
         policyReport,
         policyAftereffect,
+        schemeResults,
+        delayedBacklash,
     })
 
     return {
@@ -300,7 +391,11 @@ export function settleRound(params: {
         summaryText,
         policyReport,
         policyAftereffect,
+        delayedBacklash,
         judgeFacts,
+        shuCampaign,
+        huainanCampaign,
+        campaignReports,
     }
 }
 
@@ -465,6 +560,58 @@ function summarizeDimensions(changes: Partial<NationDimensions>): string {
         .join('，')
 }
 
+function cloneCampaign(campaign?: CampaignState): CampaignState {
+    return campaign
+        ? {
+            ...campaign,
+            ongoingNorthImpact: { ...campaign.ongoingNorthImpact },
+            ongoingSouthImpact: { ...campaign.ongoingSouthImpact },
+        }
+        : {
+            state: 'idle',
+            sourceRound: null,
+            summary: '',
+            ongoingNorthImpact: {},
+            ongoingSouthImpact: {},
+            remainingRounds: 0,
+        }
+}
+
+function derivePolicyBoost(policyReport: PolicySettlementReport | null): number {
+    if (!policyReport) return 0
+    const total = Object.values(policyReport.effects).reduce((sum, value) => sum + (value ?? 0), 0)
+    return Math.max(0, Math.min(6, total / 2.5 + (policyReport.focusMatched ? 1 : 0)))
+}
+
+function deriveNorthPressurePenalty(
+    npcs: NPC[],
+    factions: Faction[],
+    campaign: 'shu' | 'huainan',
+): number {
+    let penalty = 0
+    const watchfulOrWorse = npcs.filter(npc =>
+        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus !== 'loyal',
+    ).length
+    penalty += watchfulOrWorse * 1.2
+    penalty += npcs.filter(npc => npc.powerBase === 'external' && npc.externalStatus === 'secession').length * 2.6
+    penalty += npcs.filter(npc => npc.powerBase === 'external' && npc.externalStatus === 'rebellion').length * 3.4
+
+    const emperor = factions.find(faction => faction.id === 'emperor')
+    const empress = factions.find(faction => faction.id === 'empress')
+    if ((emperor?.internalStability ?? 100) <= 25) penalty += 2
+    if ((empress?.internalStability ?? 100) <= 25) penalty += 2
+    if ((emperor?.courtInfluence ?? 100) <= 22) penalty += 1.6
+    if ((empress?.courtInfluence ?? 100) <= 22) penalty += 1.6
+
+    if (campaign === 'shu') {
+        penalty += npcs.filter(npc => /河西|陇右|诸军事/.test(npc.title) && npc.trust <= 25).length * 0.8
+    } else {
+        penalty += npcs.filter(npc => /河南|河北|节度使|诸军事/.test(npc.title) && npc.trust <= 25).length * 0.8
+    }
+
+    return round(penalty)
+}
+
 function diffDimensions(after: NationDimensions, before: NationDimensions): Partial<NationDimensions> {
     return {
         finance: round(after.finance - before.finance),
@@ -521,8 +668,10 @@ function buildJudgeFacts(params: {
         windowLabel: string
         pressureSummary: string
     }
-    policyReport: PolicySettlementReport | null
-    policyAftereffect: PolicyAftereffect | null
+        policyReport: PolicySettlementReport | null
+        policyAftereffect: PolicyAftereffect | null
+        schemeResults: SchemeResult[]
+        delayedBacklash: DelayedBacklash[]
 }): JudgeFacts {
     const event = ROUND_EVENTS[params.round - 1]
     const eventImpactSummary = event
@@ -535,6 +684,7 @@ function buildJudgeFacts(params: {
     const southSummary = params.policyReport
         ? `南陈问政依“${params.policyReport.optionContent}”施行，${params.policyReport.effectSummary}。${params.policyAftereffect ? `其后效为：${params.policyAftereffect.summary}` : ''}`
         : '南陈本回合无额外问政回批收益。'
+    const aiNativeSummary = buildAiNativeSummaryV2(params.schemeResults, params.delayedBacklash, params.policyReport, params.policyAftereffect)
 
     return {
         eventImpactSummary,
@@ -546,6 +696,7 @@ function buildJudgeFacts(params: {
         northSummary: northDelta || '北周五维无明显波动。',
         southSummary,
         invasionSummary: `${params.invasionCheck.windowLabel}；${params.invasionCheck.pressureSummary}；可战条件满足 ${params.invasionCheck.warCapabilityMet} 项；比值 ${params.invasionCheck.politicalWillRatio.toFixed(2)}。`,
+        aiNativeSummary,
     }
 }
 
@@ -695,4 +846,89 @@ function downshiftDamage(damage: Partial<NationDimensions>): Partial<NationDimen
         adjusted[key] = value ? Math.min(-1, value + 1) : value
     }
     return adjusted
+}
+
+export function buildAiNativeSummary(
+    schemeResults: SchemeResult[],
+    delayedBacklash: DelayedBacklash[],
+    policyReport: PolicySettlementReport | null,
+    policyAftereffect: PolicyAftereffect | null,
+): AiNativeSummary {
+    const schemeHints = schemeResults
+        .filter(result => result.success)
+        .map(result => {
+            if (result.northParse.structuralPenetration >= 0.62) {
+                return '这步话头借到了权力链条，影响不止停在人物层。'
+            }
+            if (result.northParse.characterFit >= 0.62) {
+                return '这步说辞贴住了对方心结，因此格外容易得手。'
+            }
+            return ''
+        })
+        .filter(Boolean)
+        .slice(0, 2)
+
+    const backlashHints = delayedBacklash
+        .map(item => item.summary)
+        .slice(0, 2)
+
+    const policyHints = policyReport
+        ? [
+            policyReport.focusMatched
+                ? '附言切中此题真正关节，因此南陈收益更稳。'
+                : '附言虽表态鲜明，但仍有几分失之宽泛。',
+            policyAftereffect?.focusMatched
+                ? '这道问政的余波也会延续到下一回合。'
+                : '',
+        ].filter(Boolean)
+        : []
+
+    return {
+        schemeHints,
+        backlashHints,
+        policyHints,
+    }
+}
+
+function buildAiNativeSummaryV2(
+    schemeResults: SchemeResult[],
+    delayedBacklash: DelayedBacklash[],
+    policyReport: PolicySettlementReport | null,
+    policyAftereffect: PolicyAftereffect | null,
+): AiNativeSummary {
+    const schemeHints = Array.from(new Set(
+        schemeResults
+            .filter(result => result.success)
+            .map(result => {
+                if (result.northParse.structuralPenetration >= 0.62) {
+                    return '这步说辞顺着权势链条发力，影响已经穿到朝局层。'
+                }
+                if (result.northParse.characterFit >= 0.62) {
+                    return '这步说辞贴住了对方心绪，因此格外容易得手。'
+                }
+                return ''
+            })
+            .filter(Boolean),
+    )).slice(0, 2)
+
+    const backlashHints = delayedBacklash
+        .map(item => item.summary)
+        .slice(0, 2)
+
+    const policyHints = policyReport
+        ? [
+            policyReport.focusMatched
+                ? '附言切中此题真正关节，因此南陈收益更稳。'
+                : '附言虽表态鲜明，但仍有几分失之宽泛。',
+            policyAftereffect?.focusMatched
+                ? '这道问政的余波也会延续到下一回合。'
+                : '',
+        ].filter(Boolean)
+        : []
+
+    return {
+        schemeHints,
+        backlashHints,
+        policyHints,
+    }
 }

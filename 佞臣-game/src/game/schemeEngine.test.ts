@@ -49,4 +49,39 @@ describe('schemeEngine contextual scheme rules', () => {
         expect((warResult.nationEffects.military ?? 0) < 0).toBe(true)
         expect(Math.abs(warResult.nationEffects.military ?? 0)).toBeGreaterThan(Math.abs(calmResult.nationEffects.military ?? 0))
     })
+
+    it('lets structurally strong speech amplify nation effects more than merely flattering speech', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.name === '祖廷')!, trust: 68 }
+
+        const flattering = settleScheme(
+            {
+                id: 'flattering',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '丞相国之柱石，还望主持大局。',
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 3, unlockedSecrets: 1 },
+        )
+
+        const structural = settleScheme(
+            {
+                id: 'structural',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '趁灾年把仓廪、饷权与赈务并收中枢，先堵河北豪右，再反压帝党。',
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 3, unlockedSecrets: 1 },
+        )
+
+        expect(structural.trustChange).toBeGreaterThanOrEqual(flattering.trustChange)
+        expect(Math.abs(structural.nationEffects.governance ?? 0)).toBeGreaterThan(Math.abs(flattering.nationEffects.governance ?? 0))
+    })
 })

@@ -1,5 +1,7 @@
 import type {
     BattleReport,
+    CampaignState,
+    DelayedBacklash,
     EndingReport,
     Faction,
     FirstRoundGuideSeenMap,
@@ -8,6 +10,7 @@ import type {
     NationDimensions,
     NPC,
     PolicyAftereffect,
+    PolicyReasonParseResult,
     PrologueStep,
     RelationshipEdge,
     RoundHistoryEntry,
@@ -42,13 +45,19 @@ export interface PersistedGameSnapshot {
     currentSchemes: SchemeAction[]
     selectedPolicyOption: number | null
     policyReason: string
+    selectedPolicyParse: PolicyReasonParseResult | null
     npcFeedbacks: NpcFeedback[]
+    pendingStructuredSchemeIds: string[]
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
+    pendingBacklash: DelayedBacklash[]
+    recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
     endingReport: EndingReport | null
     battleReport: BattleReport | null
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
 }
 
 export function buildPersistedSnapshot(state: {
@@ -73,13 +82,19 @@ export function buildPersistedSnapshot(state: {
     currentSchemes: SchemeAction[]
     selectedPolicyOption: number | null
     policyReason: string
+    selectedPolicyParse: PolicyReasonParseResult | null
     npcFeedbacks: NpcFeedback[]
+    pendingStructuredSchemeIds: string[]
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
+    pendingBacklash: DelayedBacklash[]
+    recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
     endingReport: EndingReport | null
     battleReport: BattleReport | null
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
 }): PersistedGameSnapshot | null {
     const hasProgress =
         state.prologueStep !== 'PROLOGUE' ||
@@ -115,13 +130,19 @@ export function buildPersistedSnapshot(state: {
         currentSchemes: state.currentSchemes,
         selectedPolicyOption: state.selectedPolicyOption,
         policyReason: state.policyReason,
+        selectedPolicyParse: state.selectedPolicyParse,
         npcFeedbacks: state.npcFeedbacks,
+        pendingStructuredSchemeIds: state.pendingStructuredSchemeIds,
         lastSettlement: state.lastSettlement,
         lastPolicyReport: state.lastPolicyReport,
         lastPolicyAftereffect: state.lastPolicyAftereffect,
+        pendingBacklash: state.pendingBacklash,
+        recentBacklash: state.recentBacklash,
         roundHistory: state.roundHistory,
         endingReport: state.endingReport,
         battleReport: state.battleReport,
+        shuCampaign: state.shuCampaign,
+        huainanCampaign: state.huainanCampaign,
     }
 }
 

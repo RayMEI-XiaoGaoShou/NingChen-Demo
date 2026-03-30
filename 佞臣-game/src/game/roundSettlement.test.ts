@@ -5,6 +5,15 @@ import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_FACTIONS } from '../data/factions'
 
 describe('settleRound layered settlement', () => {
+    const idleCampaign = {
+        state: 'idle',
+        sourceRound: null,
+        summary: '',
+        ongoingNorthImpact: {},
+        ongoingSouthImpact: {},
+        remainingRounds: 0,
+    } as const
+
     it('returns updated NPCs and factions so schemes resolve through person -> faction -> nation', () => {
         const yuwendi = INITIAL_NPCS.find(npc => npc.name === '宇文棣')!
 
@@ -266,5 +275,78 @@ describe('settleRound layered settlement', () => {
         expect(result.factionCollapseReports?.[0]?.summary).toContain('帝党')
         expect(result.gameResult).toBe('NONE')
         expect(result.judgeFacts?.factionSummary).toContain('崩口')
+    })
+
+    it('turns exposed scheme speech into next-round backlash instead of only a weaker immediate result', () => {
+        const yuwendi = INITIAL_NPCS.find(npc => npc.name === '宇文棣')!
+
+        const result = settleRound({
+            round: 4,
+            schemes: [
+                {
+                    id: 'shock',
+                    targetNpcId: yuwendi.id,
+                    schemeType: 'advise',
+                    playerSpeech: '你若立刻夺权起兵，便可借边患逼宫，一举翻掉太后。',
+                    resolutionRoll: 0.02,
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc, trust: npc.name === '宇文棣' ? 72 : npc.trust })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        expect(result.delayedBacklash.length).toBeGreaterThan(0)
+        expect(result.delayedBacklash[0]?.type).toMatch(/guarded|misdirected|shock|exposed/)
+    })
+
+    it('stores shu campaign result on round 10 and applies immediate north hit', () => {
+        const result = settleRound({
+            round: 10,
+            schemes: [],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL, finance: 62, grain: 70, military: 68, socialOrder: 58, governance: 66 },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: 1,
+            policyReason: '先断粮道再逼蜀地松动，并把后续接管预案一并准备。',
+            shuCampaign: idleCampaign,
+            huainanCampaign: idleCampaign,
+        }) as any
+
+        expect(result.shuCampaign?.state).toBe('gained')
+        expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance - 1)
+    })
+
+    it('applies stored shu fallout on round 11', () => {
+        const result = settleRound({
+            round: 11,
+            schemes: [],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+            shuCampaign: {
+                state: 'gained',
+                sourceRound: 10,
+                summary: '蜀地已得手',
+                ongoingNorthImpact: { governance: -1.2 },
+                ongoingSouthImpact: { grain: 1.1 },
+                remainingRounds: 2,
+            },
+            huainanCampaign: idleCampaign,
+        }) as any
+
+        expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance)
+        expect(result.southStatsAfter.grain).toBeGreaterThan(SOUTH_INITIAL.grain)
+        expect(result.shuCampaign?.remainingRounds).toBe(1)
     })
 })

@@ -11,6 +11,10 @@ export type RoundPhase =
 
 export type PrologueStep = 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'INGAME'
 export type HelpOverlaySource = 'gameplay' | 'prologue'
+export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' | 'empathize' | 'strategize'
+export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
+export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
+export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type FirstRoundGuideKey =
     | 'round_start'
     | 'court_observe'
@@ -156,6 +160,7 @@ export interface SchemeAction {
     playerSpeech: string
     resolutionRoll?: number
     result?: string
+    northParse?: NorthSchemeParseResult
 }
 
 export interface PolicyOption {
@@ -180,6 +185,7 @@ export interface PolicyQuestion {
 export interface PolicyResolutionMeta {
     legitimacyEffect?: 'up' | 'down' | 'steady'
     aiScoringFocus?: string
+    policyParse?: PolicyReasonParseResult
 }
 
 export interface PolicyAftereffect {
@@ -189,6 +195,55 @@ export interface PolicyAftereffect {
     effects: Partial<NationDimensions>
     legitimacyTone: 'up' | 'down' | 'steady'
     focusMatched: boolean
+}
+
+export interface CampaignState {
+    state: CampaignOutcomeState
+    sourceRound: number | null
+    summary: string
+    ongoingNorthImpact: Partial<NationDimensions>
+    ongoingSouthImpact: Partial<NationDimensions>
+    remainingRounds: number
+}
+
+export interface PolicySelection {
+    optionIndex: number
+    reason: string
+    policyParse: PolicyReasonParseResult | null
+}
+
+export interface NorthSchemeParseResult {
+    characterFit: number
+    eventFit: number
+    structuralPenetration: number
+    executability: number
+    exposureRisk: number
+    dominantIntent: NorthDominantIntent
+    evidence: string[]
+}
+
+export interface PolicyReasonParseResult {
+    focusAlignment: number
+    executionClarity: number
+    costAwareness: number
+    legitimacyAlignment: number
+    policyStance: PolicyStance
+    evidence: string[]
+}
+
+export interface DelayedBacklash {
+    npcId: string
+    npcName: string
+    type: BacklashType
+    intensity: number
+    summary: string
+    sourceRound: number
+}
+
+export interface AiNativeSummary {
+    schemeHints: string[]
+    backlashHints: string[]
+    policyHints: string[]
 }
 
 export interface FactionCollapseReport {

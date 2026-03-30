@@ -200,7 +200,7 @@ function huainanFriction(npc: NPC): string {
     if (npc.id === 'zongai') return '边事轻重，终归要让陛下先听明白，再论谁是谁非。'
     if (npc.id === 'hebaqí') return '一场小摩擦而已，朝廷若自乱阵脚，才是真中敌计。'
     return npc.powerBase === 'external'
-        ? '淮南若真要闹大，朝廷总该拿出些能让人信服的价码。'
+        ? '淮南若真要闹大，朝廷总该拿出些筹码，不然谁会为朝廷效死？'
         : '边事既起，更要慎看谁在借势，谁在稳局。'
 }
 

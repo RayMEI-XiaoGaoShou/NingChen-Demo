@@ -4,11 +4,12 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, HelpOverlaySource, PolicyAftereffect, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, SchemeAction } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, HelpOverlaySource, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
 import { applyDimensionChanges } from '../game/nationEngine'
+import { applyDelayedBacklashToState } from '../game/aiNativeEngine'
 import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_RELATIONSHIP_EDGES } from '../data/npcRelationships'
@@ -63,17 +64,23 @@ interface GameState {
     currentSchemes: SchemeAction[]
     selectedPolicyOption: number | null
     policyReason: string
+    selectedPolicyParse: PolicyReasonParseResult | null
 
     // NPC反馈（异步流水线）
     npcFeedbacks: NpcFeedback[]
+    pendingStructuredSchemeIds: string[]
 
     // 最近一次结算结果（供 Settlement 页面显示）
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
+    pendingBacklash: DelayedBacklash[]
+    recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
     endingReport: EndingReport | null
     battleReport: BattleReport | null
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
 
     // 动作
     nextPhase: () => void
@@ -84,15 +91,25 @@ interface GameState {
     markFirstRoundGuideSeen: (key: FirstRoundGuideKey) => void
     resetGame: () => void
     addScheme: (scheme: SchemeAction) => void
-    selectPolicy: (optionIndex: number, reason: string) => void
+    selectPolicy: (optionIndex: number, reason: string, policyParse?: PolicyReasonParseResult | null) => void
     addNpcFeedback: (feedback: NpcFeedback) => void
     updateNpcFeedback: (feedbackId: string, text: string, source?: string) => void
+    markSchemeParsePending: (actionId: string) => void
+    updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => void
     hydrateSnapshot: (snapshot: PersistedGameSnapshot) => void
 }
 
 const initialNorthPower = calculateCompositePower(NORTH_INITIAL)
 const initialSouthPower = calculateCompositePower(SOUTH_INITIAL)
 const initialIntelProgress = Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0]))
+const initialCampaignState: CampaignState = {
+    state: 'idle',
+    sourceRound: null,
+    summary: '',
+    ongoingNorthImpact: {},
+    ongoingSouthImpact: {},
+    remainingRounds: 0,
+}
 const initialFirstRoundGuideSeen: FirstRoundGuideSeenMap = {
     round_start: false,
     court_observe: false,
@@ -162,13 +179,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     currentSchemes: [],
     selectedPolicyOption: null,
     policyReason: '',
+    selectedPolicyParse: null,
     npcFeedbacks: [],
+    pendingStructuredSchemeIds: [],
     lastSettlement: null,
     lastPolicyReport: null,
     lastPolicyAftereffect: null,
+    pendingBacklash: [],
+    recentBacklash: [],
     roundHistory: [],
     endingReport: null,
     battleReport: null,
+    shuCampaign: { ...initialCampaignState },
+    huainanCampaign: { ...initialCampaignState },
 
     nextPhase: () => {
         const state = get()
@@ -214,6 +237,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                         intelProgress: s.intelProgress,
                         policyOptionIndex: s.selectedPolicyOption,
                         policyReason: s.policyReason,
+                        policyParse: s.selectedPolicyParse,
+                        shuCampaign: s.shuCampaign,
+                        huainanCampaign: s.huainanCampaign,
                     })
 
                     const updatedIntelProgress = { ...s.intelProgress }
@@ -277,9 +303,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                             lastSettlement: result,
                             lastPolicyReport: result.policyReport ?? s.lastPolicyReport,
                             lastPolicyAftereffect: result.policyAftereffect ?? s.lastPolicyAftereffect,
+                            pendingStructuredSchemeIds: [],
+                            pendingBacklash: result.delayedBacklash,
                             roundHistory,
                             endingReport,
                             battleReport,
+                            shuCampaign: result.shuCampaign,
+                            huainanCampaign: result.huainanCampaign,
                         })
                     } else {
                         set({
@@ -295,7 +325,11 @@ export const useGameStore = create<GameState>((set, get) => ({
                             lastSettlement: result,
                             lastPolicyReport: result.policyReport ?? s.lastPolicyReport,
                             lastPolicyAftereffect: result.policyAftereffect ?? s.lastPolicyAftereffect,
+                            pendingStructuredSchemeIds: [],
+                            pendingBacklash: result.delayedBacklash,
                             roundHistory,
+                            shuCampaign: result.shuCampaign,
+                            huainanCampaign: result.huainanCampaign,
                         })
                     }
                 }
@@ -317,6 +351,12 @@ export const useGameStore = create<GameState>((set, get) => ({
                     const delayedPolicy = state.lastPolicyAftereffect?.sourceRound === currentRound
                         ? state.lastPolicyAftereffect
                         : null
+                    const backlashResult = applyDelayedBacklashToState({
+                        backlog: state.pendingBacklash,
+                        currentRound: currentRound + 1,
+                        npcs: state.npcs,
+                        northStats: state.northStats,
+                    })
                     const nextSouthStats = delayedPolicy
                         ? applyDimensionChanges(state.southStats, delayedPolicy.effects)
                         : state.southStats
@@ -325,14 +365,29 @@ export const useGameStore = create<GameState>((set, get) => ({
                         currentPhase: 'ROUND_START',
                         schemeCount: 0,
                         southStats: nextSouthStats,
+                        northStats: backlashResult.northStats,
                         southPower: calculateCompositePower(nextSouthStats),
+                        northPower: calculateCompositePower(backlashResult.northStats),
+                        npcs: backlashResult.npcs.map(npc => ({
+                            ...npc,
+                            availableSchemes: getAvailableSchemesForNpc(npc, {
+                                round: currentRound + 1,
+                                unlockedSecrets: state.intelProgress[npc.id] ?? 0,
+                            }),
+                        })),
                         currentSchemes: [],
                         selectedPolicyOption: null,
                         policyReason: '',
+                        selectedPolicyParse: null,
                         npcFeedbacks: [],
                         lastSettlement: null,
+                        pendingStructuredSchemeIds: [],
+                        pendingBacklash: [],
+                        recentBacklash: backlashResult.appliedBacklash,
                         endingReport: null,
                         battleReport: null,
+                        shuCampaign: state.shuCampaign,
+                        huainanCampaign: state.huainanCampaign,
                     })
                 }
                 break
@@ -413,13 +468,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             currentSchemes: [],
             selectedPolicyOption: null,
             policyReason: '',
+            selectedPolicyParse: null,
             npcFeedbacks: [],
+            pendingStructuredSchemeIds: [],
             lastSettlement: null,
             lastPolicyReport: null,
             lastPolicyAftereffect: null,
+            pendingBacklash: [],
+            recentBacklash: [],
             roundHistory: [],
             endingReport: null,
             battleReport: null,
+            shuCampaign: { ...initialCampaignState },
+            huainanCampaign: { ...initialCampaignState },
         })
     },
 
@@ -433,10 +494,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         })
     },
 
-    selectPolicy: (optionIndex: number, reason: string) => {
+    selectPolicy: (optionIndex: number, reason: string, policyParse: PolicyReasonParseResult | null = null) => {
         set({
             selectedPolicyOption: optionIndex,
             policyReason: reason,
+            selectedPolicyParse: policyParse,
         })
     },
 
@@ -452,6 +514,23 @@ export const useGameStore = create<GameState>((set, get) => ({
                 f.id === feedbackId ? { ...f, feedback: text, isLoading: false, source: source ?? f.source } : f
             ),
         })
+    },
+
+    markSchemeParsePending: (actionId: string) => {
+        set(state => ({
+            pendingStructuredSchemeIds: state.pendingStructuredSchemeIds.includes(actionId)
+                ? state.pendingStructuredSchemeIds
+                : [...state.pendingStructuredSchemeIds, actionId],
+        }))
+    },
+
+    updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => {
+        set(state => ({
+            currentSchemes: state.currentSchemes.map(action =>
+                action.id === actionId ? { ...action, northParse } : action,
+            ),
+            pendingStructuredSchemeIds: state.pendingStructuredSchemeIds.filter(id => id !== actionId),
+        }))
     },
 
     hydrateSnapshot: (snapshot: PersistedGameSnapshot) => {
@@ -488,13 +567,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             currentSchemes: snapshot.currentSchemes,
             selectedPolicyOption: snapshot.selectedPolicyOption,
             policyReason: snapshot.policyReason,
+            selectedPolicyParse: snapshot.selectedPolicyParse ?? null,
             npcFeedbacks: snapshot.npcFeedbacks,
+            pendingStructuredSchemeIds: snapshot.pendingStructuredSchemeIds ?? [],
             lastSettlement: snapshot.lastSettlement,
             lastPolicyReport: snapshot.lastPolicyReport,
             lastPolicyAftereffect: snapshot.lastPolicyAftereffect,
+            pendingBacklash: snapshot.pendingBacklash ?? [],
+            recentBacklash: snapshot.recentBacklash ?? [],
             roundHistory: snapshot.roundHistory,
             endingReport: snapshot.endingReport,
             battleReport: snapshot.battleReport,
+            shuCampaign: snapshot.shuCampaign ?? { ...initialCampaignState },
+            huainanCampaign: snapshot.huainanCampaign ?? { ...initialCampaignState },
         })
     },
 }))
