@@ -34,11 +34,11 @@ export const NORTH_GROWTH: NationDimensions = {
 
 /** 南陈每回合自然增长（基线） */
 export const SOUTH_GROWTH: NationDimensions = {
-    finance: 0.8,
-    grain: 0.7,
+    finance: 0.65,
+    grain: 0.55,
     military: 0.5,
-    socialOrder: 0.8,
-    governance: 0.7,
+    socialOrder: 0.55,
+    governance: 0.48,
 }
 
 /**

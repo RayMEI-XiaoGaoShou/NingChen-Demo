@@ -8,6 +8,7 @@ import type {
     FactionCollapseReport,
     NationDimensions,
     NPC,
+    PlayerDangerStage,
     PolicyAftereffect,
     PolicyReasonParseResult,
     PolicyResolutionMeta,
@@ -65,7 +66,7 @@ export function calculatePolicyEffect(
     meta: PolicyResolutionMeta = {},
 ): Partial<NationDimensions> {
     const parse = meta.policyParse ?? fallbackPolicyParseFromReason(reasonText, meta)
-    const reasonModifier = calculateReasonModifier(parse)
+    const reasonModifier = calculateReasonModifier(parse, meta.round ?? 1)
 
     const result: Partial<NationDimensions> = {}
     for (const [key, value] of Object.entries(optionEffects)) {
@@ -76,15 +77,18 @@ export function calculatePolicyEffect(
     return result
 }
 
-function calculateReasonModifier(parse: PolicyReasonParseResult): number {
+function calculateReasonModifier(parse: PolicyReasonParseResult, round: number): number {
+    const phaseScale = getPolicyPhaseScale(round)
     return Math.max(
-        0.65,
+        0.62,
         Math.min(
-            1.8,
-            0.7
+            1.68,
+            (
+                0.7
             + parse.focusAlignment * 0.4
             + parse.executionClarity * 0.35
-            + parse.legitimacyAlignment * 0.18,
+            + parse.legitimacyAlignment * 0.18
+            ) * phaseScale,
         ),
     )
 }
@@ -105,7 +109,7 @@ export function buildPolicyAftereffect(params: {
         aiScoringFocus: params.aiScoringFocus,
     })
     const focusMatched = parse.focusAlignment >= 0.48
-    const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, parse)
+    const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, parse, params.round)
     const summaryBase = params.nextRoundFeedback?.trim() || `${params.topic}的后续影响已经开始显现。`
     const legitimacyClause =
         legitimacyTone === 'up'
@@ -135,15 +139,18 @@ function buildAftereffectDimensions(
     immediateEffects: Partial<NationDimensions>,
     legitimacyTone: 'up' | 'down' | 'steady',
     parse: PolicyReasonParseResult,
+    round: number,
 ): Partial<NationDimensions> {
     const followUpFactor = Math.max(
         0.18,
         Math.min(
             0.52,
-            0.14
+            (
+                0.14
             + parse.costAwareness * 0.16
             + parse.legitimacyAlignment * 0.12
-            + parse.focusAlignment * 0.1,
+            + parse.focusAlignment * 0.1
+            ) * getPolicyAftereffectScale(round),
         ),
     )
     const effects: Partial<NationDimensions> = {}
@@ -178,9 +185,9 @@ export function getEventImpact(round: number): Partial<NationDimensions> {
         1: {}, // 第1回合：初始状态，无额外影响
         2: { grain: -1.0, socialOrder: -1.2, military: -0.4 }, // 淮南摩擦 + 流民南渡
         3: { grain: -2.4, finance: -1.2, socialOrder: -0.8 }, // 春旱欠收
-        4: { military: -0.8, governance: -1.2, socialOrder: -0.5 }, // 突厥试边
-        5: { finance: -1.1, military: -0.8, governance: -1.3 }, // 河西商道受阻
-        6: { governance: -1.8, socialOrder: -1.6, military: -1.0 }, // 益州叛变
+        4: { military: -0.8, governance: -0.7, socialOrder: -0.5 }, // 突厥试边
+        5: { finance: -1.1, military: -0.8, governance: -0.8 }, // 河西商道受阻
+        6: { governance: -1.1, socialOrder: -1.6, military: -1.0 }, // 益州叛变
         7: { finance: -1.2, governance: -1.5, military: -0.8 }, // 西征议
         8: { finance: -1.8, grain: -2.0, socialOrder: -0.9 }, // 秋涝与清仓
         9: { governance: -1.0, military: -0.6 }, // 帝党再提南征
@@ -207,27 +214,90 @@ export function getEventImpact(round: number): Partial<NationDimensions> {
 export function checkDeathCondition(
     npcs: Pick<NPC, 'name' | 'trust' | 'canExecute' | 'factionId' | 'powerBase' | 'militaryPower' | 'loyaltyToCourt'>[],
     factions: Array<{ id: string; courtInfluence: number }>,
-): { triggered: boolean; killerName: string | null } {
-    let strongestCourtKiller: { name: string; influence: number } | null = null
+    round: number,
+    currentStage: PlayerDangerStage,
+): { triggered: boolean; killerName: string | null; nextStage: PlayerDangerStage; summary: string } {
+    if (round < 4) {
+        return { triggered: false, killerName: null, nextStage: 'safe', summary: '风声暂稳。' }
+    }
+
+    let watchCandidate: { name: string; influence: number } | null = null
+    let reviewCandidate: { name: string; influence: number } | null = null
+    let executeCandidate: { name: string; influence: number } | null = null
 
     for (const npc of npcs) {
         if (!npc.canExecute) continue
-        if (npc.trust > 10) continue
         if (npc.powerBase !== 'court') {
             continue
         }
 
         const faction = factions.find(f => f.id === npc.factionId)
-        if (!faction || faction.courtInfluence < 60) continue
+        if (!faction) continue
 
-        if (!strongestCourtKiller || faction.courtInfluence > strongestCourtKiller.influence) {
-            strongestCourtKiller = { name: npc.name, influence: faction.courtInfluence }
+        if (npc.trust <= 16 && faction.courtInfluence >= 55) {
+            if (!watchCandidate || faction.courtInfluence > watchCandidate.influence) {
+                watchCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
+        }
+
+        if (round >= 6 && npc.trust <= 8 && faction.courtInfluence >= 60) {
+            if (!reviewCandidate || faction.courtInfluence > reviewCandidate.influence) {
+                reviewCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
+        }
+
+        if (round >= 7 && npc.trust <= 5 && faction.courtInfluence >= 62) {
+            if (!executeCandidate || faction.courtInfluence > executeCandidate.influence) {
+                executeCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
         }
     }
 
-    return strongestCourtKiller
-        ? { triggered: true, killerName: strongestCourtKiller.name }
-        : { triggered: false, killerName: null }
+    if (currentStage === 'under_review' && executeCandidate) {
+        return {
+            triggered: true,
+            killerName: executeCandidate.name,
+            nextStage: 'under_review',
+            summary: `${executeCandidate.name} 已将你纳入正式处置链，杀机骤近。`,
+        }
+    }
+
+    if (reviewCandidate) {
+        return {
+            triggered: false,
+            killerName: reviewCandidate.name,
+            nextStage: 'under_review',
+            summary: `${reviewCandidate.name} 已将你列入审查，朝中风声正紧。`,
+        }
+    }
+
+    if (watchCandidate) {
+        return {
+            triggered: false,
+            killerName: watchCandidate.name,
+            nextStage: 'under_watch',
+            summary: `${watchCandidate.name} 对你的行止已起疑心，风声渐紧。`,
+        }
+    }
+
+    return {
+        triggered: false,
+        killerName: null,
+        nextStage: 'safe',
+        summary: currentStage === 'safe' ? '风声暂稳。' : '这一回合风声稍缓，暂未继续收紧。',
+    }
+}
+
+function getPolicyPhaseScale(round: number): number {
+    if (round <= 6) return 0.74
+    if (round <= 12) return 0.9
+    return 1.04
+}
+
+function getPolicyAftereffectScale(round: number): number {
+    if (round <= 6) return 0.5
+    if (round <= 12) return 0.82
+    return 1
 }
 
 /**

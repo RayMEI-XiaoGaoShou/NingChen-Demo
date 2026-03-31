@@ -33,9 +33,22 @@ const ENDING_TEXT: Record<GameResult, { title: string; description: string; flav
 }
 
 export function Ending() {
-    const { gameResult, northPower, southPower, resetGame, lastSettlement, endingReport, battleReport } = useGameStore()
+    const {
+        gameResult,
+        northPower,
+        southPower,
+        resetGame,
+        restoreRoundStartSnapshot,
+        roundStartSnapshot,
+        lastSettlement,
+        endingReport,
+        battleReport,
+    } = useGameStore()
     const ending = ENDING_TEXT[gameResult]
     const isVictory = gameResult === 'VICTORY'
+    const canRetryCurrentRound =
+        Boolean(roundStartSnapshot) &&
+        (gameResult === 'DEFEAT_DEATH' || gameResult === 'DEFEAT_INVASION')
 
     return (
         <div className={`page-container ending animate-fade-in ${isVictory ? 'victory' : 'defeat'}`}>
@@ -154,6 +167,11 @@ export function Ending() {
                 )}
 
                 <div className="action-footer animate-fade-in animate-delay-5">
+                    {canRetryCurrentRound && (
+                        <button className="btn-secondary btn-restart" onClick={restoreRoundStartSnapshot}>
+                            回到本回合初
+                        </button>
+                    )}
                     <button className="btn-primary btn-restart" onClick={resetGame}>
                         重 启 宿 命
                     </button>

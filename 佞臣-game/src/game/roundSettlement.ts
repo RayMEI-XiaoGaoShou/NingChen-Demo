@@ -27,6 +27,7 @@ import type {
     GameResult,
     NationDimensions,
     NPC,
+    PlayerDangerStage,
     PolicyAftereffect,
     PolicyReasonParseResult,
     RelationshipEdge,
@@ -63,6 +64,7 @@ export interface JudgeFacts {
     northSummary: string
     southSummary: string
     invasionSummary: string
+    survivalSummary: string
     aiNativeSummary: AiNativeSummary
 }
 
@@ -82,6 +84,7 @@ export interface RoundSettlementResult {
     factionCollapseReports: FactionCollapseReport[]
     deathTriggered: boolean
     deathKiller: string | null
+    playerDangerStage: PlayerDangerStage
     invasionTriggered: boolean
     invasionPoliticalRatio: number
     gameResult: GameResult
@@ -104,6 +107,7 @@ export function settleRound(params: {
     factions: Faction[]
     relationships?: RelationshipEdge[]
     intelProgress: Record<string, number>
+    playerDangerStage?: PlayerDangerStage
     policyOptionIndex: number | null
     policyReason: string
     policyParse?: PolicyReasonParseResult | null
@@ -241,7 +245,7 @@ export function settleRound(params: {
         updatedNpcs = applyFactionCollapseNpcDrift(updatedNpcs, factionCollapseReports)
     }
 
-    const deathCheck = checkDeathCondition(updatedNpcs, factionsAfter)
+    const deathCheck = checkDeathCondition(updatedNpcs, factionsAfter, round, params.playerDangerStage ?? 'safe')
     const invasionCheck = checkEarlyInvasion(
         northStats,
         factionsAfter,
@@ -262,6 +266,7 @@ export function settleRound(params: {
                 legitimacyEffect: legitimacyTone,
                 aiScoringFocus: question.aiScoringFocus,
                 policyParse: policyParse ?? undefined,
+                round,
             })
             southStats = applyDimensionChanges(southStats, policyEffect)
             policyAftereffect = buildPolicyAftereffect({
@@ -363,6 +368,7 @@ export function settleRound(params: {
         externalActionReports,
         factionCollapseReports,
         invasionCheck,
+        deathCheck,
         policyReport,
         policyAftereffect,
         schemeResults,
@@ -385,6 +391,7 @@ export function settleRound(params: {
         factionCollapseReports,
         deathTriggered: deathCheck.triggered,
         deathKiller: deathCheck.killerName,
+        playerDangerStage: deathCheck.nextStage,
         invasionTriggered: invasionCheck.triggered,
         invasionPoliticalRatio: invasionCheck.politicalWillRatio,
         gameResult,
@@ -668,10 +675,16 @@ function buildJudgeFacts(params: {
         windowLabel: string
         pressureSummary: string
     }
-        policyReport: PolicySettlementReport | null
-        policyAftereffect: PolicyAftereffect | null
-        schemeResults: SchemeResult[]
-        delayedBacklash: DelayedBacklash[]
+    deathCheck: {
+        triggered: boolean
+        killerName: string | null
+        nextStage: PlayerDangerStage
+        summary: string
+    }
+    policyReport: PolicySettlementReport | null
+    policyAftereffect: PolicyAftereffect | null
+    schemeResults: SchemeResult[]
+    delayedBacklash: DelayedBacklash[]
 }): JudgeFacts {
     const event = ROUND_EVENTS[params.round - 1]
     const eventImpactSummary = event
@@ -696,6 +709,7 @@ function buildJudgeFacts(params: {
         northSummary: northDelta || '北周五维无明显波动。',
         southSummary,
         invasionSummary: `${params.invasionCheck.windowLabel}；${params.invasionCheck.pressureSummary}；可战条件满足 ${params.invasionCheck.warCapabilityMet} 项；比值 ${params.invasionCheck.politicalWillRatio.toFixed(2)}。`,
+        survivalSummary: params.deathCheck.summary,
         aiNativeSummary,
     }
 }

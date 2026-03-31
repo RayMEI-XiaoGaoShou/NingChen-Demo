@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, HelpOverlaySource, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, HelpOverlaySource, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -18,7 +18,7 @@ import type { NPC, Faction } from '../game/types'
 import { getAvailableSchemesForNpc } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
-import type { PersistedGameSnapshot } from '../game/saveEngine'
+import { buildRoundStartSnapshot, type PersistedGameSnapshot, type RoundStartSnapshot } from '../game/saveEngine'
 
 /** 单条NPC反馈记录 */
 export interface NpcFeedback {
@@ -43,10 +43,12 @@ interface GameState {
     helpOverlayOpen: boolean
     helpOverlaySource: HelpOverlaySource | null
     firstRoundGuideSeen: FirstRoundGuideSeenMap
+    playerDangerStage: PlayerDangerStage
 
     // 游戏结果
     isGameOver: boolean
     gameResult: GameResult
+    roundStartSnapshot: RoundStartSnapshot | null
 
     // 国力数据
     northStats: NationDimensions
@@ -89,6 +91,8 @@ interface GameState {
     openGameplayGuide: (source?: HelpOverlaySource) => void
     closeGameplayGuide: () => void
     markFirstRoundGuideSeen: (key: FirstRoundGuideKey) => void
+    saveRoundStartSnapshot: () => void
+    restoreRoundStartSnapshot: () => void
     resetGame: () => void
     addScheme: (scheme: SchemeAction) => void
     selectPolicy: (optionIndex: number, reason: string, policyParse?: PolicyReasonParseResult | null) => void
@@ -166,8 +170,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     helpOverlayOpen: false,
     helpOverlaySource: null,
     firstRoundGuideSeen: initialFirstRoundGuideSeen,
+    playerDangerStage: 'safe',
     isGameOver: false,
     gameResult: 'NONE',
+    roundStartSnapshot: null,
     northStats: { ...NORTH_INITIAL },
     southStats: { ...SOUTH_INITIAL },
     northPower: initialNorthPower,
@@ -200,6 +206,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         switch (currentPhase) {
             case 'PROLOGUE':
                 set({ currentPhase: 'ROUND_START' })
+                get().saveRoundStartSnapshot()
                 break
 
             case 'ROUND_START':
@@ -235,6 +242,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         factions: s.factions,
                         relationships: s.relationships,
                         intelProgress: s.intelProgress,
+                        playerDangerStage: s.playerDangerStage,
                         policyOptionIndex: s.selectedPolicyOption,
                         policyReason: s.policyReason,
                         policyParse: s.selectedPolicyParse,
@@ -292,6 +300,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             currentPhase: 'ENDING',
                             isGameOver: true,
                             gameResult: result.gameResult,
+                            playerDangerStage: result.playerDangerStage,
                             northStats: result.northStatsAfter,
                             southStats: result.southStatsAfter,
                             northPower: result.northPowerAfter,
@@ -318,6 +327,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             southStats: result.southStatsAfter,
                             northPower: result.northPowerAfter,
                             southPower: result.southPowerAfter,
+                            playerDangerStage: result.playerDangerStage,
                             npcs: updatedNpcs,
                             factions: result.factionsAfter,
                             relationships: result.relationshipsAfter,
@@ -364,6 +374,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         currentRound: currentRound + 1,
                         currentPhase: 'ROUND_START',
                         schemeCount: 0,
+                        playerDangerStage: state.playerDangerStage,
                         southStats: nextSouthStats,
                         northStats: backlashResult.northStats,
                         southPower: calculateCompositePower(nextSouthStats),
@@ -389,6 +400,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         shuCampaign: state.shuCampaign,
                         huainanCampaign: state.huainanCampaign,
                     })
+                    get().saveRoundStartSnapshot()
                 }
                 break
 
@@ -446,6 +458,101 @@ export const useGameStore = create<GameState>((set, get) => ({
         }))
     },
 
+    saveRoundStartSnapshot: () => {
+        const state = get()
+        const snapshot = buildRoundStartSnapshot({
+            currentRound: state.currentRound,
+            currentPhase: 'ROUND_START',
+            schemeCount: 0,
+            maxSchemes: state.maxSchemes,
+            prologueStep: state.prologueStep,
+            helpOverlayOpen: false,
+            helpOverlaySource: null,
+            firstRoundGuideSeen: state.firstRoundGuideSeen,
+            playerDangerStage: state.playerDangerStage,
+            isGameOver: false,
+            gameResult: 'NONE',
+            northStats: state.northStats,
+            southStats: state.southStats,
+            northPower: state.northPower,
+            southPower: state.southPower,
+            npcs: state.npcs.map(npc => ({ ...npc })),
+            factions: state.factions.map(faction => ({ ...faction })),
+            relationships: state.relationships.map(edge => ({ ...edge })),
+            intelProgress: { ...state.intelProgress },
+            currentSchemes: [],
+            selectedPolicyOption: null,
+            policyReason: '',
+            selectedPolicyParse: null,
+            npcFeedbacks: [],
+            pendingStructuredSchemeIds: [],
+            lastSettlement: null,
+            lastPolicyReport: state.lastPolicyReport,
+            lastPolicyAftereffect: state.lastPolicyAftereffect,
+            pendingBacklash: state.pendingBacklash.map(item => ({ ...item })),
+            recentBacklash: state.recentBacklash.map(item => ({ ...item })),
+            roundHistory: state.roundHistory.map(item => ({ ...item })),
+            endingReport: null,
+            battleReport: null,
+            shuCampaign: {
+                ...state.shuCampaign,
+                ongoingNorthImpact: { ...state.shuCampaign.ongoingNorthImpact },
+                ongoingSouthImpact: { ...state.shuCampaign.ongoingSouthImpact },
+            },
+            huainanCampaign: {
+                ...state.huainanCampaign,
+                ongoingNorthImpact: { ...state.huainanCampaign.ongoingNorthImpact },
+                ongoingSouthImpact: { ...state.huainanCampaign.ongoingSouthImpact },
+            },
+        })
+
+        set({ roundStartSnapshot: snapshot })
+    },
+
+    restoreRoundStartSnapshot: () => {
+        const snapshot = get().roundStartSnapshot
+        if (!snapshot) return
+
+        set({
+            currentRound: snapshot.currentRound,
+            currentPhase: 'ROUND_START',
+            schemeCount: 0,
+            maxSchemes: snapshot.maxSchemes,
+            prologueStep: snapshot.prologueStep,
+            helpOverlayOpen: false,
+            helpOverlaySource: null,
+            firstRoundGuideSeen: snapshot.firstRoundGuideSeen,
+            playerDangerStage: snapshot.playerDangerStage,
+            isGameOver: false,
+            gameResult: 'NONE',
+            roundStartSnapshot: snapshot,
+            northStats: snapshot.northStats,
+            southStats: snapshot.southStats,
+            northPower: snapshot.northPower,
+            southPower: snapshot.southPower,
+            npcs: attachAvailableSchemes(snapshot.npcs, snapshot.currentRound, snapshot.intelProgress),
+            factions: snapshot.factions,
+            relationships: snapshot.relationships,
+            intelProgress: snapshot.intelProgress,
+            currentSchemes: [],
+            selectedPolicyOption: null,
+            policyReason: '',
+            selectedPolicyParse: null,
+            npcFeedbacks: [],
+            pendingStructuredSchemeIds: [],
+            lastSettlement: null,
+            lastPolicyReport: snapshot.lastPolicyReport,
+            lastPolicyAftereffect: snapshot.lastPolicyAftereffect,
+            pendingBacklash: snapshot.pendingBacklash,
+            recentBacklash: snapshot.recentBacklash,
+            roundHistory: snapshot.roundHistory,
+            endingReport: null,
+            battleReport: null,
+            shuCampaign: snapshot.shuCampaign,
+            huainanCampaign: snapshot.huainanCampaign,
+        })
+    },
+
     resetGame: () => {
         set({
             currentRound: 1,
@@ -457,10 +564,12 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: initialFirstRoundGuideSeen,
+            playerDangerStage: 'safe',
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
             northPower: initialNorthPower,
             southPower: initialSouthPower,
+            roundStartSnapshot: null,
             npcs: attachAvailableSchemes(INITIAL_NPCS.map(n => ({ ...n })), 1, initialIntelProgress),
             factions: INITIAL_FACTIONS.map(f => ({ ...f })),
             relationships: INITIAL_RELATIONSHIP_EDGES.map(edge => ({ ...edge })),
@@ -554,8 +663,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: guideSnapshot.helpOverlayOpen ?? false,
             helpOverlaySource: guideSnapshot.helpOverlaySource ?? null,
             firstRoundGuideSeen: normalizeFirstRoundGuideSeen(guideSnapshot.firstRoundGuideSeen),
+            playerDangerStage: snapshot.playerDangerStage ?? 'safe',
             isGameOver: snapshot.isGameOver,
             gameResult: snapshot.gameResult,
+            roundStartSnapshot: snapshot.roundStartSnapshot
+                ? {
+                    ...snapshot.roundStartSnapshot,
+                    npcs: attachAvailableSchemes(
+                        snapshot.roundStartSnapshot.npcs,
+                        snapshot.roundStartSnapshot.currentRound,
+                        snapshot.roundStartSnapshot.intelProgress,
+                    ),
+                }
+                : null,
             northStats: snapshot.northStats,
             southStats: snapshot.southStats,
             northPower: snapshot.northPower,

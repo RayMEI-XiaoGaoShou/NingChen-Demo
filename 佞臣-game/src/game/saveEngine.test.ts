@@ -25,6 +25,7 @@ describe('saveEngine', () => {
         helpOverlayOpen: false,
         helpOverlaySource: null,
         firstRoundGuideSeen: initialFirstRoundGuideSeen,
+        playerDangerStage: 'safe' as const,
         isGameOver: false,
         gameResult: 'NONE' as const,
         northStats: { ...NORTH_INITIAL },
@@ -65,6 +66,7 @@ describe('saveEngine', () => {
             ongoingSouthImpact: {},
             remainingRounds: 0,
         },
+        roundStartSnapshot: null,
     })
 
     it('does not persist a pristine opening state', () => {
@@ -98,5 +100,24 @@ describe('saveEngine', () => {
         expect(snapshot).toBeTruthy()
         expect(snapshot?.shuCampaign.state).toBe('gained')
         expect(snapshot?.shuCampaign.remainingRounds).toBe(2)
+    })
+
+    it('persists a round-start rollback snapshot without nesting recursively', () => {
+        const snapshot = buildPersistedSnapshot({
+            ...createBaseState(),
+            currentRound: 6,
+            currentPhase: 'ROUND_START',
+            prologueStep: 'INGAME',
+            roundStartSnapshot: {
+                ...createBaseState(),
+                currentRound: 6,
+                currentPhase: 'ROUND_START',
+                prologueStep: 'INGAME',
+            },
+        })
+
+        expect(snapshot).toBeTruthy()
+        expect(snapshot?.roundStartSnapshot?.currentRound).toBe(6)
+        expect((snapshot?.roundStartSnapshot as any)?.roundStartSnapshot).toBeUndefined()
     })
 })

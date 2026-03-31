@@ -24,6 +24,8 @@ function resetStore() {
         maxSchemes: 3,
         isGameOver: false,
         gameResult: 'NONE',
+        playerDangerStage: 'safe',
+        roundStartSnapshot: null,
         northStats: { ...NORTH_INITIAL },
         southStats: { ...SOUTH_INITIAL },
         northPower: calculateCompositePower(NORTH_INITIAL),
@@ -277,6 +279,7 @@ describe('gameStore guide and prologue state', () => {
             currentPhase: 'PROLOGUE',
             schemeCount: 0,
             maxSchemes: 3,
+            playerDangerStage: 'safe',
             isGameOver: false,
             gameResult: 'NONE',
             northStats: { ...NORTH_INITIAL },
@@ -317,6 +320,7 @@ describe('gameStore guide and prologue state', () => {
                 ongoingSouthImpact: {},
                 remainingRounds: 0,
             },
+            roundStartSnapshot: null,
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: false,
@@ -343,6 +347,7 @@ describe('gameStore guide and prologue state', () => {
             currentPhase: 'ROUND_START',
             schemeCount: 1,
             maxSchemes: 3,
+            playerDangerStage: 'safe',
             isGameOver: false,
             gameResult: 'NONE',
             northStats: { ...NORTH_INITIAL },
@@ -383,6 +388,7 @@ describe('gameStore guide and prologue state', () => {
                 ongoingSouthImpact: {},
                 remainingRounds: 0,
             },
+            roundStartSnapshot: null,
             prologueStep: 'GAMEPLAY_GUIDE',
             helpOverlayOpen: true,
             helpOverlaySource: 'prologue',
@@ -423,5 +429,42 @@ describe('gameStore guide and prologue state', () => {
             scheme_feedback: true,
             settlement: false,
         })
+    })
+
+    it('can save and restore the current round start snapshot after a failed round', () => {
+        useGameStore.setState({
+            currentRound: 6,
+            currentPhase: 'ROUND_START',
+            prologueStep: 'INGAME',
+            playerDangerStage: 'under_watch',
+        })
+
+        useGameStore.getState().saveRoundStartSnapshot()
+        useGameStore.setState({
+            currentPhase: 'ENDING',
+            isGameOver: true,
+            gameResult: 'DEFEAT_DEATH',
+            schemeCount: 2,
+            currentSchemes: [
+                {
+                    id: 'scheme-1',
+                    targetNpcId: INITIAL_NPCS[0]!.id,
+                    schemeType: 'advise',
+                    playerSpeech: 'test',
+                },
+            ],
+        })
+
+        useGameStore.getState().restoreRoundStartSnapshot()
+
+        const state = useGameStore.getState()
+        expect(state.currentRound).toBe(6)
+        expect(state.currentPhase).toBe('ROUND_START')
+        expect(state.isGameOver).toBe(false)
+        expect(state.gameResult).toBe('NONE')
+        expect(state.schemeCount).toBe(0)
+        expect(state.currentSchemes).toHaveLength(0)
+        expect(state.playerDangerStage).toBe('under_watch')
+        expect(state.roundStartSnapshot?.currentRound).toBe(6)
     })
 })

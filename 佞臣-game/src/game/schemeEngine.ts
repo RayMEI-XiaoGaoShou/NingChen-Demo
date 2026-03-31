@@ -208,6 +208,26 @@ function mergeDimensions(
     return merged
 }
 
+function getOpeningSchemeNationScale(round: number): number {
+    if (round <= 6) return 0.42
+    if (round <= 12) return 0.72
+    return 1
+}
+
+function softenEarlyNorthNationEffects(
+    changes: Partial<NationDimensions>,
+    roundNumber: number,
+): Partial<NationDimensions> {
+    const governanceScale = roundNumber <= 6 ? 0.45 : roundNumber <= 12 ? 0.72 : 1
+    const socialOrderScale = roundNumber <= 6 ? 0.5 : roundNumber <= 12 ? 0.78 : 1
+
+    return {
+        ...changes,
+        governance: changes.governance !== undefined ? round((changes.governance ?? 0) * governanceScale) : changes.governance,
+        socialOrder: changes.socialOrder !== undefined ? round((changes.socialOrder ?? 0) * socialOrderScale) : changes.socialOrder,
+    }
+}
+
 function addFactionEffect(
     bucket: Partial<Record<CourtFactionId, FactionVector>>,
     factionId: CourtFactionId,
@@ -526,6 +546,9 @@ export function settleScheme(
         : success
             ? 0.65
             : 1
+    const tunedNationMultiplier = success
+        ? roundValue(nationMultiplier * getOpeningSchemeNationScale(round))
+        : nationMultiplier
 
     const template: {
         person: PersonEffects
@@ -546,9 +569,10 @@ export function settleScheme(
     nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects))
     nationEffects = mergeDimensions(
         nationEffects,
-        scaleDimensions(deriveMilitarySpillover(action, targetNpc, relatedNpc, round, success, northParse), nationMultiplier),
+        scaleDimensions(deriveMilitarySpillover(action, targetNpc, relatedNpc, round, success, northParse), tunedNationMultiplier),
     )
-    nationEffects = scaleDimensions(nationEffects, nationMultiplier)
+    nationEffects = scaleDimensions(nationEffects, tunedNationMultiplier)
+    nationEffects = softenEarlyNorthNationEffects(nationEffects, round)
 
     if (template.specialAction === 'secession') {
         nationEffects = mergeDimensions(nationEffects, scaleDimensions({
@@ -557,7 +581,7 @@ export function settleScheme(
             military: -(targetNpc.militaryPower / 14),
             socialOrder: -(targetNpc.militaryPower / 22),
             governance: -(targetNpc.militaryPower / 16),
-        }, Math.max(factionMultiplier, nationMultiplier)))
+        }, Math.max(factionMultiplier, tunedNationMultiplier)))
     }
 
     if (template.specialAction === 'rebellion') {
@@ -567,7 +591,7 @@ export function settleScheme(
             military: -(targetNpc.militaryPower / 7),
             socialOrder: -(targetNpc.militaryPower / 10),
             governance: -(targetNpc.militaryPower / 9),
-        }, Math.max(factionMultiplier, nationMultiplier)))
+        }, Math.max(factionMultiplier, tunedNationMultiplier)))
     }
 
     const feedbackText = generateFeedback(action, targetNpc, success)

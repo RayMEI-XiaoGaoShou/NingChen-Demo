@@ -1,12 +1,27 @@
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { getAlignmentLabel, getExternalStatusLabel, getLoyaltyLabel, getPowerLabel, getTrustLabel, getTrustLevel } from '../../game/types'
+import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './CourtView.css'
+
+function getExternalTiltLabel(npc: NPC): string {
+    if (npc.alignmentBias === 'emperor') return '偏帝党'
+    if (npc.alignmentBias === 'empress') return '偏后党'
+    if (npc.alignmentBias === 'self') return '自立'
+    return '摇摆'
+}
+
+function getExternalPostureLabel(npc: NPC): string {
+    if (npc.externalStatus === 'rebellion') return '反叛'
+    if (npc.externalStatus === 'secession') return '割据'
+    if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心'
+    if (npc.externalStatus === 'watchful') return '观望'
+    return '忠顺'
+}
 
 export function CourtView() {
     const {
@@ -27,7 +42,8 @@ export function CourtView() {
 
     const powerLabel = getPowerLabel(northPower)
     const courtFactions = factions
-    const externalNpcs = npcs.filter(n => n.powerBase === 'external' && n.isAlive)
+    const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
+    const externalNpcs = npcs.filter(npc => npc.powerBase === 'external' && npc.isAlive)
     const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(courtFactions, npcs, currentRound)
 
     const invasionRisk =
@@ -37,14 +53,14 @@ export function CourtView() {
                 ? { label: '南征议起', className: 'risk-warning' }
                 : { label: '安内占优', className: 'risk-safe' }
 
-    const dangerNpcs = npcs.filter(n =>
-        n.canExecute &&
-        n.powerBase === 'court' &&
-        n.trust <= 25 &&
-        (factions.find(f => f.id === n.factionId)?.courtInfluence ?? 0) >= 55)
+    const dangerNpcs = npcs.filter(npc =>
+        npc.canExecute &&
+        npc.powerBase === 'court' &&
+        npc.trust <= 25 &&
+        (factions.find(faction => faction.id === npc.factionId)?.courtInfluence ?? 0) >= 55)
 
     const safetyRisk =
-        dangerNpcs.some(n => n.trust <= 15)
+        dangerNpcs.some(npc => npc.trust <= 15)
             ? { label: '祸在旦夕', className: 'risk-critical' }
             : dangerNpcs.length > 0
                 ? { label: '暗流涌动', className: 'risk-warning' }
@@ -68,26 +84,20 @@ export function CourtView() {
 
             <div className="court-header animate-slide-up">
                 <button className="btn-back btn-back-inline" onClick={prevPhase}>上一页</button>
-                <h2 className="page-title">朝 局 观 察</h2>
+                <h2 className="page-title">本 局 观 势</h2>
 
                 <div className="glass-panel status-bar">
                     <div className="status-item">
                         <span className="status-label">北周国力</span>
-                        <span className={`status-value power-level-${getPowerLabel(northPower)}`}>
-                            {powerLabel}
-                        </span>
+                        <span className={`status-value power-level-${powerLabel}`}>{powerLabel}</span>
                     </div>
                     <div className="status-item">
                         <span className="status-label">南征风险</span>
-                        <span className={`status-value ${invasionRisk.className}`}>
-                            {invasionRisk.label}
-                        </span>
+                        <span className={`status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
                     </div>
                     <div className="status-item">
                         <span className="status-label">自身安全</span>
-                        <span className={`status-value ${safetyRisk.className}`}>
-                            {safetyRisk.label}
-                        </span>
+                        <span className={`status-value ${safetyRisk.className}`}>{safetyRisk.label}</span>
                     </div>
                 </div>
             </div>
@@ -95,12 +105,12 @@ export function CourtView() {
             <div className="section-container animate-slide-up animate-delay-1">
                 <h3 className="section-heading">朝堂势力分布</h3>
                 <div className="faction-grid">
-                    {courtFactions.map(f => {
-                        const combinedStrength = f.id === 'emperor' ? emperorInfluence : empressInfluence
+                    {courtFactions.map(faction => {
+                        const combinedStrength = faction.id === 'emperor' ? emperorInfluence : empressInfluence
                         return (
-                            <div key={f.id} className={`gold-panel faction-card faction-${f.id}`}>
+                            <div key={faction.id} className={`gold-panel faction-card faction-${faction.id}`}>
                                 <div className="faction-card-header">
-                                    <span className="faction-name">{f.name}</span>
+                                    <span className="faction-name">{faction.name}</span>
                                     <span className="faction-value">综合实力 {combinedStrength.toFixed(1)}</span>
                                 </div>
                                 <div className="faction-bar">
@@ -110,9 +120,9 @@ export function CourtView() {
                                     />
                                 </div>
                                 <div className="faction-metrics">
-                                    <span>权势 {f.courtInfluence}</span>
-                                    <span>军事实力 {f.militaryPower}</span>
-                                    <span>内部稳定度 {f.internalStability}</span>
+                                    <span>权势 {faction.courtInfluence}</span>
+                                    <span>军事实力 {faction.militaryPower}</span>
+                                    <span>内部稳定度 {faction.internalStability}</span>
                                 </div>
                             </div>
                         )
@@ -126,25 +136,38 @@ export function CourtView() {
                     他们不属于后党或帝党，对朝局缺乏影响力，但手握地方军权，是北周不可忽视的外部势力。
                 </p>
                 <div className="external-grid">
-                    {externalNpcs.map(npc => (
-                        <div key={npc.id} className="glass-panel external-card">
-                            <div className="external-card-header">
-                                <div className="external-name">{npc.name}</div>
-                                <div className="external-title">{npc.title}</div>
+                    {externalNpcs.map((npc, index) => (
+                        <button
+                            key={npc.id}
+                            className="glass-panel external-card animate-slide-up"
+                            style={{ animationDelay: `${0.14 + index * 0.05}s` }}
+                            onClick={() => openNpcDetail(npc.id)}
+                        >
+                            <NpcPortrait name={npc.name} className="external-portrait" />
+                            <div className="external-main">
+                                <div className="external-card-header">
+                                    <div className="external-name">{npc.name}</div>
+                                    <div className="external-title">{npc.title}</div>
+                                </div>
+                                <div className="external-stats">
+                                    <span>军力 {npc.militaryPower}</span>
+                                    <span>忠诚 {npc.loyaltyToCourt}</span>
+                                    <span>{getExternalTiltLabel(npc)}</span>
+                                    <span>{getExternalPostureLabel(npc)}</span>
+                                </div>
+                                <span className="npc-reaction external-reaction">
+                                    {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0)}
+                                </span>
                             </div>
-                            <div className="external-stats">
-                                <span>军力 {npc.militaryPower}</span>
-                                <span>忠诚 {npc.loyaltyToCourt}</span>
-                            </div>
-                        </div>
+                        </button>
                     ))}
                 </div>
             </div>
 
             <div className="section-container animate-slide-up animate-delay-2">
-                <h3 className="section-heading">北周群臣</h3>
+                <h3 className="section-heading">朝堂势力</h3>
                 <div className="npc-grid">
-                    {npcs.map((npc, index) => (
+                    {courtNpcs.map((npc, index) => (
                         <button
                             key={npc.id}
                             className={`npc-card trust-${getTrustLevel(npc.trust)} animate-slide-up ${!npc.isAlive ? 'dead' : ''}`}
@@ -156,20 +179,7 @@ export function CourtView() {
                             <div className="npc-info">
                                 <span className="npc-name">{npc.name}</span>
                                 <span className="npc-title">{npc.title}</span>
-                                <span className="npc-faction">
-                                    {npc.factionId === 'emperor'
-                                        ? '帝党'
-                                        : npc.factionId === 'empress'
-                                            ? '后党'
-                                            : npc.factionId === 'longxi'
-                                                ? '陇右系'
-                                                : '草原系'}
-                                </span>
-                                {npc.powerBase === 'external' && (
-                                    <span className="npc-submeta">
-                                        忠诚 {getLoyaltyLabel(npc.loyaltyToCourt)} · {getAlignmentLabel(npc.alignmentBias)} · {getExternalStatusLabel(npc.externalStatus)}
-                                    </span>
-                                )}
+                                <span className="npc-faction">{npc.factionId === 'emperor' ? '帝党' : '后党'}</span>
                                 {npc.isAlive && (
                                     <span className="npc-reaction">
                                         {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0)}
@@ -189,11 +199,7 @@ export function CourtView() {
                 <div className="scheme-counter">
                     今日可用计谋：<span className="highlight-number">{maxSchemes - schemeCount}</span> / {maxSchemes}
                 </div>
-                <button
-                    className="btn-primary"
-                    onClick={nextPhase}
-                    disabled={schemeCount >= maxSchemes}
-                >
+                <button className="btn-primary" onClick={nextPhase} disabled={schemeCount >= maxSchemes}>
                     {schemeCount >= maxSchemes ? '无计可施' : '开始施计'}
                 </button>
             </div>

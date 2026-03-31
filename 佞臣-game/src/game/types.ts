@@ -15,6 +15,7 @@ export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' |
 export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
 export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
+export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
 export type FirstRoundGuideKey =
     | 'round_start'
     | 'court_observe'
@@ -186,6 +187,7 @@ export interface PolicyResolutionMeta {
     legitimacyEffect?: 'up' | 'down' | 'steady'
     aiScoringFocus?: string
     policyParse?: PolicyReasonParseResult
+    round?: number
 }
 
 export interface PolicyAftereffect {

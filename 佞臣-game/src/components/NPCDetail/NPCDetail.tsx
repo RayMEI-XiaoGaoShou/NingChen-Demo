@@ -1,10 +1,26 @@
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
-import { getAlignmentLabel, getExternalStatusLabel, getLoyaltyLabel, getTrustLabel, getTrustLevel } from '../../game/types'
+import { getTrustLabel, getTrustLevel } from '../../game/types'
+import type { NPC } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
+
+function getExternalTiltLabel(npc: NPC): string {
+    if (npc.alignmentBias === 'emperor') return '偏帝党'
+    if (npc.alignmentBias === 'empress') return '偏后党'
+    if (npc.alignmentBias === 'self') return '自立'
+    return '摇摆'
+}
+
+function getExternalPostureLabel(npc: NPC): string {
+    if (npc.externalStatus === 'rebellion') return '反叛'
+    if (npc.externalStatus === 'secession') return '割据'
+    if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心'
+    if (npc.externalStatus === 'watchful') return '观望'
+    return '忠顺'
+}
 
 export function NPCDetail() {
     const { npcs, intelProgress, currentRound } = useGameStore()
@@ -33,7 +49,7 @@ export function NPCDetail() {
 
     return (
         <div className="npc-detail-overlay" onClick={closeNpcDetail}>
-            <div className="npc-detail-modal" onClick={e => e.stopPropagation()}>
+            <div className="npc-detail-modal" onClick={event => event.stopPropagation()}>
                 <button className="close-btn" onClick={closeNpcDetail}>✕</button>
 
                 <div className="npc-detail-header">
@@ -82,9 +98,8 @@ export function NPCDetail() {
                         <div className="detail-metrics">
                             <span className="metric-chip">军力 {npc.militaryPower}</span>
                             <span className="metric-chip">忠诚 {npc.loyaltyToCourt}</span>
-                            <span className="metric-chip">{getLoyaltyLabel(npc.loyaltyToCourt)}</span>
-                            <span className="metric-chip">{getAlignmentLabel(npc.alignmentBias)}</span>
-                            <span className="metric-chip">{getExternalStatusLabel(npc.externalStatus)}</span>
+                            <span className="metric-chip">倾向：{getExternalTiltLabel(npc)}</span>
+                            <span className="metric-chip">态势：{getExternalPostureLabel(npc)}</span>
                         </div>
                     </div>
                 )}
@@ -105,11 +120,11 @@ export function NPCDetail() {
                 <div className="npc-detail-section">
                     <h4>可用计谋</h4>
                     <div className="scheme-tags">
-                        {SCHEMES.map(s => {
-                            const available = availableSchemeTypes.includes(s.type)
+                        {SCHEMES.map(scheme => {
+                            const available = availableSchemeTypes.includes(scheme.type)
                             return (
-                                <span key={s.type} className={`scheme-tag ${available ? '' : 'locked'}`}>
-                                    {s.name}{!available && ' 🔒'}
+                                <span key={scheme.type} className={`scheme-tag ${available ? '' : 'locked'}`}>
+                                    {scheme.name}{!available && ' 🔒'}
                                 </span>
                             )
                         })}

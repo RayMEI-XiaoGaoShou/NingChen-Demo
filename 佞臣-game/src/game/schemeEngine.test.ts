@@ -64,7 +64,7 @@ describe('schemeEngine contextual scheme rules', () => {
             { ...npc },
             null,
             0,
-            { round: 3, unlockedSecrets: 1 },
+            { round: 8, unlockedSecrets: 1 },
         )
 
         const structural = settleScheme(
@@ -78,10 +78,45 @@ describe('schemeEngine contextual scheme rules', () => {
             { ...npc },
             null,
             0,
-            { round: 3, unlockedSecrets: 1 },
+            { round: 8, unlockedSecrets: 1 },
         )
 
         expect(structural.trustChange).toBeGreaterThanOrEqual(flattering.trustChange)
         expect(Math.abs(structural.nationEffects.governance ?? 0)).toBeGreaterThan(Math.abs(flattering.nationEffects.governance ?? 0))
+    })
+
+    it('tempers nation-layer damage from the same strong speech in the opening rounds', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.name === '祖廷')!, trust: 68 }
+        const speech = '趁灾年把仓廪、饷权与赈务并收中枢，先堵河北豪右，再反压帝党。'
+
+        const early = settleScheme(
+            {
+                id: 'early-strong',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: speech,
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 3, unlockedSecrets: 1 },
+        )
+
+        const later = settleScheme(
+            {
+                id: 'later-strong',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: speech,
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 8, unlockedSecrets: 1 },
+        )
+
+        expect(Math.abs(early.nationEffects.governance ?? 0)).toBeLessThan(Math.abs(later.nationEffects.governance ?? 0))
     })
 })
