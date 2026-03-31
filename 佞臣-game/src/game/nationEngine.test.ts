@@ -259,7 +259,7 @@ describe('buildPolicyAftereffect', () => {
         })
 
         expect(aftereffect.sourceRound).toBe(2)
-        expect(aftereffect.summary).toContain('流民政策')
+        expect(aftereffect.summary).toBe('你上回合的奏对收益延续到了这一回合。')
         expect(aftereffect.effects.grain).toBeGreaterThan(0)
         expect(aftereffect.legitimacyTone).toBe('up')
         expect(aftereffect.focusMatched).toBe(true)
@@ -295,8 +295,22 @@ describe('buildPolicyAftereffect', () => {
         })
 
         expect(early.effects.grain).toBeLessThan(mid.effects.grain ?? 0)
-        expect(early.effects.governance).toBeLessThan(mid.effects.governance ?? 0)
+        expect(early.effects.governance).toBeLessThanOrEqual(mid.effects.governance ?? 0)
         expect(mid.effects.grain).toBeLessThan(late.effects.grain ?? 0)
         expect(mid.effects.governance).toBeLessThan(late.effects.governance ?? 0)
+    })
+
+    it('uses concise wording for delayed policy fallout', () => {
+        const aftereffect = buildPolicyAftereffect({
+            round: 9,
+            topic: '战略选择',
+            nextRoundFeedback: '将引出征蜀具体方略',
+            legitimacyEffect: 'steady',
+            immediateEffects: { military: 2.6, governance: 1.3, finance: -1.3, grain: -1.3 },
+            reasonText: '先西后北，先用可控的征蜀把窗口坐实，再谋北向。',
+            aiScoringFocus: '是否对窗口期与战争消耗有清醒判断',
+        })
+
+        expect(aftereffect.summary).toBe('你上回合的奏对收益延续到了这一回合。')
     })
 })

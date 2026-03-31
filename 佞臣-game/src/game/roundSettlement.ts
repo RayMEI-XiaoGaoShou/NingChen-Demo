@@ -306,6 +306,7 @@ export function settleRound(params: {
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
         shuCampaign = {
             state: evaluation.state,
+            resolvedState: evaluation.resolvedState ?? evaluation.state,
             sourceRound: evaluation.sourceRound,
             summary: evaluation.summary,
             ongoingNorthImpact: evaluation.ongoingNorthImpact,
@@ -327,6 +328,7 @@ export function settleRound(params: {
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
         huainanCampaign = {
             state: evaluation.state,
+            resolvedState: evaluation.resolvedState ?? evaluation.state,
             sourceRound: evaluation.sourceRound,
             summary: evaluation.summary,
             ongoingNorthImpact: evaluation.ongoingNorthImpact,
@@ -571,11 +573,13 @@ function cloneCampaign(campaign?: CampaignState): CampaignState {
     return campaign
         ? {
             ...campaign,
+            resolvedState: campaign.resolvedState ?? campaign.state,
             ongoingNorthImpact: { ...campaign.ongoingNorthImpact },
             ongoingSouthImpact: { ...campaign.ongoingSouthImpact },
         }
         : {
             state: 'idle',
+            resolvedState: null,
             sourceRound: null,
             summary: '',
             ongoingNorthImpact: {},
@@ -600,8 +604,12 @@ function deriveNorthPressurePenalty(
         npc.powerBase === 'external' && npc.isAlive && npc.externalStatus !== 'loyal',
     ).length
     penalty += watchfulOrWorse * 1.2
-    penalty += npcs.filter(npc => npc.powerBase === 'external' && npc.externalStatus === 'secession').length * 2.6
-    penalty += npcs.filter(npc => npc.powerBase === 'external' && npc.externalStatus === 'rebellion').length * 3.4
+    penalty += npcs.filter(npc =>
+        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus === 'secession',
+    ).length * 2.6
+    penalty += npcs.filter(npc =>
+        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus === 'rebellion',
+    ).length * 3.4
 
     const emperor = factions.find(faction => faction.id === 'emperor')
     const empress = factions.find(faction => faction.id === 'empress')

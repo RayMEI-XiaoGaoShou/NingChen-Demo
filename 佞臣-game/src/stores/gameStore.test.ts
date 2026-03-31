@@ -171,6 +171,22 @@ describe('gameStore addScheme', () => {
         expect(state.lastPolicyAftereffect?.summary).toBeTruthy()
     })
 
+    it('can enter settlement from round 1 scheme feedback without throwing', () => {
+        useGameStore.setState({
+            currentRound: 1,
+            currentPhase: 'SCHEME_FEEDBACK',
+            selectedPolicyOption: 0,
+            policyReason: '先稳住粮道，再图后续布置。',
+            currentSchemes: [],
+        })
+
+        expect(() => useGameStore.getState().nextPhase()).not.toThrow()
+
+        const state = useGameStore.getState()
+        expect(state.currentPhase).toBe('SETTLEMENT')
+        expect(state.lastSettlement).toBeTruthy()
+    })
+
     it('applies delayed policy fallout when entering the next round', () => {
         useGameStore.setState({
             currentRound: 2,

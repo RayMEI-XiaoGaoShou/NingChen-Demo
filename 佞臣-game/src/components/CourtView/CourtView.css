@@ -201,8 +201,8 @@
 }
 
 .npc-avatar-placeholder {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: rgba(201, 176, 101, 0.1);
     border: 1px solid var(--color-border-gold);
@@ -381,8 +381,8 @@
 }
 
 .external-portrait {
-    width: 54px;
-    height: 54px;
+    width: 58px;
+    height: 58px;
     border-radius: 14px;
     border: 1px solid var(--color-border-gold);
     background: rgba(201, 176, 101, 0.08);

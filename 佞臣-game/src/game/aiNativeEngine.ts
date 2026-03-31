@@ -43,6 +43,11 @@ export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResul
         structuralPenetration: clamp01(candidate.structuralPenetration),
         executability: clamp01(candidate.executability),
         exposureRisk: clamp01(candidate.exposureRisk),
+        financeRelevance: clamp01(candidate.financeRelevance),
+        grainRelevance: clamp01(candidate.grainRelevance),
+        militaryRelevance: clamp01(candidate.militaryRelevance),
+        socialOrderRelevance: clamp01(candidate.socialOrderRelevance),
+        governanceRelevance: clamp01(candidate.governanceRelevance),
         dominantIntent: isNorthIntent(candidate.dominantIntent) ? candidate.dominantIntent : 'neutral',
         evidence: cleanEvidence(candidate.evidence),
     }
@@ -64,7 +69,7 @@ function extractKeywords(text: string): string[] {
     return Array.from(
         new Set(
             text
-                .split(/[，。；：、！？\s（）()"'“”‘’]+/)
+                .split(/[，。；：、！\s（）()"'“”‘’\-+/]/)
                 .map(part => part.trim())
                 .filter(part => part.length >= 2),
         ),
@@ -106,9 +111,15 @@ export function fallbackNorthParseFromSpeech(params: {
             ...extractKeywords(roundEvent.northDescription),
         ]
         : []
-    const structuralWords = ['中枢', '兵权', '粮道', '仓廪', '饷权', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛']
+
+    const structuralWords = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛']
     const executionWords = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度']
-    const exposureWords = ['夺权', '逼宫', '起兵', '翻掉', '废', '杀', '今夜', '一举', '篡', '反旗']
+    const exposureWords = ['夺权', '逼宫', '起兵', '翻掉', '杀', '今夜', '一举', '反旗']
+    const financeWords = ['财政', '国库', '赋税', '钱粮', '商道', '饷银', '军费', '开源', '节流', '库藏']
+    const grainWords = ['粮', '粮道', '军粮', '口粮', '转运', '漕运', '仓储', '屯田', '后勤', '补给']
+    const militaryWords = ['兵', '军', '前线', '战', '调兵', '帅印', '节度', '都督', '平叛', '守军', '军令', '边镇']
+    const socialOrderWords = ['流民', '民变', '人心', '骚乱', '州郡', '百姓', '安民', '哗变', '恐慌', '离散']
+    const governanceWords = ['中枢', '诏令', '门阀', '权柄', '体制', '调度', '执行', '都督', '节度', '官吏', '法令', '秩序']
 
     const characterFit = clamp01(
         0.12
@@ -142,10 +153,36 @@ export function fallbackNorthParseFromSpeech(params: {
         + (speech.length >= 70 ? 0.08 : 0),
     )
 
+    const financeRelevance = clamp01(
+        scoreMatches(speech, financeWords) * 0.88
+        + (includesAny(speech, ['国库', '赋税', '商道', '饷银', '军费']) ? 0.16 : 0),
+    )
+
+    const grainRelevance = clamp01(
+        scoreMatches(speech, grainWords) * 0.92
+        + (includesAny(speech, ['粮道', '军粮', '转运', '补给', '后勤']) ? 0.2 : 0),
+    )
+
+    const militaryRelevance = clamp01(
+        scoreMatches(speech, militaryWords) * 0.9
+        + (includesAny(speech, ['前线', '调兵', '战线', '平叛', '军令']) ? 0.18 : 0),
+    )
+
+    const socialOrderRelevance = clamp01(
+        scoreMatches(speech, socialOrderWords) * 0.84
+        + (includesAny(speech, ['流民', '民变', '安民', '人心']) ? 0.16 : 0),
+    )
+
+    const governanceRelevance = clamp01(
+        scoreMatches(speech, governanceWords) * 0.9
+        + scoreMatches(speech, structuralWords) * 0.18
+        + (includesAny(speech, ['中枢', '诏令', '门阀', '调度', '执行']) ? 0.16 : 0),
+    )
+
     const dominantIntent: NorthDominantIntent =
         includesAny(speech, ['逼', '胁', '今夜', '立刻']) ? 'threaten'
-            : includesAny(speech, ['离间', '猜忌', '互疑', '反压']) ? 'divide'
-                : includesAny(speech, ['仓廪', '中枢', '节度', '兵权', '转运', '先']) ? 'strategize'
+            : includesAny(speech, ['离间', '猜疑', '互疑', '反压']) ? 'divide'
+                : includesAny(speech, ['仓储', '中枢', '节度', '兵权', '转运', '军费']) ? 'strategize'
                     : includesAny(speech, ['体恤', '同忧', '不忍', '委屈']) ? 'empathize'
                         : includesAny(speech, ['可得', '有利', '坐实', '收回']) ? 'induce'
                             : 'neutral'
@@ -162,6 +199,11 @@ export function fallbackNorthParseFromSpeech(params: {
         structuralPenetration,
         executability,
         exposureRisk,
+        financeRelevance,
+        grainRelevance,
+        militaryRelevance,
+        socialOrderRelevance,
+        governanceRelevance,
         dominantIntent,
         evidence,
     })
@@ -183,7 +225,7 @@ export function fallbackPolicyParseFromReason(
             ? 0.24
             : /门阀|豪族|士族/.test(focusText) && includesAny(text, ['门阀', '地方', '州郡', '掣肘', '反弹'])
                 ? 0.2
-                : /执行|成本|路径/.test(focusText) && includesAny(text, ['执行', '责任', '州郡', '先', '再', '推诿'])
+                : /执行|成本|路径/.test(focusText) && includesAny(text, ['执行', '责任', '州郡', '先', '再', '推进'])
                     ? 0.18
                     : /财政|国库/.test(focusText) && includesAny(text, ['财政', '国库', '税', '钱', '节流', '开源'])
                         ? 0.18
@@ -203,7 +245,7 @@ export function fallbackPolicyParseFromReason(
     )
 
     const costAwareness = clamp01(
-        scoreMatches(text, ['代价', '风险', '地方', '门阀', '国库', '后勤', '推诿', '反弹', '缓急', '权衡']) * 0.92,
+        scoreMatches(text, ['代价', '风险', '地方', '门阀', '国库', '后勤', '推进', '反弹', '缓急', '权衡']) * 0.92,
     )
 
     const legitimacyAlignment = clamp01(
@@ -214,14 +256,14 @@ export function fallbackPolicyParseFromReason(
 
     const policyStance: PolicyStance =
         includesAny(text, ['急征', '强压', '急攻', '立刻扩军']) ? 'aggressive'
-            : includesAny(text, ['权宜', '先救急', '暂借', '先缓']) ? 'expedient'
+            : includesAny(text, ['权宜', '先救急', '暂缓', '先缓']) ? 'expedient'
                 : includesAny(text, ['渐进', '安民', '稳住', '先稳']) ? 'conservative'
                     : includesAny(text, ['先', '再', '权衡', '缓急', '执行']) ? 'balanced'
                         : 'neutral'
 
     const evidence = [
         focusAlignment >= 0.58 ? '附言切中此题关节' : '',
-        executionClarity >= 0.58 ? '施行路径较为清楚' : '',
+        executionClarity >= 0.58 ? '施行路径较为清晰' : '',
         costAwareness >= 0.52 ? '兼顾了代价与阻力' : '',
     ].filter(Boolean)
 
@@ -242,6 +284,12 @@ export async function parseNorthSchemeInput(params: {
     relatedNpc?: NPC | null
 }): Promise<NorthSchemeParseResult> {
     const roundEvent = ROUND_EVENTS[params.round - 1]
+    const fallbackParsed = fallbackNorthParseFromSpeech({
+        speech: params.speech,
+        npc: params.npc,
+        round: params.round,
+        relatedNpc: params.relatedNpc,
+    })
     const aiParsed = await chatCompletionJson<NorthSchemeParseResult>(
         buildNorthSchemeParsePrompt({
             round: params.round,
@@ -254,15 +302,26 @@ export async function parseNorthSchemeInput(params: {
     )
 
     if (aiParsed) {
-        return normalizeNorthSchemeParse(aiParsed)
+        const normalized = normalizeNorthSchemeParse(aiParsed)
+        const hasDimensionRelevance =
+            normalized.financeRelevance > 0 ||
+            normalized.grainRelevance > 0 ||
+            normalized.militaryRelevance > 0 ||
+            normalized.socialOrderRelevance > 0 ||
+            normalized.governanceRelevance > 0
+        return hasDimensionRelevance
+            ? normalized
+            : {
+                ...normalized,
+                financeRelevance: fallbackParsed.financeRelevance,
+                grainRelevance: fallbackParsed.grainRelevance,
+                militaryRelevance: fallbackParsed.militaryRelevance,
+                socialOrderRelevance: fallbackParsed.socialOrderRelevance,
+                governanceRelevance: fallbackParsed.governanceRelevance,
+            }
     }
 
-    return fallbackNorthParseFromSpeech({
-        speech: params.speech,
-        npc: params.npc,
-        round: params.round,
-        relatedNpc: params.relatedNpc,
-    })
+    return fallbackParsed
 }
 
 export async function parsePolicyReasonInput(params: {

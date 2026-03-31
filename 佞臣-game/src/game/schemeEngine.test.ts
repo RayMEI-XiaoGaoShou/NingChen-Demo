@@ -119,4 +119,128 @@ describe('schemeEngine contextual scheme rules', () => {
 
         expect(Math.abs(early.nationEffects.governance ?? 0)).toBeLessThan(Math.abs(later.nationEffects.governance ?? 0))
     })
+
+    it('does not offer secession or rebellion again once an external warlord has already turned secessionist', () => {
+        const hebabogui = {
+            ...INITIAL_NPCS.find(npc => npc.id.startsWith('hebabog'))!,
+            trust: 90,
+            loyaltyToCourt: 10,
+            externalStatus: 'secession' as const,
+        }
+
+        const schemes = getAvailableSchemesForNpc(hebabogui, { round: 18, unlockedSecrets: 3 })
+
+        expect(schemes).not.toContain('secession')
+        expect(schemes).not.toContain('rebellion')
+    })
+
+    it('does not spill military damage from non-military slander even against frontline commanders', () => {
+        const weichimu = { ...INITIAL_NPCS.find(npc => npc.militaryPower === 68)!, trust: 62 }
+        const linghu = { ...INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!, trust: 55 }
+
+        const result = settleScheme(
+            {
+                id: 'non-military-slander',
+                targetNpcId: weichimu.id,
+                schemeType: 'slander',
+                relatedNpcId: linghu.id,
+                playerSpeech: '他在朝中并不真心站你，不过是借你压人。',
+                resolutionRoll: 0.02,
+                northParse: {
+                    characterFit: 0.7,
+                    eventFit: 0.55,
+                    structuralPenetration: 0.62,
+                    executability: 0.64,
+                    exposureRisk: 0.18,
+                    financeRelevance: 0.08,
+                    grainRelevance: 0.05,
+                    militaryRelevance: 0.08,
+                    socialOrderRelevance: 0.34,
+                    governanceRelevance: 0.58,
+                    dominantIntent: 'divide',
+                    evidence: [],
+                },
+            },
+            weichimu,
+            linghu,
+            0,
+            { round: 16, unlockedSecrets: 0 },
+        )
+
+        expect(result.nationEffects.military ?? 0).toBe(0)
+        expect(result.nationEffects.grain ?? 0).toBe(0)
+        expect((result.nationEffects.governance ?? 0) < 0).toBe(true)
+    })
+
+    it('does not reduce external military strength from generic advice unless the parse marks war relevance', () => {
+        const hebabogui = {
+            ...INITIAL_NPCS.find(npc => npc.id.startsWith('hebabog'))!,
+            trust: 72,
+        }
+
+        const genericAdvice = settleScheme(
+            {
+                id: 'generic-external-advise',
+                targetNpcId: hebabogui.id,
+                schemeType: 'advise',
+                playerSpeech: '西线局势复杂，望公先稳住地方，不必让朝中再生猜疑。',
+                resolutionRoll: 0.01,
+                northParse: {
+                    characterFit: 0.62,
+                    eventFit: 0.36,
+                    structuralPenetration: 0.4,
+                    executability: 0.6,
+                    exposureRisk: 0.12,
+                    financeRelevance: 0.16,
+                    grainRelevance: 0.1,
+                    militaryRelevance: 0.12,
+                    socialOrderRelevance: 0.42,
+                    governanceRelevance: 0.55,
+                    dominantIntent: 'induce',
+                    evidence: [],
+                },
+            },
+            hebabogui,
+            null,
+            0,
+            { round: 8, unlockedSecrets: 2 },
+        )
+
+        const warAdvice = settleScheme(
+            {
+                id: 'war-external-advise',
+                targetNpcId: hebabogui.id,
+                schemeType: 'advise',
+                playerSpeech: '若不先稳住兵粮、转运与前线调度，河西一线很快就会失控。',
+                resolutionRoll: 0.01,
+                northParse: {
+                    characterFit: 0.78,
+                    eventFit: 0.72,
+                    structuralPenetration: 0.74,
+                    executability: 0.8,
+                    exposureRisk: 0.16,
+                    financeRelevance: 0.32,
+                    grainRelevance: 0.86,
+                    militaryRelevance: 0.9,
+                    socialOrderRelevance: 0.38,
+                    governanceRelevance: 0.64,
+                    dominantIntent: 'strategize',
+                    evidence: [],
+                },
+            },
+            hebabogui,
+            null,
+            0,
+            { round: 16, unlockedSecrets: 2 },
+        )
+
+        expect(genericAdvice.nationEffects.finance ?? 0).toBe(0)
+        expect(genericAdvice.nationEffects.military ?? 0).toBe(0)
+        expect(genericAdvice.nationEffects.grain ?? 0).toBe(0)
+        expect((genericAdvice.nationEffects.socialOrder ?? 0) < 0).toBe(true)
+        expect((genericAdvice.nationEffects.governance ?? 0) < 0).toBe(true)
+        expect((warAdvice.nationEffects.military ?? 0) < 0).toBe(true)
+        expect(Math.abs(warAdvice.nationEffects.military ?? 0)).toBeGreaterThan(Math.abs(genericAdvice.nationEffects.military ?? 0))
+        expect(Math.abs(warAdvice.nationEffects.grain ?? 0)).toBeGreaterThan(Math.abs(genericAdvice.nationEffects.grain ?? 0))
+    })
 })

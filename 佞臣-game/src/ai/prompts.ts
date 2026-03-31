@@ -273,6 +273,11 @@ export function buildNorthSchemeParsePrompt(params: {
   "structuralPenetration": 0-1,
   "executability": 0-1,
   "exposureRisk": 0-1,
+  "financeRelevance": 0-1,
+  "grainRelevance": 0-1,
+  "militaryRelevance": 0-1,
+  "socialOrderRelevance": 0-1,
+  "governanceRelevance": 0-1,
   "dominantIntent": "neutral|induce|threaten|divide|empathize|strategize",
   "evidence": ["不超过3条的短句"]
 }`,

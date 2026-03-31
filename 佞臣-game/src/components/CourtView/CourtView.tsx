@@ -76,14 +76,14 @@ export function CourtView() {
                 />
             )}
 
-            <div className="page-utility-row animate-slide-up">
+            <div className="page-utility-row utility-split animate-slide-up">
+                <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
                     玩法说明
                 </button>
             </div>
 
             <div className="court-header animate-slide-up">
-                <button className="btn-back btn-back-inline" onClick={prevPhase}>上一页</button>
                 <h2 className="page-title">本 局 观 势</h2>
 
                 <div className="glass-panel status-bar">
@@ -143,7 +143,13 @@ export function CourtView() {
                             style={{ animationDelay: `${0.14 + index * 0.05}s` }}
                             onClick={() => openNpcDetail(npc.id)}
                         >
-                            <NpcPortrait name={npc.name} className="external-portrait" />
+                            <NpcPortrait
+                                name={npc.name}
+                                className="external-portrait"
+                                framed
+                                positionY="20%"
+                                zoom={1.24}
+                            />
                             <div className="external-main">
                                 <div className="external-card-header">
                                     <div className="external-name">{npc.name}</div>
@@ -175,7 +181,13 @@ export function CourtView() {
                             onClick={() => openNpcDetail(npc.id)}
                             disabled={!npc.isAlive}
                         >
-                            <NpcPortrait name={npc.name} className="npc-avatar-placeholder" />
+                            <NpcPortrait
+                                name={npc.name}
+                                className="npc-avatar-placeholder"
+                                framed
+                                positionY="20%"
+                                zoom={1.24}
+                            />
                             <div className="npc-info">
                                 <span className="npc-name">{npc.name}</span>
                                 <span className="npc-title">{npc.title}</span>

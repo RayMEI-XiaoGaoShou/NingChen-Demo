@@ -108,6 +108,7 @@ const initialSouthPower = calculateCompositePower(SOUTH_INITIAL)
 const initialIntelProgress = Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0]))
 const initialCampaignState: CampaignState = {
     state: 'idle',
+    resolvedState: null,
     sourceRound: null,
     summary: '',
     ongoingNorthImpact: {},

@@ -1,4 +1,4 @@
-import { getSchemeByType } from '../data/schemes'
+﻿import { getSchemeByType } from '../data/schemes'
 import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExternalAction } from '../data/roundRuleConfig'
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
 import type {
@@ -56,16 +56,16 @@ const EMPTY_VECTOR: FactionVector = {
 }
 
 const SCHEME_NAMES: Record<SchemeType, string> = {
-    probe: '试探',
-    advise: '献策',
-    slander: '谗言',
-    alienate: '离间',
-    frame: '放风构陷',
-    proxy: '借刀',
-    appeal: '求援',
-    omen: '谶纬',
-    secession: '煽动割据',
-    rebellion: '煽动造反',
+    probe: '璇曟帰',
+    advise: '鐚瓥',
+    slander: '璋楄█',
+    alienate: '绂婚棿',
+    frame: '鏀鹃鏋勯櫡',
+    proxy: '鍊熷垁',
+    appeal: '姹傛彺',
+    omen: '璋剁含',
+    secession: '鐓藉姩鍓叉嵁',
+    rebellion: '鐓藉姩閫犲弽',
 }
 
 export function getAvailableSchemesForTrust(trust: number): SchemeType[] {
@@ -82,6 +82,10 @@ export function getAvailableSchemesForNpc(
 ): SchemeType[] {
     const { round = 1, unlockedSecrets = 0 } = context
     const base = getAvailableSchemesForTrust(npc.trust)
+    const canEscalateExternalAction =
+        npc.powerBase === 'external' &&
+        npc.isAlive &&
+        (npc.externalStatus === 'loyal' || npc.externalStatus === 'watchful')
 
     if (round === 1) {
         return base.filter(type => type === 'probe' || type === 'advise' || type === 'slander')
@@ -92,9 +96,7 @@ export function getAvailableSchemesForNpc(
     }
 
     if (
-        npc.powerBase === 'external' &&
-        npc.isAlive &&
-        npc.externalStatus !== 'rebellion' &&
+        canEscalateExternalAction &&
         npc.trust >= 72 &&
         npc.loyaltyToCourt <= 35 &&
         unlockedSecrets >= 2 &&
@@ -104,9 +106,7 @@ export function getAvailableSchemesForNpc(
     }
 
     if (
-        npc.powerBase === 'external' &&
-        npc.isAlive &&
-        npc.externalStatus !== 'rebellion' &&
+        canEscalateExternalAction &&
         npc.trust >= 85 &&
         npc.loyaltyToCourt <= 18 &&
         unlockedSecrets >= 3 &&
@@ -263,17 +263,78 @@ function deriveNationEffectFromFactionEffects(
     return normalizeDimensions(result)
 }
 
-function deriveNationEffectFromExternalPerson(targetNpc: NPC, personEffects: PersonEffects): Partial<NationDimensions> {
+function getDimensionRelevance(
+    parse: NorthSchemeParseResult,
+    dimension: keyof NationDimensions,
+): number {
+    switch (dimension) {
+        case 'finance':
+            return parse.financeRelevance
+        case 'grain':
+            return parse.grainRelevance
+        case 'military':
+            return parse.militaryRelevance
+        case 'socialOrder':
+            return parse.socialOrderRelevance
+        case 'governance':
+            return parse.governanceRelevance
+    }
+}
+
+function semanticScale(
+    relevance: number,
+    threshold: number,
+    minScale: number,
+    maxScale: number,
+): number {
+    if (relevance < threshold) return 0
+    const normalized = (relevance - threshold) / Math.max(0.01, 1 - threshold)
+    return round(minScale + normalized * (maxScale - minScale))
+}
+
+function applyDimensionRelevance(
+    changes: Partial<NationDimensions>,
+    parse: NorthSchemeParseResult,
+    thresholds: Partial<Record<keyof NationDimensions, number>>,
+    scales: Partial<Record<keyof NationDimensions, { min: number; max: number }>>,
+): Partial<NationDimensions> {
+    const next: Partial<NationDimensions> = {}
+    for (const [dimension, value] of Object.entries(changes) as Array<[keyof NationDimensions, number | undefined]>) {
+        if (value === undefined || value === 0) continue
+        const threshold = thresholds[dimension]
+        const scaleRange = scales[dimension]
+        if (threshold === undefined || !scaleRange) {
+            next[dimension] = value
+            continue
+        }
+        const scale = semanticScale(getDimensionRelevance(parse, dimension), threshold, scaleRange.min, scaleRange.max)
+        if (scale === 0) continue
+        next[dimension] = round(value * scale)
+    }
+    return normalizeDimensions(next)
+}
+
+function deriveNationEffectFromExternalPerson(
+    targetNpc: NPC,
+    personEffects: PersonEffects,
+    parse: NorthSchemeParseResult,
+): Partial<NationDimensions> {
     if (targetNpc.powerBase !== 'external') return {}
 
     const loyaltyShock = Math.max(0, -personEffects.loyaltyDelta)
     const forceFactor = targetNpc.militaryPower / 40
+    const financeScale = semanticScale(Math.max(parse.financeRelevance, parse.grainRelevance * 0.55), 0.36, 0.55, 1.1)
+    const grainScale = semanticScale(Math.max(parse.grainRelevance, parse.militaryRelevance * 0.35), 0.4, 0.55, 1.2)
+    const militaryScale = semanticScale(parse.militaryRelevance, 0.46, 0.55, 1.25)
+    const socialScale = 0.45 + parse.socialOrderRelevance * 0.7
+    const governanceScale = 0.5 + parse.governanceRelevance * 0.7
+
     return normalizeDimensions({
-        finance: -(loyaltyShock * 0.06 * forceFactor),
-        grain: -(loyaltyShock * 0.04 * forceFactor),
-        military: -(loyaltyShock * 0.08 * forceFactor),
-        socialOrder: -(loyaltyShock * 0.06 * forceFactor),
-        governance: -(loyaltyShock * 0.1 * forceFactor),
+        finance: financeScale === 0 ? 0 : -(loyaltyShock * 0.05 * forceFactor * financeScale),
+        grain: grainScale === 0 ? 0 : -(loyaltyShock * 0.04 * forceFactor * grainScale),
+        military: militaryScale === 0 ? 0 : -(loyaltyShock * 0.08 * forceFactor * militaryScale),
+        socialOrder: -(loyaltyShock * 0.05 * forceFactor * socialScale),
+        governance: -(loyaltyShock * 0.08 * forceFactor * governanceScale),
     })
 }
 
@@ -542,9 +603,9 @@ export function settleScheme(
         ? clamp(0.85 + northParse.eventFit * 0.55 + northParse.structuralPenetration * 1.0, 0.75, 2.4)
         : clamp(0.9 + northParse.exposureRisk * 0.2, 0.9, 1.3)
     const nationMultiplier = success && northParse.structuralPenetration >= 0.45
-        ? clamp(0.8 + northParse.structuralPenetration * 1.4 + northParse.eventFit * 0.4, 0.8, 2.8)
+        ? clamp(0.68 + northParse.structuralPenetration * 0.9 + northParse.eventFit * 0.2, 0.7, 2.05)
         : success
-            ? 0.65
+            ? 0.5
             : 1
     const tunedNationMultiplier = success
         ? roundValue(nationMultiplier * getOpeningSchemeNationScale(round))
@@ -566,10 +627,10 @@ export function settleScheme(
     }
 
     let nationEffects = deriveNationEffectFromFactionEffects(factionEffects)
-    nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects))
+    nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects, northParse))
     nationEffects = mergeDimensions(
         nationEffects,
-        scaleDimensions(deriveMilitarySpillover(action, targetNpc, relatedNpc, round, success, northParse), tunedNationMultiplier),
+        scaleDimensions(deriveStrategicSpillover(action, targetNpc, relatedNpc, round, success, northParse), tunedNationMultiplier),
     )
     nationEffects = scaleDimensions(nationEffects, tunedNationMultiplier)
     nationEffects = softenEarlyNorthNationEffects(nationEffects, round)
@@ -660,14 +721,10 @@ function isSchemeAllowed(
 
 function isMilitaryActor(npc: NPC | null | undefined): boolean {
     if (!npc) return false
-    return npc.militaryPower >= 40 || /诸军事|节度使|将军|都督/.test(npc.title)
+    return npc.militaryPower >= 40 || /璇稿啗浜媩鑺傚害浣縷灏嗗啗|閮界潱/.test(npc.title)
 }
 
-function hasWarLogisticsLanguage(text: string): boolean {
-    return /(兵|军|粮|饷|边|镇|征|战|运|调|平叛|淮南|河西|河北|寿春|漕|后勤|兵权)/.test(text)
-}
-
-function deriveMilitarySpillover(
+function deriveStrategicSpillover(
     action: SchemeAction,
     targetNpc: NPC,
     relatedNpc: NPC | null,
@@ -685,40 +742,79 @@ function deriveMilitarySpillover(
     const militaryActors = [targetNpc, relatedNpc].filter((npc): npc is NPC => isMilitaryActor(npc))
     if (militaryActors.length === 0) return {}
 
-    const warSpeech = hasWarLogisticsLanguage(action.playerSpeech)
-    const canSpillFromAdvise = action.schemeType !== 'advise' || warSpeech
+    const strategicRelevance = Math.max(
+        parse.militaryRelevance,
+        parse.grainRelevance,
+        parse.governanceRelevance,
+        parse.socialOrderRelevance,
+    )
+    const canSpillFromAdvise = action.schemeType !== 'advise' || strategicRelevance >= 0.34
     if (!canSpillFromAdvise) return {}
 
     const baseForce = militaryActors.reduce((sum, npc) => sum + npc.militaryPower, 0) / militaryActors.length
     const forceFactor = baseForce >= 70 ? 1.15 : baseForce >= 50 ? 1 : 0.78
-    const speechFactor = 1 + parse.eventFit * 0.35 + parse.structuralPenetration * 0.45 + (warSpeech ? 0.2 : 0)
+    const speechFactor = 1 + parse.eventFit * 0.35 + parse.structuralPenetration * 0.45 + strategicRelevance * 0.2
     const scale = spilloverStrength * forceFactor * speechFactor
 
     switch (action.schemeType) {
         case 'alienate':
-            return normalizeDimensions({
+            return applyDimensionRelevance({
                 military: -0.8 * scale,
                 grain: -0.5 * scale,
                 governance: -0.4 * scale,
+            }, parse, {
+                military: 0.42,
+                grain: 0.38,
+                governance: 0.32,
+            }, {
+                military: { min: 0.7, max: 1.25 },
+                grain: { min: 0.7, max: 1.2 },
+                governance: { min: 0.65, max: 1.1 },
             })
         case 'frame':
-            return normalizeDimensions({
+            return applyDimensionRelevance({
                 military: -0.6 * scale,
                 grain: -0.4 * scale,
                 socialOrder: -0.4 * scale,
                 governance: -0.6 * scale,
+            }, parse, {
+                military: 0.42,
+                grain: 0.38,
+                socialOrder: 0.34,
+                governance: 0.32,
+            }, {
+                military: { min: 0.68, max: 1.18 },
+                grain: { min: 0.65, max: 1.15 },
+                socialOrder: { min: 0.65, max: 1.1 },
+                governance: { min: 0.72, max: 1.18 },
             })
         case 'slander':
-            return normalizeDimensions({
+            return applyDimensionRelevance({
                 military: -0.4 * scale,
                 socialOrder: -0.3 * scale,
                 governance: -0.4 * scale,
+            }, parse, {
+                military: 0.44,
+                socialOrder: 0.34,
+                governance: 0.32,
+            }, {
+                military: { min: 0.62, max: 1.05 },
+                socialOrder: { min: 0.65, max: 1.05 },
+                governance: { min: 0.68, max: 1.08 },
             })
         case 'advise':
-            return normalizeDimensions({
+            return applyDimensionRelevance({
                 military: -0.35 * scale,
                 grain: -0.45 * scale,
                 governance: -0.35 * scale,
+            }, parse, {
+                military: 0.46,
+                grain: 0.4,
+                governance: 0.34,
+            }, {
+                military: { min: 0.65, max: 1.1 },
+                grain: { min: 0.72, max: 1.18 },
+                governance: { min: 0.62, max: 1.02 },
             })
         default:
             return {}
@@ -745,7 +841,7 @@ function deriveDelayedBacklash(
     parse: NorthSchemeParseResult,
     round: number,
 ): DelayedBacklash[] {
-    const highWeightTarget = /丞相|太后|燕王|中常侍|上柱国|节度/.test(targetNpc.title) || targetNpc.canExecute
+    const highWeightTarget = /涓炵浉|澶悗|鐕曠帇|涓父渚峾涓婃煴鍥絴鑺傚害/.test(targetNpc.title) || targetNpc.canExecute
 
     if (parse.exposureRisk >= 0.82 && highWeightTarget) {
         return [{
@@ -753,7 +849,7 @@ function deriveDelayedBacklash(
             npcName: targetNpc.name,
             type: 'shock',
             intensity: roundValue(0.74 + parse.exposureRisk * 0.24),
-            summary: `${targetNpc.name}近来口风骤紧，朝中借边议兵之声亦随之转炽。`,
+            summary: `${targetNpc.name}近来口风愈紧，朝中借边议兵之声亦随之转烈。`,
             sourceRound: round,
         }]
     }
@@ -797,7 +893,7 @@ function deriveDelayedBacklash(
             npcName: targetNpc.name,
             type: 'exposed',
             intensity: roundValue(0.3 + parse.exposureRisk * 0.22),
-            summary: `${targetNpc.name}虽未当场失色，然边镇间已有人暗自记下了你的话锋。`,
+            summary: `${targetNpc.name}虽未当场失色，然边镇间已有暗线记下了你的话锋。`,
             sourceRound: round,
         }]
     }
@@ -820,3 +916,4 @@ function round(value: number): number {
 function randomPick<T>(list: T[]): T {
     return list[Math.floor(Math.random() * list.length)]
 }
+

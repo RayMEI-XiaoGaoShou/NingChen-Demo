@@ -110,25 +110,11 @@ export function buildPolicyAftereffect(params: {
     })
     const focusMatched = parse.focusAlignment >= 0.48
     const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, parse, params.round)
-    const summaryBase = params.nextRoundFeedback?.trim() || `${params.topic}的后续影响已经开始显现。`
-    const legitimacyClause =
-        legitimacyTone === 'up'
-            ? '朝廷名分与施政说服力略有抬升'
-            : legitimacyTone === 'down'
-                ? '施政阻力与名分争议开始浮现'
-                : '其效验正在地方执行中逐步显形'
-    const focusClause = focusMatched ? '你先前的论证切中了此题真正关节。' : '先前论证未尽贴题，后效偏于平平。'
-    const pathClause =
-        parse.executionClarity >= 0.65
-            ? '地方官知道该先做什么。'
-            : parse.costAwareness >= 0.55
-                ? '朝廷虽得其利，仍须分神压住各处掣肘。'
-                : '政令下去之后，尚有不少空隙待补。'
 
     return {
         sourceRound: params.round,
         topic: params.topic,
-        summary: `${summaryBase} ${legitimacyClause} ${focusClause} ${pathClause}`.trim(),
+        summary: '你上回合的奏对收益延续到了这一回合。',
         effects,
         legitimacyTone,
         focusMatched,

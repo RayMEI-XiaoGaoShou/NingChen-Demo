@@ -26,6 +26,8 @@
     margin-bottom: var(--spacing-2xl);
     border-bottom: 1px solid var(--color-border-gold);
     padding-bottom: var(--spacing-xl);
+    position: relative;
+    text-align: center;
 }
 
 .modal-title {
@@ -129,8 +131,8 @@
 }
 
 .npc-select-avatar {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     border: 1px solid rgba(201, 176, 101, 0.35);
     background: rgba(201, 176, 101, 0.08);
@@ -415,6 +417,9 @@
 }
 
 .btn-back-inline {
+    position: absolute;
+    left: 0;
+    top: 0;
     padding: 8px 14px;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(201, 176, 101, 0.35);
@@ -422,7 +427,6 @@
     color: var(--color-text-secondary);
     font-size: var(--font-size-xs);
     letter-spacing: 2px;
-    justify-self: start;
     white-space: nowrap;
 }
 

@@ -249,7 +249,7 @@ describe('settleRound layered settlement', () => {
 
         expect(result.policyReport?.focusMatched).toBe(true)
         expect(result.policyReport?.legitimacyTone).toBe('steady')
-        expect(result.policyAftereffect?.summary).toContain('流民政策')
+        expect(result.policyAftereffect?.summary).toBe('你上回合的奏对收益延续到了这一回合。')
         expect((result.policyAftereffect?.effects.grain ?? 0)).toBeGreaterThan(0)
         expect(result.judgeFacts?.southSummary).toContain('后效')
     })
@@ -348,5 +348,91 @@ describe('settleRound layered settlement', () => {
         expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance)
         expect(result.southStatsAfter.grain).toBeGreaterThan(SOUTH_INITIAL.grain)
         expect(result.shuCampaign?.remainingRounds).toBe(1)
+    })
+
+    it('does not let a dead rebel keep inflating later campaign pressure', () => {
+        const baselineNpcs = INITIAL_NPCS.map(npc => (
+            npc.powerBase === 'external'
+                ? { ...npc, externalStatus: 'loyal' as const, loyaltyToCourt: Math.max(npc.loyaltyToCourt, 70) }
+                : { ...npc }
+        ))
+        const anSiming = baselineNpcs.find(npc => npc.id === 'ansiming')!
+        const deadRebelNpcs = baselineNpcs.map(npc => (
+            npc.id === anSiming.id
+                ? { ...npc, isAlive: false, externalStatus: 'rebellion' as const, militaryPower: 0 }
+                : npc
+        ))
+
+        const baseline = settleRound({
+            round: 10,
+            schemes: [],
+            northStats: { finance: 66, grain: 68, military: 76, socialOrder: 50, governance: 60 },
+            southStats: { finance: 56, grain: 58, military: 57, socialOrder: 55, governance: 56 },
+            npcs: baselineNpcs,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+            shuCampaign: idleCampaign,
+            huainanCampaign: idleCampaign,
+        }) as any
+
+        const withDeadRebel = settleRound({
+            round: 10,
+            schemes: [],
+            northStats: { finance: 66, grain: 68, military: 76, socialOrder: 50, governance: 60 },
+            southStats: { finance: 56, grain: 58, military: 57, socialOrder: 55, governance: 56 },
+            npcs: deadRebelNpcs,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+            shuCampaign: idleCampaign,
+            huainanCampaign: idleCampaign,
+        }) as any
+
+        expect(withDeadRebel.shuCampaign.state).toBe(baseline.shuCampaign.state)
+        expect(withDeadRebel.shuCampaign.summary).toBe(baseline.shuCampaign.summary)
+    })
+
+    it('turns a surviving rebellion into secession instead of opening a separate overthrow branch', () => {
+        const anSiming = INITIAL_NPCS.find(npc => npc.id === 'ansiming')!
+
+        const result = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'scheme-rebellion-survives',
+                    targetNpcId: anSiming.id,
+                    schemeType: 'rebellion' as any,
+                    playerSpeech: '今夜举兵，不求直取洛阳，只要拖住平叛军，便能据地自守。',
+                    resolutionRoll: 0.01,
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === anSiming.id
+                    ? {
+                        ...npc,
+                        trust: 92,
+                        loyaltyToCourt: 8,
+                        militaryPower: 58,
+                        highActionBias: 'rebellion' as const,
+                    }
+                    : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: { [anSiming.id]: 3 },
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedAnSiming = result.updatedNpcs?.find((npc: any) => npc.id === anSiming.id)
+
+        expect(updatedAnSiming?.isAlive).toBe(true)
+        expect(updatedAnSiming?.externalStatus).toBe('secession')
+        expect(result.externalActionReports?.[0]?.action).toBe('rebellion')
+        expect(result.externalActionReports?.[0]?.outcome).toContain('据地自守')
     })
 })

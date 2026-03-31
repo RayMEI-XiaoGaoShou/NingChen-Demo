@@ -2,7 +2,7 @@ import { useGameStore } from '../../stores/gameStore'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { ROUND_CONTEXT_NOTES } from '../../data/roundContext'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { getCampaignMapAsset } from '../../game/mapAssetEngine'
+import { getRoundStartCampaignDisplay } from '../../game/campaignDisplayEngine'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRoundAdvisorHint } from '../../game/roundIntelEngine'
@@ -31,12 +31,9 @@ export function RoundStart() {
         lastPolicyAftereffect && lastPolicyAftereffect.sourceRound === currentRound - 1
             ? lastPolicyAftereffect
             : null
-    const campaignMap = getCampaignMapAsset(shuCampaign.state, huainanCampaign.state)
-    const activeCampaignSummary = shuCampaign.state !== 'idle'
-        ? shuCampaign.summary
-        : huainanCampaign.state !== 'idle'
-            ? huainanCampaign.summary
-            : null
+    const campaignDisplay = getRoundStartCampaignDisplay(currentRound, shuCampaign, huainanCampaign)
+    const campaignMap = campaignDisplay.map
+    const activeCampaignSummary = campaignDisplay.summary
 
     return (
         <div className="page-container round-start animate-fade-in">

@@ -17,6 +17,8 @@ import { NPCDetail } from './components/NPCDetail/NPCDetail'
 import { Prologue } from './components/Prologue/Prologue'
 import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
+import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundary'
+import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorBoundary/PhaseFallback'
 import { useMediaStore } from './stores/mediaStore'
 import { buildPersistedSnapshot, clearGameSnapshot, loadGameSnapshot, saveGameSnapshot, type PersistedGameSnapshot } from './game/saveEngine'
 
@@ -80,6 +82,11 @@ function App() {
         return renderPhase()
     }
 
+    const phaseName = resumeSnapshot ? 'RESUME' : currentPhase
+    const errorFallback = currentPhase === 'SETTLEMENT'
+        ? <SettlementCrashFallback />
+        : <PhaseCrashFallback phaseName={phaseName} />
+
     return (
         <div className="app">
             <header className="app-header">
@@ -103,7 +110,9 @@ function App() {
                     {isMuted || !audioReady ? '开声' : '静音'}
                 </button>
             </header>
-            <main className="app-content">
+            <PhaseErrorBoundary resetKey={`${prologueStep}:${phaseName}`} phaseName={phaseName} fallback={errorFallback}>
+                <>
+                    <main className="app-content">
                 {resumeSnapshot && (
                     <div className="resume-overlay">
                         <div className="resume-panel glass-panel">
@@ -141,10 +150,12 @@ function App() {
                         </div>
                     </div>
                 )}
-            </main>
-            <GlobalAudio />
+                    </main>
+                    <GlobalAudio />
             {/* NPC 详情弹窗（全局浮层） */}
-            <NPCDetail />
+                    <NPCDetail />
+                </>
+            </PhaseErrorBoundary>
         </div>
     )
 }

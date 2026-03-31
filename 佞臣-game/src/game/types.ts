@@ -201,6 +201,7 @@ export interface PolicyAftereffect {
 
 export interface CampaignState {
     state: CampaignOutcomeState
+    resolvedState?: CampaignOutcomeState | null
     sourceRound: number | null
     summary: string
     ongoingNorthImpact: Partial<NationDimensions>
@@ -220,6 +221,11 @@ export interface NorthSchemeParseResult {
     structuralPenetration: number
     executability: number
     exposureRisk: number
+    financeRelevance: number
+    grainRelevance: number
+    militaryRelevance: number
+    socialOrderRelevance: number
+    governanceRelevance: number
     dominantIntent: NorthDominantIntent
     evidence: string[]
 }

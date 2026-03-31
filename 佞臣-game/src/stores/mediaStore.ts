@@ -1,18 +1,6 @@
 import { create } from 'zustand'
 import type { BgmTrackKey } from '../data/mediaAssets'
 
-const MUTE_STORAGE_KEY = 'ningchen-media-muted'
-
-function loadMutedPreference() {
-    if (typeof window === 'undefined') return false
-    return window.localStorage.getItem(MUTE_STORAGE_KEY) === 'true'
-}
-
-function persistMutedPreference(isMuted: boolean) {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(MUTE_STORAGE_KEY, String(isMuted))
-}
-
 interface MediaState {
     isMuted: boolean
     audioReady: boolean
@@ -25,13 +13,12 @@ interface MediaState {
 }
 
 export const useMediaStore = create<MediaState>((set) => ({
-    isMuted: loadMutedPreference(),
+    isMuted: false,
     audioReady: false,
     currentTrack: null,
     playbackRequestToken: 0,
 
     setMuted: (isMuted) => {
-        persistMutedPreference(isMuted)
         set({ isMuted })
     },
 

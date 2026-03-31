@@ -8,7 +8,53 @@ import { ROUND_EVENTS } from '../../data/rounds'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
+import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import './Settlement.css'
+
+export function getSettlementPolicyFollowupText(focusMatched: boolean): string {
+    return focusMatched
+        ? '你的附言切中此议的真正关节，新政的收益也会延续到下一回合。'
+        : '你的附言尚嫌宽泛，但新政的收益仍会延续到下一回合。'
+}
+
+export function getSafeSettlementJudgeFacts(
+    settlement: Pick<RoundSettlementResult, 'judgeFacts'> | null,
+): JudgeFacts {
+    const judgeFacts = settlement?.judgeFacts
+
+    return {
+        eventImpactSummary: judgeFacts?.eventImpactSummary ?? '本回合局势尚在调整，暂未显现新的波动。',
+        factionSummary: judgeFacts?.factionSummary ?? '朝局暂稳，各方都还在等风向。',
+        relationshipSummary: judgeFacts?.relationshipSummary ?? '',
+        externalSummary: judgeFacts?.externalSummary ?? '边镇与外部势力仍在观望。',
+        northSummary: judgeFacts?.northSummary ?? '北周国势暂无明显变化。',
+        southSummary: judgeFacts?.southSummary ?? '南陈新政的后效尚在逐步显形。',
+        invasionSummary: judgeFacts?.invasionSummary ?? '南征窗口仍待后续观察。',
+        survivalSummary: judgeFacts?.survivalSummary ?? '风声暂稳。',
+        aiNativeSummary: {
+            schemeHints: judgeFacts?.aiNativeSummary?.schemeHints ?? [],
+            backlashHints: judgeFacts?.aiNativeSummary?.backlashHints ?? [],
+            policyHints: judgeFacts?.aiNativeSummary?.policyHints ?? [],
+        },
+    }
+}
+
+function isFiniteNumber(value: unknown): value is number {
+    return typeof value === 'number' && Number.isFinite(value)
+}
+
+function formatDelta(value: unknown): string | null {
+    if (!isFiniteNumber(value) || value === 0) return null
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
+}
+
+function sanitizeDeltaRecord(record: Record<string, unknown> | null | undefined): Record<string, number> {
+    if (!record) return {}
+
+    return Object.fromEntries(
+        Object.entries(record).map(([key, value]) => [key, isFiniteNumber(value) ? value : 0]),
+    )
+}
 
 export function Settlement() {
     const {
@@ -26,15 +72,44 @@ export function Settlement() {
         openGameplayGuide,
     } = useGameStore()
 
-    const [judgeNarration, setJudgeNarration] = useState<string | null>(null)
-    const [isLoading, setIsLoading] = useState(true)
+    const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
+    const [isLoading, setIsLoading] = useState(Boolean(lastSettlement))
     const [empressReply, setEmpressReply] = useState<string | null>(null)
+    const settlementGuide = FIRST_ROUND_GUIDE_CONTENT.settlement ?? { title: '', body: [] }
+    const judgeFacts = getSafeSettlementJudgeFacts(lastSettlement)
 
     const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
+    const schemeHints = judgeFacts.aiNativeSummary.schemeHints
+    const backlashHints = judgeFacts.aiNativeSummary.backlashHints
+    const invasionWindowLabel = lastSettlement?.judgeFacts?.invasionSummary?.split?.('；')?.[0] ?? '待判'
+    const settlementPolicyFollowup =
+        lastSettlement?.policyAftereffect && lastSettlement.policyReport
+            ? getSettlementPolicyFollowupText(lastSettlement.policyReport.focusMatched)
+            : null
 
     useEffect(() => {
+        let cancelled = false
+
         async function generateNarration() {
-            if (!lastSettlement) return
+            if (!lastSettlement) {
+                setJudgeNarration('结算文书正在整理，请稍候。')
+                setEmpressReply(null)
+                setIsLoading(false)
+                return
+            }
+
+            setIsLoading(true)
+
+            if (!lastSettlement.judgeFacts) {
+                setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
+                setEmpressReply(
+                    lastSettlement.policyReport
+                        ? `朕已按“${lastSettlement.policyReport.optionContent}”着手施行，眼下${lastSettlement.policyReport.effectSummary}。`
+                        : null,
+                )
+                setIsLoading(false)
+                return
+            }
 
             const event = ROUND_EVENTS[currentRound - 1]
             const trustSummary = Object.entries(lastSettlement.trustChanges)
@@ -47,7 +122,7 @@ export function Settlement() {
             const messages = buildJudgePrompt({
                 round: currentRound,
                 eventName: event?.eventName ?? '',
-                eventImpactSummary: lastSettlement.judgeFacts.eventImpactSummary,
+                eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
                     schemeName: schemeName(currentSchemes[i]?.schemeType ?? ''),
                     targetName: npcs.find(n => n.id === currentSchemes[i]?.targetNpcId)?.name ?? '',
@@ -57,12 +132,12 @@ export function Settlement() {
                 })),
                 trustChangeSummary: trustSummary,
                 northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
-                factionSummary: lastSettlement.judgeFacts.factionSummary,
-                relationshipSummary: lastSettlement.judgeFacts.relationshipSummary,
-                externalSummary: lastSettlement.judgeFacts.externalSummary,
-                northSummary: lastSettlement.judgeFacts.northSummary,
-                southSummary: lastSettlement.judgeFacts.southSummary,
-                invasionSummary: lastSettlement.judgeFacts.invasionSummary,
+                factionSummary: judgeFacts.factionSummary,
+                relationshipSummary: judgeFacts.relationshipSummary,
+                externalSummary: judgeFacts.externalSummary,
+                northSummary: judgeFacts.northSummary,
+                southSummary: judgeFacts.southSummary,
+                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征窗口仍待后续观察。',
             })
 
             try {
@@ -80,29 +155,44 @@ export function Settlement() {
                         })
                         : Promise.resolve(''),
                 ])
+                if (cancelled) return
                 setJudgeNarration(narration)
                 setEmpressReply(lastSettlement.policyReport ? southReply.trim() || null : null)
             } catch {
-                setJudgeNarration(lastSettlement.summaryText)
+                if (cancelled) return
+                setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
                 setEmpressReply(
                     lastSettlement.policyReport
-                        ? `朕已按“${lastSettlement.policyReport.optionContent}”着手施行，眼下${lastSettlement.policyReport.effectSummary}，其后效仍须续观。`
+                        ? `朕已按“${lastSettlement.policyReport.optionContent}”着手施行，眼下${lastSettlement.policyReport.effectSummary}。`
                         : null,
                 )
             } finally {
+                if (cancelled) return
                 setIsLoading(false)
             }
         }
 
-        generateNarration()
-    }, []) // eslint-disable-line react-hooks/exhaustive-deps
+        void generateNarration().catch(() => {
+            if (cancelled) return
+            setJudgeNarration(lastSettlement?.summaryText || '本回合局势已有变化，可先看下方结算。')
+            setEmpressReply(
+                lastSettlement?.policyReport
+                    ? `朕已按“${lastSettlement.policyReport.optionContent}”着手施行，眼下${lastSettlement.policyReport.effectSummary}。`
+                    : null,
+            )
+            setIsLoading(false)
+        })
+        return () => {
+            cancelled = true
+        }
+    }, [currentRound, currentSchemes, lastSettlement, northPower, npcs])
 
     return (
         <div className="page-container settlement animate-fade-in">
             {currentRound === 1 && !firstRoundGuideSeen.settlement && (
                 <FirstRoundGuideModal
-                    title={FIRST_ROUND_GUIDE_CONTENT.settlement.title}
-                    body={FIRST_ROUND_GUIDE_CONTENT.settlement.body}
+                    title={settlementGuide.title}
+                    body={settlementGuide.body}
                     onClose={() => markFirstRoundGuideSeen('settlement')}
                 />
             )}
@@ -136,9 +226,9 @@ export function Settlement() {
 
                 <div className="results-section animate-slide-up animate-delay-2">
                     <h3 className="section-title">计谋筹算结果</h3>
-                    {lastSettlement?.judgeFacts.aiNativeSummary?.schemeHints?.length ? (
+                    {schemeHints.length ? (
                         <div className="glass-panel subtle-hints">
-                            {lastSettlement.judgeFacts.aiNativeSummary.schemeHints.map(hint => (
+                            {schemeHints.map(hint => (
                                 <p key={hint} className="result-text">{hint}</p>
                             ))}
                         </div>
@@ -169,8 +259,9 @@ export function Settlement() {
                                                 {npc?.name} 信任 {result.trustChange > 0 ? '+' : ''}{result.trustChange}
                                             </span>
                                         )}
-                                        {Object.entries(result.northDimensionChanges).map(([dim, val]) => {
-                                            if (val === 0) return null
+                                        {Object.entries(sanitizeDeltaRecord(result.northDimensionChanges)).map(([dim, val]) => {
+                                            const formattedDelta = formatDelta(val)
+                                            if (!formattedDelta) return null
                                             const dimNames: Record<string, string> = {
                                                 finance: '财政',
                                                 grain: '粮赋',
@@ -179,7 +270,7 @@ export function Settlement() {
                                                 governance: '统治穿透力',
                                             }
                                             return (
-                                                <span key={dim} className={`effect-tag ${(val as number) > 0 ? 'positive' : 'negative'}`}>
+                                                <span key={dim} className={`effect-tag ${Number(val) > 0 ? 'positive' : 'negative'}`}>
                                                     北周{dimNames[dim]} {(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}
                                                 </span>
                                             )
@@ -205,7 +296,7 @@ export function Settlement() {
                             </div>
                             <p className="result-text">{isLoading ? '女帝密批正在送达……' : empressReply}</p>
                             <div className="result-effects">
-                                {Object.entries(lastSettlement.policyReport.effects).map(([dim, val]) => {
+                                {Object.entries(sanitizeDeltaRecord(lastSettlement.policyReport.effects)).map(([dim, val]) => {
                                     if (!val) return null
                                     const dimNames: Record<string, string> = {
                                         finance: '财政',
@@ -233,12 +324,9 @@ export function Settlement() {
                             </div>
                             {lastSettlement.policyAftereffect && (
                                 <div className="policy-aftereffect">
-                                    <p className="result-text">{lastSettlement.policyAftereffect.summary}</p>
-                                    {lastSettlement.judgeFacts.aiNativeSummary?.policyHints?.map(hint => (
-                                        <p key={hint} className="result-text">{hint}</p>
-                                    ))}
+                                    {settlementPolicyFollowup && <p className="result-text">{settlementPolicyFollowup}</p>}
                                     <div className="result-effects">
-                                        {Object.entries(lastSettlement.policyAftereffect.effects).map(([dim, val]) => {
+                                        {Object.entries(sanitizeDeltaRecord(lastSettlement.policyAftereffect.effects)).map(([dim, val]) => {
                                             if (!val) return null
                                             const dimNames: Record<string, string> = {
                                                 finance: '财政',
@@ -298,9 +386,7 @@ export function Settlement() {
                         </div>
                         <div className="summary-item">
                             <span className="summary-label">南征窗口</span>
-                            <span className="summary-value">
-                                {lastSettlement?.judgeFacts?.invasionSummary.split('；')[0] ?? '待判'}
-                            </span>
+                            <span className="summary-value">{invasionWindowLabel}</span>
                         </div>
                     </div>
                 </div>
@@ -363,11 +449,11 @@ export function Settlement() {
                     </div>
                 )}
 
-                {lastSettlement?.judgeFacts.aiNativeSummary?.backlashHints?.length ? (
+                {backlashHints.length ? (
                     <div className="results-section animate-slide-up animate-delay-4">
                         <h3 className="section-title">余波暗动</h3>
                         <div className="results-list">
-                            {lastSettlement.judgeFacts.aiNativeSummary.backlashHints.map(hint => (
+                            {backlashHints.map(hint => (
                                 <div key={hint} className="result-card glass-panel failure">
                                     <p className="result-text">{hint}</p>
                                 </div>

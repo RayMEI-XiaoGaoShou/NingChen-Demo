@@ -140,14 +140,14 @@ export function SchemePanel() {
                     onClose={() => markFirstRoundGuideSeen('scheme_phase')}
                 />
             )}
-            <div className="page-utility-row animate-slide-up">
+            <div className="page-utility-row utility-split animate-slide-up">
+                <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
                     玩法说明
                 </button>
             </div>
             <div className="scheme-modal glass-panel animate-slide-up">
                 <div className="scheme-header">
-                    <button className="btn-back btn-back-inline" onClick={prevPhase}>上一页</button>
                     <h2 className="modal-title">施 计</h2>
                     <div className="scheme-counter">
                         今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
@@ -181,7 +181,13 @@ export function SchemePanel() {
                                             }}
                                         >
                                             <div className="npc-select-main">
-                                                <NpcPortrait name={npc.name} className="npc-select-avatar" />
+                                                <NpcPortrait
+                                                    name={npc.name}
+                                                    className="npc-select-avatar"
+                                                    framed
+                                                    positionY="20%"
+                                                    zoom={1.24}
+                                                />
                                                 <span className="npc-name">{npc.name}</span>
                                             </div>
                                             <span className={`trust-tag trust-${getTrustLevel(npc.trust)}`}>
@@ -234,7 +240,13 @@ export function SchemePanel() {
                                                 onClick={() => setRelatedNpcId(npc.id)}
                                             >
                                                 <div className="npc-select-main">
-                                                    <NpcPortrait name={npc.name} className="npc-select-avatar" />
+                                                    <NpcPortrait
+                                                        name={npc.name}
+                                                        className="npc-select-avatar"
+                                                        framed
+                                                        positionY="20%"
+                                                        zoom={1.24}
+                                                    />
                                                     <span className="npc-name">{npc.name}</span>
                                                 </div>
                                             </button>

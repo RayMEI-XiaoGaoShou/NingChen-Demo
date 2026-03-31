@@ -77,14 +77,28 @@ export function GlobalAudio() {
     }
 
     useEffect(() => {
-        audioRef.current = new Audio()
-        audioRef.current.loop = true
-        audioRef.current.preload = 'auto'
-        audioRef.current.volume = 0.52
+        const audio = audioRef.current
+        if (!audio) return
+
+        audio.loop = true
+        audio.preload = 'auto'
+        audio.volume = 0.52
+        audio.autoplay = true
+        audio.setAttribute('playsinline', 'true')
+
+        const handleCanPlay = () => {
+            if (!mutedRef.current && !readyRef.current) {
+                attemptPlayback()
+            }
+        }
+
+        audio.addEventListener('canplay', handleCanPlay)
+        audio.addEventListener('canplaythrough', handleCanPlay)
 
         return () => {
-            audioRef.current?.pause()
-            audioRef.current = null
+            audio.removeEventListener('canplay', handleCanPlay)
+            audio.removeEventListener('canplaythrough', handleCanPlay)
+            audio.pause()
         }
     }, [])
 
@@ -99,9 +113,23 @@ export function GlobalAudio() {
             }
         }
 
+        const handleVisibilityResume = () => {
+            if (document.visibilityState === 'visible' && !mutedRef.current && !readyRef.current) {
+                attemptPlayback()
+            }
+        }
+
         window.addEventListener('pointerdown', handlePointerDown, { passive: true })
+        window.addEventListener('keydown', handlePointerDown)
+        window.addEventListener('focus', handlePointerDown)
+        window.addEventListener('pageshow', handlePointerDown)
+        document.addEventListener('visibilitychange', handleVisibilityResume)
         return () => {
             window.removeEventListener('pointerdown', handlePointerDown)
+            window.removeEventListener('keydown', handlePointerDown)
+            window.removeEventListener('focus', handlePointerDown)
+            window.removeEventListener('pageshow', handlePointerDown)
+            document.removeEventListener('visibilitychange', handleVisibilityResume)
         }
     }, [])
 
@@ -116,8 +144,15 @@ export function GlobalAudio() {
             return
         }
 
+        const nextSrc = getBgmTrackPath(currentTrack)
+        const resolvedSrc = new URL(nextSrc, window.location.origin).toString()
+        if (audio.src !== resolvedSrc) {
+            audio.src = nextSrc
+            audio.load()
+        }
+
         attemptPlayback()
     }, [currentTrack, isMuted, playbackRequestToken, setAudioReady])
 
-    return null
+    return <audio ref={audioRef} style={{ display: 'none' }} />
 }

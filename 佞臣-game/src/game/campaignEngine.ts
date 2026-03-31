@@ -59,7 +59,7 @@ export function tickCampaignFallout(campaign: CampaignState): {
             applied: false,
             northImpact: {},
             southImpact: {},
-            nextCampaign: makeIdleCampaign(),
+            nextCampaign: makeIdleCampaign(campaign.resolvedState ?? campaign.state),
         }
     }
 
@@ -73,7 +73,7 @@ export function tickCampaignFallout(campaign: CampaignState): {
                 ...campaign,
                 remainingRounds: remaining,
             }
-            : makeIdleCampaign(),
+            : makeIdleCampaign(campaign.resolvedState ?? campaign.state),
     }
 }
 
@@ -86,6 +86,7 @@ function buildCampaignResult(
         return campaign === 'shu'
             ? {
                 state: 'gained',
+                resolvedState: 'gained',
                 sourceRound: round,
                 summary: '蜀地方向得手，北周西线顿失从容。',
                 ongoingNorthImpact: { governance: -1.2, grain: -0.8 },
@@ -96,6 +97,7 @@ function buildCampaignResult(
             }
             : {
                 state: 'gained',
+                resolvedState: 'gained',
                 sourceRound: round,
                 summary: '淮南方向得手，北周前线与粮运一时震动。',
                 ongoingNorthImpact: { military: -1.2, finance: -0.9, socialOrder: -0.8 },
@@ -110,6 +112,7 @@ function buildCampaignResult(
         return campaign === 'shu'
             ? {
                 state: 'stalemate',
+                resolvedState: 'stalemate',
                 sourceRound: round,
                 summary: '蜀地战局一时僵持，双方都被迫继续投入。',
                 ongoingNorthImpact: { governance: -0.7, grain: -0.4 },
@@ -120,6 +123,7 @@ function buildCampaignResult(
             }
             : {
                 state: 'stalemate',
+                resolvedState: 'stalemate',
                 sourceRound: round,
                 summary: '淮南战局胶着，双方都被拖入久战。',
                 ongoingNorthImpact: { military: -0.7, finance: -0.5, socialOrder: -0.5 },
@@ -132,6 +136,7 @@ function buildCampaignResult(
 
     return {
         state: 'failed',
+        resolvedState: 'failed',
         sourceRound: round,
         summary: campaign === 'shu'
             ? '征蜀失利，南陈不得不先行止损。'
@@ -146,9 +151,10 @@ function buildCampaignResult(
     }
 }
 
-function makeIdleCampaign(): CampaignState {
+function makeIdleCampaign(resolvedState: CampaignState['resolvedState'] = null): CampaignState {
     return {
         state: 'idle',
+        resolvedState,
         sourceRound: null,
         summary: '',
         ongoingNorthImpact: {},
