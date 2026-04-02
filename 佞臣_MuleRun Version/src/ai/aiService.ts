@@ -11,9 +11,17 @@ type MujianOpenApiConfig = {
 let currentMode: AiMode = 'fallback'
 let mujianSdk: any = null
 let initPromise: Promise<AiMode> | null = null
+const runtimeEnv = ((globalThis as any).process?.env ?? {}) as Record<string, string | undefined>
+
+function getEnvValue(
+    key: 'VITE_KIMI_API_KEY' | 'VITE_KIMI_MODEL' | 'VITE_KIMI_BASE_URL' | 'DEV',
+): string | undefined {
+    const viteEnv = typeof import.meta !== 'undefined' ? import.meta.env : undefined
+    return viteEnv?.[key] ?? runtimeEnv[key]
+}
 
 function hasKimiConfig(): boolean {
-    const apiKey = import.meta.env.VITE_KIMI_API_KEY
+    const apiKey = getEnvValue('VITE_KIMI_API_KEY')
     return Boolean(apiKey && apiKey !== 'your-kimi-api-key-here')
 }
 
@@ -215,13 +223,14 @@ async function kimiCompletion(
     maxTokens: number,
     tag: string,
 ): Promise<string> {
-    const apiKey = import.meta.env.VITE_KIMI_API_KEY
-    const model = import.meta.env.VITE_KIMI_MODEL || 'deepseek-chat'
-    const baseUrl = import.meta.env.VITE_KIMI_BASE_URL || 'https://api.deepseek.com'
+    const apiKey = getEnvValue('VITE_KIMI_API_KEY') || ''
+    const model = getEnvValue('VITE_KIMI_MODEL') || 'deepseek-chat'
+    const baseUrl = getEnvValue('VITE_KIMI_BASE_URL') || 'https://api.deepseek.com'
+    const isDev = getEnvValue('DEV') === 'true'
 
     try {
         return openAiCompatibleCompletion(
-            import.meta.env.DEV ? '/api/ai' : baseUrl,
+            isDev ? '/api/ai' : baseUrl,
             apiKey,
             model,
             messages,

@@ -6,7 +6,17 @@ import { getPolicyQuestionForRound } from '../../data/policyQuestions'
 import { applyDelayedBacklashToState } from '../aiNativeEngine'
 import { applyDimensionChanges } from '../nationEngine'
 import { settleRound } from '../roundSettlement'
-import { calculateCompositePower, type CampaignState, type DelayedBacklash, type Faction, type NationDimensions, type NPC, type PlayerDangerStage, type PolicyAftereffect, type RelationshipEdge, type SchemeAction } from '../types'
+import {
+    calculateCompositePower,
+    type CampaignState,
+    type DelayedBacklash,
+    type Faction,
+    type NorthSchemeParseResult,
+    type NPC,
+    type PolicyReasonParseResult,
+    type RelationshipEdge,
+    type SchemeAction,
+} from '../types'
 import type { SimulationState } from '../simulationRunner'
 import { runNorthLiveParse, runPolicyLiveParse } from './liveParseRunner'
 import type { BalanceSample, LiveParseRecord, SampleRunSnapshot, SampleRunSummary } from './types'
@@ -26,6 +36,14 @@ export interface LiveBalanceSampleResult {
     parseRecords: LiveParseRecord[]
     snapshots: SampleRunSnapshot[]
     finalState: SimulationState
+}
+
+function getNorthParse(record: LiveParseRecord): NorthSchemeParseResult | undefined {
+    return record.kind === 'north' ? record.normalized as NorthSchemeParseResult : undefined
+}
+
+function getPolicyParse(record: LiveParseRecord): PolicyReasonParseResult | null {
+    return record.kind === 'policy' ? record.normalized as PolicyReasonParseResult | null : null
 }
 
 export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveBalanceSampleResult> {
@@ -69,7 +87,7 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
                 schemeType: schemePlan.schemeType,
                 playerSpeech: schemePlan.speech,
                 resolutionRoll: deterministicRoll(sample.id, state.currentRound, index),
-                northParse: parseRecord.normalized && parseRecord.kind === 'north' ? parseRecord.normalized : undefined,
+                northParse: getNorthParse(parseRecord),
             })
         }
 
@@ -92,7 +110,7 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
                 },
             })
             parseRecords.push(parseRecord)
-            policyParse = parseRecord.normalized && parseRecord.kind === 'policy' ? parseRecord.normalized : null
+            policyParse = getPolicyParse(parseRecord)
         }
 
         const settlement = settleRound({
