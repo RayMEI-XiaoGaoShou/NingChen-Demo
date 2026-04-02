@@ -76,3 +76,10 @@ export interface LiveBalanceReport {
     summaries: SampleRunSummary[]
     parseRecords: Record<string, LiveParseRecord[]>
 }
+
+export interface SampleRunSnapshot {
+    round: number
+    northPower: number
+    southPower: number
+    gameResult: string
+}
