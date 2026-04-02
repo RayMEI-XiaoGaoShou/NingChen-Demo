@@ -1,0 +1,184 @@
+.prologue-page {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: var(--spacing-xl) 0 var(--spacing-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.prologue-hero {
+    text-align: center;
+    padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-xl);
+    border-bottom: 1px solid rgba(201, 176, 101, 0.22);
+    background:
+        radial-gradient(circle at top, rgba(201, 176, 101, 0.12), transparent 55%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 72%);
+}
+
+.prologue-kicker {
+    display: inline-block;
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-sm);
+    letter-spacing: 8px;
+    margin-bottom: var(--spacing-md);
+}
+
+.prologue-title {
+    font-family: var(--font-heading);
+    font-size: 56px;
+    letter-spacing: 14px;
+    text-indent: 14px;
+    color: var(--color-text-primary);
+    text-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+}
+
+.prologue-summary {
+    width: min(640px, 100%);
+    margin: var(--spacing-lg) auto 0;
+    color: var(--color-text-secondary);
+    line-height: 1.9;
+    font-size: var(--font-size-md);
+}
+
+.prologue-meta {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-lg);
+}
+
+.prologue-chip {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 176, 101, 0.25);
+    color: var(--color-accent-gold);
+    background: rgba(201, 176, 101, 0.08);
+    font-size: var(--font-size-xs);
+    letter-spacing: 2px;
+}
+
+.prologue-sections {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.prologue-section-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.prologue-section {
+    padding: var(--spacing-xl);
+    border-radius: var(--radius-lg);
+}
+
+.prologue-map-card {
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+}
+
+.prologue-map-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.prologue-map-title {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-md);
+    letter-spacing: 2px;
+}
+
+.prologue-map-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    border: 1px solid rgba(201, 176, 101, 0.28);
+    border-radius: 999px;
+    padding: 4px 10px;
+    white-space: nowrap;
+}
+
+.prologue-map-image {
+    width: min(50%, 420px);
+    display: block;
+    margin: 0 auto;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(201, 176, 101, 0.2);
+    background: rgba(8, 8, 12, 0.58);
+}
+
+.prologue-section-title {
+    display: inline-block;
+    margin-bottom: var(--spacing-md);
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-xl);
+    letter-spacing: 6px;
+    border-bottom: 1px solid rgba(201, 176, 101, 0.28);
+    padding-bottom: var(--spacing-xs);
+}
+
+.prologue-section-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.prologue-section-body p {
+    color: var(--color-text-primary);
+    line-height: 2;
+    text-align: justify;
+    text-indent: 2em;
+}
+
+.prologue-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--spacing-sm);
+}
+
+.prologue-button {
+    min-width: 220px;
+}
+
+@media (max-width: 640px) {
+    .prologue-page {
+        padding-top: var(--spacing-lg);
+    }
+
+    .prologue-hero {
+        padding: var(--spacing-xl) var(--spacing-md) var(--spacing-lg);
+    }
+
+    .prologue-title {
+        font-size: 40px;
+        letter-spacing: 8px;
+        text-indent: 8px;
+    }
+
+    .prologue-section {
+        padding: var(--spacing-lg);
+    }
+
+    .prologue-section-title {
+        font-size: var(--font-size-lg);
+        letter-spacing: 4px;
+    }
+
+    .prologue-map-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .prologue-map-image {
+        width: min(100%, 320px);
+    }
+}
