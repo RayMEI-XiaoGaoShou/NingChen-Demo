@@ -5,6 +5,7 @@ describe('live balance sample library', () => {
     it('uses the normalized strategy-aligned sample ids', () => {
         expect(LIVE_BALANCE_SAMPLE_SET.map(sample => sample.id)).toEqual([
             'expert-mainline',
+            'expert-omen',
             'expert-external',
             'average-mainline',
             'average-omen',
@@ -17,8 +18,9 @@ describe('live balance sample library', () => {
 
     it('covers the minimum first-wave sample matrix', () => {
         expect(SAMPLE_SET_VERSION).toBeTruthy()
-        expect(LIVE_BALANCE_SAMPLE_SET).toHaveLength(8)
+        expect(LIVE_BALANCE_SAMPLE_SET).toHaveLength(9)
         expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'expert' && sample.strategy === 'mainline')).toBe(true)
+        expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'expert' && sample.strategy === 'omen')).toBe(true)
         expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'average' && sample.strategy === 'omen')).toBe(true)
         expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'rookie' && sample.strategy === 'mainline')).toBe(true)
     })
