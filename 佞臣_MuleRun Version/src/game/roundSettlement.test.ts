@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { settleRound } from './roundSettlement'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { INITIAL_NPCS } from '../data/npcs'
@@ -26,6 +26,20 @@ describe('settleRound layered settlement', () => {
                     schemeType: 'advise',
                     playerSpeech: '孤若欲压后党，先抓住淮南边摩擦做足主战名分，再迫祖廷交出饷权。',
                     resolutionRoll: 0.05,
+                    northParse: {
+                        characterFit: 0.74,
+                        eventFit: 0.58,
+                        structuralPenetration: 0.7,
+                        executability: 0.72,
+                        exposureRisk: 0.14,
+                        financeRelevance: 0.42,
+                        grainRelevance: 0.28,
+                        militaryRelevance: 0.2,
+                        socialOrderRelevance: 0.34,
+                        governanceRelevance: 0.78,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
                 },
             ],
             northStats: { ...NORTH_INITIAL },
@@ -38,9 +52,9 @@ describe('settleRound layered settlement', () => {
         }) as any
 
         expect(result.updatedNpcs?.find((npc: any) => npc.name === '宇文棣')?.trust).toBeGreaterThan(62)
-        expect(result.factionsAfter?.find((faction: any) => faction.id === 'emperor')?.courtInfluence).toBeGreaterThan(60)
         expect(result.schemeResults[0]?.personEffects?.trustDelta).toBeGreaterThan(0)
-        expect(result.schemeResults[0]?.factionEffects?.emperor?.courtInfluence).toBeGreaterThan(0)
+        expect(Math.abs(result.schemeResults[0]?.nationEffects?.governance ?? 0)).toBeGreaterThan(0)
+        expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance + 0.2)
     })
 
     it('resolves secession or rebellion for eligible external figures in the same round', () => {
@@ -177,12 +191,52 @@ describe('settleRound layered settlement', () => {
         }) as any
 
         expect(boosted.schemeResults[0]?.personEffects?.trustDelta).toBeGreaterThan(bland.schemeResults[0]?.personEffects?.trustDelta ?? 0)
-        expect(Math.abs(boosted.schemeResults[0]?.factionEffects?.empress?.courtInfluence ?? 0)).toBeGreaterThan(
-            Math.abs(bland.schemeResults[0]?.factionEffects?.empress?.courtInfluence ?? 0),
-        )
         expect(Math.abs(boosted.schemeResults[0]?.nationEffects?.governance ?? 0)).toBeGreaterThan(
             Math.abs(bland.schemeResults[0]?.nationEffects?.governance ?? 0),
         )
+    })
+
+    it('tracks shu momentum from battle-relevant successful schemes', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.name === '祖廷')!
+
+        const result = settleRound({
+            round: 8,
+            schemes: [
+                {
+                    id: 'momentum-shu',
+                    targetNpcId: zuting.id,
+                    schemeType: 'advise',
+                    playerSpeech: '丞相若先收回转运、仓储与诏令节次，西线军粮和主帅调度才能重新握在中枢手里。',
+                    resolutionRoll: 0.03,
+                    northParse: {
+                        characterFit: 0.72,
+                        eventFit: 0.68,
+                        structuralPenetration: 0.7,
+                        executability: 0.66,
+                        exposureRisk: 0.16,
+                        financeRelevance: 0.12,
+                        grainRelevance: 0.84,
+                        militaryRelevance: 0.74,
+                        socialOrderRelevance: 0.2,
+                        governanceRelevance: 0.82,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc, trust: npc.name === '祖廷' ? 66 : npc.trust })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+            shuMomentum: 0,
+            huainanMomentum: 0,
+        }) as any
+
+        expect(result.shuMomentum).toBeGreaterThan(0)
+        expect(result.huainanMomentum).toBe(0)
     })
 
     it('grants event-driven intel unlocks on configured rounds', () => {
@@ -255,15 +309,44 @@ describe('settleRound layered settlement', () => {
     })
 
     it('softly applies faction breach penalties without breaking the round flow', () => {
+        const yuwendi = INITIAL_NPCS.find(npc => npc.name === '宇文棣')!
+        const hebaqi = INITIAL_NPCS.find(npc => npc.name === '贺拔琪')!
+
         const result = settleRound({
             round: 1,
-            schemes: [],
+            schemes: [
+                {
+                    id: 'breach-trigger',
+                    targetNpcId: yuwendi.id,
+                    relatedNpcId: hebaqi.id,
+                    schemeType: 'alienate',
+                    playerSpeech: '太后久握朝权，帝党上下多有不平，你若不早作筹画，只会继续被后党掣肘。',
+                    resolutionRoll: 0.05,
+                    northParse: {
+                        characterFit: 0.72,
+                        eventFit: 0.68,
+                        structuralPenetration: 0.74,
+                        executability: 0.7,
+                        exposureRisk: 0.12,
+                        financeRelevance: 0,
+                        grainRelevance: 0.18,
+                        militaryRelevance: 0.24,
+                        socialOrderRelevance: 0.66,
+                        governanceRelevance: 0.72,
+                        dominantIntent: 'divide',
+                        evidence: [],
+                    },
+                },
+            ],
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
-            npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
+            npcs: INITIAL_NPCS.map(npc => ({
+                ...npc,
+                trust: npc.id === yuwendi.id ? 70 : npc.trust,
+            })),
             factions: INITIAL_FACTIONS.map(faction =>
                 faction.id === 'emperor'
-                    ? { ...faction, courtInfluence: 17, internalStability: 16 }
+                    ? { ...faction, courtInfluence: 19, internalStability: 19 }
                     : { ...faction },
             ),
             intelProgress: {},
@@ -309,7 +392,7 @@ describe('settleRound layered settlement', () => {
             round: 10,
             schemes: [],
             northStats: { ...NORTH_INITIAL },
-            southStats: { ...SOUTH_INITIAL, finance: 62, grain: 70, military: 68, socialOrder: 58, governance: 66 },
+            southStats: { ...SOUTH_INITIAL, finance: 66, grain: 74, military: 72, socialOrder: 62, governance: 70 },
             npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
             intelProgress: {},

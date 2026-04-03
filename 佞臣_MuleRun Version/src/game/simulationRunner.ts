@@ -8,10 +8,11 @@ import { applyDelayedBacklashToState } from './aiNativeEngine'
 import { getRoundStartCampaignDisplay } from './campaignDisplayEngine'
 import { applyDimensionChanges } from './nationEngine'
 import { settleRound } from './roundSettlement'
-import { calculateCompositePower, type CampaignState, type DelayedBacklash, type Faction, type GameResult, type NationDimensions, type NPC, type PlayerDangerStage, type PolicyAftereffect, type PolicyReasonParseResult, type RelationshipEdge, type SchemeAction } from './types'
+import { calculateCompositePower, type CampaignState, type DelayedBacklash, type Faction, type GameDifficulty, type GameResult, type NationDimensions, type NPC, type PlayerDangerStage, type PolicyAftereffect, type PolicyReasonParseResult, type RelationshipEdge, type SchemeAction } from './types'
 
 export interface SimulationState {
     currentRound: number
+    difficulty: GameDifficulty
     playerDangerStage: PlayerDangerStage
     northStats: NationDimensions
     southStats: NationDimensions
@@ -26,6 +27,8 @@ export interface SimulationState {
     recentBacklash: DelayedBacklash[]
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
+    shuMomentum: number
+    huainanMomentum: number
     isGameOver: boolean
     gameResult: GameResult
 }
@@ -110,6 +113,7 @@ export function simulateGame(options: SimulateGameOptions): SimulationResult {
         const selectedPolicy = resolvePolicySelection(question, decision)
         const result = settleRound({
             round: state.currentRound,
+            difficulty: state.difficulty,
             schemes: cloneSchemes(decision.schemes ?? []),
             northStats: { ...state.northStats },
             southStats: { ...state.southStats },
@@ -123,6 +127,8 @@ export function simulateGame(options: SimulateGameOptions): SimulationResult {
             policyParse: decision.policyParse ?? null,
             shuCampaign: cloneCampaign(state.shuCampaign),
             huainanCampaign: cloneCampaign(state.huainanCampaign),
+            shuMomentum: state.shuMomentum,
+            huainanMomentum: state.huainanMomentum,
         })
 
         rounds.push({
@@ -162,6 +168,7 @@ function createSimulationState(overrides: Partial<SimulationState> = {}): Simula
 
     return {
         currentRound: overrides.currentRound ?? 1,
+        difficulty: overrides.difficulty ?? 'normal',
         playerDangerStage: overrides.playerDangerStage ?? 'safe',
         northStats,
         southStats,
@@ -176,6 +183,8 @@ function createSimulationState(overrides: Partial<SimulationState> = {}): Simula
         recentBacklash: cloneDelayedBacklash(overrides.recentBacklash ?? []),
         shuCampaign: cloneCampaign(overrides.shuCampaign ?? INITIAL_CAMPAIGN_STATE),
         huainanCampaign: cloneCampaign(overrides.huainanCampaign ?? INITIAL_CAMPAIGN_STATE),
+        shuMomentum: overrides.shuMomentum ?? 0,
+        huainanMomentum: overrides.huainanMomentum ?? 0,
         isGameOver: overrides.isGameOver ?? false,
         gameResult: overrides.gameResult ?? 'NONE',
     }
@@ -261,6 +270,7 @@ function advanceSimulationState(
     if (result.gameResult !== 'NONE') {
         return {
             currentRound: state.currentRound,
+            difficulty: state.difficulty,
             playerDangerStage: result.playerDangerStage,
             northStats: { ...result.northStatsAfter },
             southStats: { ...result.southStatsAfter },
@@ -275,6 +285,8 @@ function advanceSimulationState(
             recentBacklash: [],
             shuCampaign: cloneCampaign(result.shuCampaign),
             huainanCampaign: cloneCampaign(result.huainanCampaign),
+            shuMomentum: result.shuMomentum,
+            huainanMomentum: result.huainanMomentum,
             isGameOver: true,
             gameResult: result.gameResult,
         }
@@ -298,6 +310,7 @@ function advanceSimulationState(
 
     return {
         currentRound: nextRound,
+        difficulty: state.difficulty,
         playerDangerStage: result.playerDangerStage,
         northStats: { ...backlashResult.northStats },
         southStats: nextSouthStats,
@@ -312,6 +325,8 @@ function advanceSimulationState(
         recentBacklash: cloneDelayedBacklash(backlashResult.appliedBacklash),
         shuCampaign: cloneCampaign(result.shuCampaign),
         huainanCampaign: cloneCampaign(result.huainanCampaign),
+        shuMomentum: result.shuMomentum,
+        huainanMomentum: result.huainanMomentum,
         isGameOver: false,
         gameResult: 'NONE',
     }

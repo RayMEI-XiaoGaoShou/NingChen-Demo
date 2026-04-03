@@ -264,6 +264,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         policyParse: s.selectedPolicyParse,
                         shuCampaign: s.shuCampaign,
                         huainanCampaign: s.huainanCampaign,
+                        shuMomentum: s.shuMomentum,
+                        huainanMomentum: s.huainanMomentum,
                     })
 
                     const updatedIntelProgress = { ...s.intelProgress }
@@ -345,6 +347,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             battleReport,
                             shuCampaign: result.shuCampaign,
                             huainanCampaign: result.huainanCampaign,
+                            shuMomentum: result.shuMomentum,
+                            huainanMomentum: result.huainanMomentum,
                         })
                     } else {
                         set({
@@ -366,6 +370,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             roundHistory,
                             shuCampaign: result.shuCampaign,
                             huainanCampaign: result.huainanCampaign,
+                            shuMomentum: result.shuMomentum,
+                            huainanMomentum: result.huainanMomentum,
                         })
                     }
                 }

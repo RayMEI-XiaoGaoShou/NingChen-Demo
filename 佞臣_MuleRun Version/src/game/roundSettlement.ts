@@ -16,6 +16,7 @@ import {
 import { applyRelationshipShock, combineStructureEffects } from './relationshipEngine'
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
+import { deriveCampaignMomentumGain } from './campaignMomentum'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
@@ -24,6 +25,7 @@ import type {
     DelayedBacklash,
     Faction,
     FactionCollapseReport,
+    GameDifficulty,
     GameResult,
     NationDimensions,
     NPC,
@@ -96,10 +98,13 @@ export interface RoundSettlementResult {
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
     campaignReports: string[]
+    shuMomentum: number
+    huainanMomentum: number
 }
 
 export function settleRound(params: {
     round: number
+    difficulty?: GameDifficulty
     schemes: SchemeAction[]
     northStats: NationDimensions
     southStats: NationDimensions
@@ -113,13 +118,17 @@ export function settleRound(params: {
     policyParse?: PolicyReasonParseResult | null
     shuCampaign?: CampaignState
     huainanCampaign?: CampaignState
+    shuMomentum?: number
+    huainanMomentum?: number
 }): RoundSettlementResult {
-    const { round, schemes, policyOptionIndex, policyReason, policyParse, intelProgress } = params
+    const { round, schemes, policyOptionIndex, policyReason, policyParse, intelProgress, difficulty = 'normal' } = params
 
     let northStats = { ...params.northStats }
     let southStats = { ...params.southStats }
     let shuCampaign = cloneCampaign(params.shuCampaign)
     let huainanCampaign = cloneCampaign(params.huainanCampaign)
+    let shuMomentum = params.shuMomentum ?? 0
+    let huainanMomentum = params.huainanMomentum ?? 0
     let updatedNpcs = params.npcs.map(npc => ({ ...npc }))
     let factionsAfter = params.factions.map(faction => ({ ...faction }))
     let relationshipsAfter = (params.relationships ?? INITIAL_RELATIONSHIP_EDGES).map(edge => ({ ...edge }))
@@ -183,6 +192,7 @@ export function settleRound(params: {
             {
                 round,
                 unlockedSecrets: intelProgress[action.targetNpcId] ?? 0,
+                difficulty,
             },
         )
 
@@ -234,10 +244,20 @@ export function settleRound(params: {
             }
         }
 
+        const momentumGain = deriveCampaignMomentumGain({
+            round,
+            schemeType: action.schemeType,
+            success: result.success,
+            parse: result.northParse ?? null,
+        })
+        shuMomentum = Math.round((shuMomentum + momentumGain.shuMomentumGain) * 10) / 10
+        huainanMomentum = Math.round((huainanMomentum + momentumGain.huainanMomentumGain) * 10) / 10
+
         actionsPerNpc[action.targetNpcId] = (actionsPerNpc[action.targetNpcId] ?? 0) + 1
     }
 
-    factionCollapseReports = checkFactionCollapse(factionsAfter)
+    const previousCollapseReports = checkFactionCollapse(params.factions)
+    factionCollapseReports = filterNewFactionCollapseReports(previousCollapseReports, checkFactionCollapse(factionsAfter))
     if (factionCollapseReports.length > 0) {
         const collapsePenalty = deriveFactionCollapsePenalty(factionCollapseReports)
         factionsAfter = applyFactionEffects(factionsAfter, collapsePenalty.factionPenalty)
@@ -267,7 +287,7 @@ export function settleRound(params: {
                 aiScoringFocus: question.aiScoringFocus,
                 policyParse: policyParse ?? undefined,
                 round,
-            })
+            }, difficulty)
             southStats = applyDimensionChanges(southStats, policyEffect)
             policyAftereffect = buildPolicyAftereffect({
                 round,
@@ -275,6 +295,7 @@ export function settleRound(params: {
                 nextRoundFeedback: question.nextRoundFeedback,
                 legitimacyEffect: legitimacyTone,
                 immediateEffects: policyEffect,
+                difficulty,
                 reasonText: policyReason,
                 aiScoringFocus: question.aiScoringFocus,
                 policyParse: policyParse ?? undefined,
@@ -297,6 +318,7 @@ export function settleRound(params: {
     if (round === 10) {
         const evaluation = evaluateShuCampaignOutcome({
             round,
+            difficulty,
             southStats,
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
@@ -319,6 +341,7 @@ export function settleRound(params: {
     if (round === 16) {
         const evaluation = evaluateHuainanCampaignOutcome({
             round,
+            difficulty,
             southStats,
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
@@ -338,8 +361,8 @@ export function settleRound(params: {
         campaignReports.push(evaluation.summary)
     }
 
-    northStats = applyNaturalGrowth(northStats, true)
-    southStats = applyNaturalGrowth(southStats, false)
+    northStats = applyNaturalGrowth(northStats, true, difficulty)
+    southStats = applyNaturalGrowth(southStats, false, difficulty)
 
     const northPowerAfter = calculateCompositePower(northStats)
     const southPowerAfter = calculateCompositePower(southStats)
@@ -405,6 +428,8 @@ export function settleRound(params: {
         shuCampaign,
         huainanCampaign,
         campaignReports,
+        shuMomentum,
+        huainanMomentum,
     }
 }
 
@@ -821,6 +846,18 @@ function deriveFactionCollapsePenalty(reports: FactionCollapseReport[]): {
     }
 
     return { factionPenalty, nationPenalty }
+}
+
+function filterNewFactionCollapseReports(
+    previousReports: FactionCollapseReport[],
+    currentReports: FactionCollapseReport[],
+): FactionCollapseReport[] {
+    const previousSeverity = new Map(previousReports.map(report => [report.factionId, report.severity]))
+    return currentReports.filter(report => {
+        const previous = previousSeverity.get(report.factionId)
+        if (!previous) return true
+        return previous === 'breach' && report.severity === 'collapse'
+    })
 }
 
 function applyFactionCollapseNpcDrift(npcs: NPC[], reports: FactionCollapseReport[]): NPC[] {
