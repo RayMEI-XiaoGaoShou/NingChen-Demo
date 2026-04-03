@@ -308,6 +308,33 @@ describe('settleRound layered settlement', () => {
         expect(result.judgeFacts?.southSummary).toContain('后效')
     })
 
+    it('adds narrow shu campaign momentum from early logistics-oriented policy reasoning', () => {
+        const result = settleRound({
+            round: 2,
+            schemes: [],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: 0,
+            policyReason: '先把流民编入屯田、补足口粮，再把州郡转运和田亩清理一起压实，让新户尽快化成税粮与征发基础。',
+            policyParse: {
+                focusAlignment: 0.78,
+                executionClarity: 0.8,
+                costAwareness: 0.58,
+                legitimacyAlignment: 0.52,
+                policyStance: 'balanced',
+                evidence: [],
+            },
+            shuMomentum: 0,
+            huainanMomentum: 0,
+        }) as any
+
+        expect(result.shuMomentum).toBeGreaterThan(0)
+        expect(result.huainanMomentum).toBe(0)
+    })
+
     it('softly applies faction breach penalties without breaking the round flow', () => {
         const yuwendi = INITIAL_NPCS.find(npc => npc.name === '宇文棣')!
         const hebaqi = INITIAL_NPCS.find(npc => npc.name === '贺拔琪')!

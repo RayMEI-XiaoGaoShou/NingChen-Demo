@@ -17,6 +17,7 @@ import { applyRelationshipShock, combineStructureEffects } from './relationshipE
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 import { deriveCampaignMomentumGain } from './campaignMomentum'
+import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
@@ -312,6 +313,14 @@ export function settleRound(params: {
                 focusMatched: policyAftereffect.focusMatched,
                 scoringFocus: question.aiScoringFocus,
             }
+
+            const policyMomentumGain = derivePolicyCampaignMomentum({
+                round,
+                effects: policyEffect,
+                policyParse: policyParse ?? null,
+            })
+            shuMomentum = Math.round((shuMomentum + policyMomentumGain.shuMomentumGain) * 10) / 10
+            huainanMomentum = Math.round((huainanMomentum + policyMomentumGain.huainanMomentumGain) * 10) / 10
         }
     }
 
@@ -323,7 +332,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(3, shuMomentum),
+            momentumBonus: Math.min(5, shuMomentum),
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -347,7 +356,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(3, huainanMomentum),
+            momentumBonus: Math.min(5, huainanMomentum),
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)

@@ -2,27 +2,54 @@ import { describe, expect, it } from 'vitest'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 
 describe('campaignEngine', () => {
-    it('adds shu momentum bonus into round 10 campaign scoring', () => {
-        const withoutMomentum = evaluateShuCampaignOutcome({
+    it('lets expanded shu momentum turn a failed edge case into stalemate', () => {
+        const cappedAtThree = evaluateShuCampaignOutcome({
             round: 10,
-            southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            difficulty: 'normal',
+            southStats: { finance: 55, grain: 54, military: 52, socialOrder: 56, governance: 54 },
             northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
-            northPressurePenalty: 4,
-            policyBoost: 2,
-            momentumBonus: 0,
+            northPressurePenalty: 7,
+            policyBoost: 0,
+            momentumBonus: 3,
         })
 
-        const withMomentum = evaluateShuCampaignOutcome({
+        const expandedToFive = evaluateShuCampaignOutcome({
             round: 10,
-            southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            difficulty: 'normal',
+            southStats: { finance: 55, grain: 54, military: 52, socialOrder: 56, governance: 54 },
             northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
-            northPressurePenalty: 4,
+            northPressurePenalty: 7,
+            policyBoost: 0,
+            momentumBonus: 5,
+        })
+
+        expect(cappedAtThree.state).toBe('failed')
+        expect(expandedToFive.state).toBe('stalemate')
+    })
+
+    it('lets expanded huainan momentum rescue an otherwise failed edge case', () => {
+        const cappedAtThree = evaluateHuainanCampaignOutcome({
+            round: 16,
+            difficulty: 'normal',
+            southStats: { finance: 52, grain: 52, military: 54, socialOrder: 50, governance: 58 },
+            northStats: { finance: 62, grain: 64, military: 72, socialOrder: 56, governance: 58 },
+            northPressurePenalty: 8,
             policyBoost: 2,
             momentumBonus: 3,
         })
 
-        expect(withoutMomentum.state).toBe('failed')
-        expect(withMomentum.state).not.toBe('failed')
+        const expandedToFive = evaluateHuainanCampaignOutcome({
+            round: 16,
+            difficulty: 'normal',
+            southStats: { finance: 52, grain: 52, military: 54, socialOrder: 50, governance: 58 },
+            northStats: { finance: 62, grain: 64, military: 72, socialOrder: 56, governance: 58 },
+            northPressurePenalty: 8,
+            policyBoost: 2,
+            momentumBonus: 5,
+        })
+
+        expect(cappedAtThree.state).toBe('failed')
+        expect(expandedToFive.state).toBe('stalemate')
     })
 
     it('marks shu campaign as gained when south prep beats north effective commitment', () => {

@@ -15,15 +15,24 @@ export function deriveCampaignMomentumGain(params: {
         return { shuMomentumGain: 0, huainanMomentumGain: 0 }
     }
 
-    const baseBattleSignal =
-        params.parse.militaryRelevance * 0.35
-        + params.parse.grainRelevance * 0.35
-        + params.parse.governanceRelevance * 0.3
+    const shuSignal =
+        params.parse.grainRelevance * 0.38
+        + params.parse.governanceRelevance * 0.34
+        + params.parse.militaryRelevance * 0.28
+    const huainanSignal =
+        params.parse.militaryRelevance * 0.4
+        + params.parse.grainRelevance * 0.34
+        + params.parse.financeRelevance * 0.26
     const omenLegitimacySignal =
         params.schemeType === 'omen'
             ? params.parse.governanceRelevance * 0.8 + params.parse.socialOrderRelevance * 0.2
             : 0
-    const battleSignal = Math.max(baseBattleSignal, omenLegitimacySignal)
+    const battleSignal =
+        params.round <= 10
+            ? Math.max(shuSignal, omenLegitimacySignal)
+            : params.round <= 16
+                ? Math.max(huainanSignal, omenLegitimacySignal)
+                : 0
 
     const qualityGate =
         params.parse.characterFit >= 0.45
@@ -45,12 +54,12 @@ export function deriveCampaignMomentumGain(params: {
 
     const typeMultiplier =
         omenGate
-            ? 1.25
+            ? 1.45
             : lowRiskAdviceGate
-                ? 1.1
+                ? 1.4
                 : 1
 
-    const momentumBaseline = omenGate ? 0.1 : 0.35
+    const momentumBaseline = omenGate ? 0.05 : lowRiskAdviceGate ? 0.23 : 0.32
     const baseGain = Math.min(1.4, roundValue((battleSignal - momentumBaseline) * typeMultiplier))
 
     if (params.round <= 10) {

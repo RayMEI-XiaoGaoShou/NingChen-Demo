@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 describe('campaignMomentum', () => {
-    it('adds shu momentum for successful grain-military-governance court schemes before round 10', async () => {
+    it('weights shu momentum toward grain-governance-military signals before round 10', async () => {
         const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
 
         const result = deriveCampaignMomentumGain({
@@ -24,8 +24,35 @@ describe('campaignMomentum', () => {
             },
         })
 
-        expect(result.shuMomentumGain).toBeGreaterThan(0)
+        expect(result.shuMomentumGain).toBeGreaterThan(0.7)
         expect(result.huainanMomentumGain).toBe(0)
+    })
+
+    it('weights huainan momentum toward military-grain-finance signals after round 10', async () => {
+        const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
+
+        const result = deriveCampaignMomentumGain({
+            round: 14,
+            schemeType: 'advise',
+            success: true,
+            parse: {
+                characterFit: 0.7,
+                eventFit: 0.68,
+                structuralPenetration: 0.65,
+                executability: 0.58,
+                exposureRisk: 0.22,
+                financeRelevance: 0.72,
+                grainRelevance: 0.76,
+                militaryRelevance: 0.84,
+                socialOrderRelevance: 0.18,
+                governanceRelevance: 0.34,
+                dominantIntent: 'strategize',
+                evidence: [],
+            },
+        })
+
+        expect(result.shuMomentumGain).toBe(0)
+        expect(result.huainanMomentumGain).toBeGreaterThan(0.7)
     })
 
     it('does not reward generic pressure speeches with momentum', async () => {

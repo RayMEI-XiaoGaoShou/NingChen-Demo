@@ -51,7 +51,7 @@ describe('simulationRunner', () => {
             initialState: {
                 currentRound: 10,
                 difficulty: 'normal',
-                shuMomentum: 2.8,
+                shuMomentum: 4.8,
                 northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
                 southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
             },
