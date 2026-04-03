@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
+import { LIVE_BALANCE_SAMPLE_SET } from './liveBalance/sampleLibrary'
 import { simulateGame } from './simulationRunner'
 import type { NorthSchemeParseResult } from './types'
 
@@ -168,6 +169,83 @@ describe('simulationRunner', () => {
             }),
         })
 
-        expect(result.finalState.northPower).toBeGreaterThanOrEqual(result.finalState.southPower)
+        expect(result.finalState.southPower - result.finalState.northPower).toBeLessThan(8)
+        expect(result.finalState.southPower).toBeLessThanOrEqual(result.finalState.northPower + 8)
+    })
+
+    it('does not let a no-action normal run drift into an automatic victory by round 20', () => {
+        const result = simulateGame({
+            throughRound: 20,
+            initialState: {
+                difficulty: 'normal',
+            },
+        })
+
+        expect(result.finalState.gameResult).not.toBe('VICTORY')
+        expect(result.finalState.southPower).toBeLessThanOrEqual(result.finalState.northPower)
+    })
+
+    it('does not let the average mainline route convert a failed-war normal run into a comfortable endgame victory', () => {
+        const sample = LIVE_BALANCE_SAMPLE_SET.find(item => item.id === 'average-mainline')
+        expect(sample).toBeTruthy()
+
+        const result = simulateGame({
+            throughRound: 20,
+            initialState: {
+                difficulty: sample!.difficulty,
+            },
+            resolveRound: ({ round }) => {
+                const plan = sample!.rounds.find(item => item.round === round)
+                if (!plan) return {}
+
+                return {
+                    schemes: plan.schemes.map((scheme, index) => ({
+                        id: `${sample!.id}-r${round}-s${index + 1}`,
+                        targetNpcId: scheme.targetNpcId,
+                        relatedNpcId: scheme.relatedNpcId,
+                        schemeType: scheme.schemeType,
+                        playerSpeech: scheme.speech,
+                        resolutionRoll: 0.28,
+                    })),
+                    policyOptionIndex: plan.policy.optionIndex,
+                    policyReason: plan.policy.reason,
+                }
+            },
+        })
+
+        expect(result.finalState.shuCampaign.resolvedState ?? result.finalState.shuCampaign.state).not.toBe('gained')
+        expect(result.finalState.huainanCampaign.resolvedState ?? result.finalState.huainanCampaign.state).not.toBe('gained')
+        expect(result.finalState.southPower - result.finalState.northPower).toBeLessThanOrEqual(5)
+    })
+
+    it('keeps rookie aggressive pressure below a comfortable double-digit normal-mode victory', () => {
+        const sample = LIVE_BALANCE_SAMPLE_SET.find(item => item.id === 'rookie-aggressive')
+        expect(sample).toBeTruthy()
+
+        const result = simulateGame({
+            throughRound: 20,
+            initialState: {
+                difficulty: sample!.difficulty,
+            },
+            resolveRound: ({ round }) => {
+                const plan = sample!.rounds.find(item => item.round === round)
+                if (!plan) return {}
+
+                return {
+                    schemes: plan.schemes.map((scheme, index) => ({
+                        id: `${sample!.id}-r${round}-s${index + 1}`,
+                        targetNpcId: scheme.targetNpcId,
+                        relatedNpcId: scheme.relatedNpcId,
+                        schemeType: scheme.schemeType,
+                        playerSpeech: scheme.speech,
+                        resolutionRoll: 0.28,
+                    })),
+                    policyOptionIndex: plan.policy.optionIndex,
+                    policyReason: plan.policy.reason,
+                }
+            },
+        })
+
+        expect(result.finalState.southPower - result.finalState.northPower).toBeLessThan(10)
     })
 })
