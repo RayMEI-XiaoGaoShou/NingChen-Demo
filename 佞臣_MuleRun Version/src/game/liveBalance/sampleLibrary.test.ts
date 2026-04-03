@@ -31,4 +31,18 @@ describe('live balance sample library', () => {
             }
         }
     })
+
+    it('keeps rookie aggressive speeches visibly less tailored than expert routes', () => {
+        const rookieAggressive = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'rookie-aggressive')
+        const expertMainline = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'expert-mainline')
+
+        expect(rookieAggressive).toBeTruthy()
+        expect(expertMainline).toBeTruthy()
+
+        const rookieRoundTwoSpeech = rookieAggressive!.rounds[1].schemes[1].speech
+        const expertRoundTwoSpeech = expertMainline!.rounds[1].schemes[0].speech
+
+        expect(rookieRoundTwoSpeech).not.toMatch(/仓储|诏令|节次|接管|法统|灾异/)
+        expect(expertRoundTwoSpeech).toMatch(/仓储|诏令|节次|接管|法统|灾异/)
+    })
 })
