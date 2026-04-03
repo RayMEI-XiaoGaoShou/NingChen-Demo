@@ -191,29 +191,35 @@ function buildRookieOmenMisuseSchemes(round: number): [RoundSchemeSample, RoundS
 }
 
 function buildRookieAggressiveSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
-    const bluntAdvice = rotate([
-        '你现在总该先想办法把局面稳住。',
-        '再这么拖下去，谁都不会有好下场。',
-    ], round)
-    const bluntPressure = round === 1
-        ? rotate([
-            '他未必真心站在你这边。',
-            '有些人现在靠得太近，未必不是另有打算。',
-        ], round)
-        : rotate([
-            '别人若权太重，最后吃亏的可能就是你。',
-            '真出事的时候，他多半先把责任推给别人。',
-        ], round)
-    const externalAdvice = rotate([
-        '边上还是先顾好自己手里的兵。',
-        '外边的人先把自己这摊看住，比什么都强。',
+    const bluntCourt =
+        round % 2 === 0
+            ? makeScheme('zuting', 'slander', rotate([
+                '真闹起来，陛下未必会先替你说话。',
+                '宫里一乱，谁都可能先把自己摘出去。',
+            ], round), 'yuwendi')
+            : makeScheme('zongai', 'slander', rotate([
+                '她那边真出事时，未必会替你兜着。',
+                '有些人现在看着近，翻脸时也快。',
+            ], round), 'hebaqí')
+
+    const bluntPressure = rotate([
+        makeScheme('linghuelvguang', 'alienate', '朝里真乱起来，最后多半还是把锅扣到你头上。', 'zuting'),
+        makeScheme('yuwendi', 'alienate', '再让她一直压着，最后丢脸的还是你。', 'hebaqí'),
+        makeScheme('zongai', 'alienate', '别人要是越爬越高，先被顶掉的位置可能就是你。', 'zuting'),
     ], round)
 
-    return [
-        makeScheme('zuting', 'advise', bluntAdvice),
-        makeScheme('linghuelvguang', round === 1 ? 'slander' : 'alienate', bluntPressure, 'zongai'),
-        makeScheme('duguwenyue', 'advise', externalAdvice),
-    ]
+    const externalAdvice =
+        round % 2 === 0
+            ? makeScheme('ansiming', 'probe', rotate([
+                '外边的事先别急着站队，看看谁先翻脸。',
+                '边上先拖一拖，别那么快把话说死。',
+            ], round))
+            : makeScheme('duguwenyue', 'advise', rotate([
+                '边上的事先顾住自己再说。',
+                '外边谁催都先别太快应下。',
+            ], round))
+
+    return [bluntCourt, bluntPressure, externalAdvice]
 }
 
 function buildSchemesForSample(level: SampleSkillLevel, strategy: SampleStrategy, round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
