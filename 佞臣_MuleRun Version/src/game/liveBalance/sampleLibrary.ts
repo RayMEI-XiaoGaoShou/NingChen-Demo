@@ -109,5 +109,5 @@ export const LIVE_BALANCE_SAMPLE_SET: BalanceSample[] = [
     makeSample('average-external', '普通外部线', 'average', 'external', 4),
     makeSample('rookie-mainline', '菜鸟主线', 'rookie', 'mainline', 5),
     makeSample('rookie-omen-misuse', '菜鸟误用谶纬', 'rookie', 'omen', 6),
-    makeSample('rookie-scatter', '菜鸟分散出手', 'rookie', 'aggressive', 7),
+    makeSample('rookie-aggressive', '菜鸟激进线', 'rookie', 'aggressive', 7),
 ]

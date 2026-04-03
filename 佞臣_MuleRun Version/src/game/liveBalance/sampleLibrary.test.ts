@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { LIVE_BALANCE_SAMPLE_SET, SAMPLE_SET_VERSION } from './sampleLibrary'
 
 describe('live balance sample library', () => {
+    it('uses the normalized strategy-aligned sample ids', () => {
+        expect(LIVE_BALANCE_SAMPLE_SET.map(sample => sample.id)).toEqual([
+            'expert-mainline',
+            'expert-external',
+            'average-mainline',
+            'average-omen',
+            'average-external',
+            'rookie-mainline',
+            'rookie-omen-misuse',
+            'rookie-aggressive',
+        ])
+    })
+
     it('covers the minimum first-wave sample matrix', () => {
         expect(SAMPLE_SET_VERSION).toBeTruthy()
         expect(LIVE_BALANCE_SAMPLE_SET).toHaveLength(8)
