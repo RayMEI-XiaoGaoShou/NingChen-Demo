@@ -15,16 +15,21 @@ describe('saveEngine', () => {
         scheme_feedback: false,
         settlement: false,
     }
+    const initialOmenGuideSeen = {
+        first_omen_modal: false,
+    }
 
     const createBaseState = () => ({
         currentRound: 1,
         currentPhase: 'PROLOGUE' as const,
+        difficulty: 'normal' as const,
         schemeCount: 0,
         maxSchemes: 3,
         prologueStep: 'PROLOGUE' as const,
         helpOverlayOpen: false,
         helpOverlaySource: null,
         firstRoundGuideSeen: initialFirstRoundGuideSeen,
+        omenGuideSeen: initialOmenGuideSeen,
         playerDangerStage: 'safe' as const,
         isGameOver: false,
         gameResult: 'NONE' as const,
@@ -66,6 +71,8 @@ describe('saveEngine', () => {
             ongoingSouthImpact: {},
             remainingRounds: 0,
         },
+        shuMomentum: 0,
+        huainanMomentum: 0,
         roundStartSnapshot: null,
     })
 
@@ -80,6 +87,7 @@ describe('saveEngine', () => {
         })
 
         expect(snapshot).toBeTruthy()
+        expect(snapshot?.difficulty).toBe('normal')
         expect(snapshot?.prologueStep).toBe('GAMEPLAY_GUIDE')
     })
 

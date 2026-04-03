@@ -129,6 +129,8 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
             policyParse,
             shuCampaign: cloneCampaign(state.shuCampaign),
             huainanCampaign: cloneCampaign(state.huainanCampaign),
+            shuMomentum: state.shuMomentum,
+            huainanMomentum: state.huainanMomentum,
         })
 
         snapshots.push({
@@ -196,6 +198,8 @@ function createSimulationState(overrides: Partial<SimulationState> = {}): Simula
         recentBacklash: cloneDelayedBacklash(overrides.recentBacklash ?? []),
         shuCampaign: cloneCampaign(overrides.shuCampaign ?? INITIAL_CAMPAIGN_STATE),
         huainanCampaign: cloneCampaign(overrides.huainanCampaign ?? INITIAL_CAMPAIGN_STATE),
+        shuMomentum: overrides.shuMomentum ?? 0,
+        huainanMomentum: overrides.huainanMomentum ?? 0,
         isGameOver: overrides.isGameOver ?? false,
         gameResult: overrides.gameResult ?? 'NONE',
     }
@@ -231,6 +235,8 @@ function advanceSimulationState(
             recentBacklash: [],
             shuCampaign: cloneCampaign(result.shuCampaign),
             huainanCampaign: cloneCampaign(result.huainanCampaign),
+            shuMomentum: result.shuMomentum,
+            huainanMomentum: result.huainanMomentum,
             isGameOver: true,
             gameResult: result.gameResult,
         }
@@ -269,6 +275,8 @@ function advanceSimulationState(
         recentBacklash: cloneDelayedBacklash(backlashResult.appliedBacklash),
         shuCampaign: cloneCampaign(result.shuCampaign),
         huainanCampaign: cloneCampaign(result.huainanCampaign),
+        shuMomentum: result.shuMomentum,
+        huainanMomentum: result.huainanMomentum,
         isGameOver: false,
         gameResult: 'NONE',
     }
