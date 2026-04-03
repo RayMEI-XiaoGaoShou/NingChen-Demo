@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, HelpOverlaySource, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -37,12 +37,14 @@ interface GameState {
     // 回合状态
     currentRound: number
     currentPhase: RoundPhase
+    difficulty: GameDifficulty
     schemeCount: number
     maxSchemes: number
     prologueStep: PrologueStep
     helpOverlayOpen: boolean
     helpOverlaySource: HelpOverlaySource | null
     firstRoundGuideSeen: FirstRoundGuideSeenMap
+    omenGuideSeen: OmenGuideSeenMap
     playerDangerStage: PlayerDangerStage
 
     // 游戏结果
@@ -83,14 +85,18 @@ interface GameState {
     battleReport: BattleReport | null
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
+    shuMomentum: number
+    huainanMomentum: number
 
     // 动作
     nextPhase: () => void
     prevPhase: () => void
     advancePrologue: () => void
+    setDifficulty: (difficulty: GameDifficulty) => void
     openGameplayGuide: (source?: HelpOverlaySource) => void
     closeGameplayGuide: () => void
     markFirstRoundGuideSeen: (key: FirstRoundGuideKey) => void
+    markOmenGuideSeen: () => void
     saveRoundStartSnapshot: () => void
     restoreRoundStartSnapshot: () => void
     resetGame: () => void
@@ -105,6 +111,7 @@ interface GameState {
 
 const initialNorthPower = calculateCompositePower(NORTH_INITIAL)
 const initialSouthPower = calculateCompositePower(SOUTH_INITIAL)
+const initialDifficulty: GameDifficulty = 'normal'
 const initialIntelProgress = Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0]))
 const initialCampaignState: CampaignState = {
     state: 'idle',
@@ -122,6 +129,9 @@ const initialFirstRoundGuideSeen: FirstRoundGuideSeenMap = {
     empress_letter: false,
     scheme_feedback: false,
     settlement: false,
+}
+const initialOmenGuideSeen: OmenGuideSeenMap = {
+    first_omen_modal: false,
 }
 
 function normalizeFirstRoundGuideSeen(
@@ -165,12 +175,14 @@ function attachAvailableSchemes(
 export const useGameStore = create<GameState>((set, get) => ({
     currentRound: 1,
     currentPhase: 'PROLOGUE',
+    difficulty: initialDifficulty,
     schemeCount: 0,
     maxSchemes: 3,
     prologueStep: 'PROLOGUE',
     helpOverlayOpen: false,
     helpOverlaySource: null,
     firstRoundGuideSeen: initialFirstRoundGuideSeen,
+    omenGuideSeen: initialOmenGuideSeen,
     playerDangerStage: 'safe',
     isGameOver: false,
     gameResult: 'NONE',
@@ -199,6 +211,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     battleReport: null,
     shuCampaign: { ...initialCampaignState },
     huainanCampaign: { ...initialCampaignState },
+    shuMomentum: 0,
+    huainanMomentum: 0,
 
     nextPhase: () => {
         const state = get()
@@ -236,6 +250,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     const s = get()
                     const result = settleRound({
                         round: s.currentRound,
+                        difficulty: s.difficulty,
                         schemes: s.currentSchemes,
                         northStats: s.northStats,
                         southStats: s.southStats,
@@ -446,6 +461,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         })
     },
 
+    setDifficulty: (difficulty: GameDifficulty) => {
+        set({ difficulty })
+    },
+
     openGameplayGuide: (source: HelpOverlaySource = 'gameplay') => {
         set({
             helpOverlayOpen: true,
@@ -469,17 +488,28 @@ export const useGameStore = create<GameState>((set, get) => ({
         }))
     },
 
+    markOmenGuideSeen: () => {
+        set(state => ({
+            omenGuideSeen: {
+                ...state.omenGuideSeen,
+                first_omen_modal: true,
+            },
+        }))
+    },
+
     saveRoundStartSnapshot: () => {
         const state = get()
         const snapshot = buildRoundStartSnapshot({
             currentRound: state.currentRound,
             currentPhase: 'ROUND_START',
+            difficulty: state.difficulty,
             schemeCount: 0,
             maxSchemes: state.maxSchemes,
             prologueStep: state.prologueStep,
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: state.firstRoundGuideSeen,
+            omenGuideSeen: state.omenGuideSeen,
             playerDangerStage: state.playerDangerStage,
             isGameOver: false,
             gameResult: 'NONE',
@@ -515,6 +545,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 ongoingNorthImpact: { ...state.huainanCampaign.ongoingNorthImpact },
                 ongoingSouthImpact: { ...state.huainanCampaign.ongoingSouthImpact },
             },
+            shuMomentum: state.shuMomentum,
+            huainanMomentum: state.huainanMomentum,
         })
 
         set({ roundStartSnapshot: snapshot })
@@ -527,12 +559,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({
             currentRound: snapshot.currentRound,
             currentPhase: 'ROUND_START',
+            difficulty: snapshot.difficulty,
             schemeCount: 0,
             maxSchemes: snapshot.maxSchemes,
             prologueStep: snapshot.prologueStep,
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: snapshot.firstRoundGuideSeen,
+            omenGuideSeen: snapshot.omenGuideSeen,
             playerDangerStage: snapshot.playerDangerStage,
             isGameOver: false,
             gameResult: 'NONE',
@@ -561,6 +595,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             battleReport: null,
             shuCampaign: snapshot.shuCampaign,
             huainanCampaign: snapshot.huainanCampaign,
+            shuMomentum: snapshot.shuMomentum,
+            huainanMomentum: snapshot.huainanMomentum,
         })
     },
 
@@ -568,6 +604,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({
             currentRound: 1,
             currentPhase: 'PROLOGUE',
+            difficulty: initialDifficulty,
             schemeCount: 0,
             isGameOver: false,
             gameResult: 'NONE',
@@ -575,6 +612,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: initialFirstRoundGuideSeen,
+            omenGuideSeen: initialOmenGuideSeen,
             playerDangerStage: 'safe',
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
@@ -601,6 +639,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             battleReport: null,
             shuCampaign: { ...initialCampaignState },
             huainanCampaign: { ...initialCampaignState },
+            shuMomentum: 0,
+            huainanMomentum: 0,
         })
     },
 
@@ -659,6 +699,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen?: boolean
             helpOverlaySource?: HelpOverlaySource | null
             firstRoundGuideSeen?: FirstRoundGuideSeenMap | boolean
+            omenGuideSeen?: OmenGuideSeenMap
         }
 
         const prologueStep =
@@ -668,18 +709,21 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({
             currentRound: snapshot.currentRound,
             currentPhase: snapshot.currentPhase,
+            difficulty: snapshot.difficulty ?? initialDifficulty,
             schemeCount: snapshot.schemeCount,
             maxSchemes: snapshot.maxSchemes,
             prologueStep,
             helpOverlayOpen: guideSnapshot.helpOverlayOpen ?? false,
             helpOverlaySource: guideSnapshot.helpOverlaySource ?? null,
             firstRoundGuideSeen: normalizeFirstRoundGuideSeen(guideSnapshot.firstRoundGuideSeen),
+            omenGuideSeen: guideSnapshot.omenGuideSeen ?? initialOmenGuideSeen,
             playerDangerStage: snapshot.playerDangerStage ?? 'safe',
             isGameOver: snapshot.isGameOver,
             gameResult: snapshot.gameResult,
             roundStartSnapshot: snapshot.roundStartSnapshot
                 ? {
                     ...snapshot.roundStartSnapshot,
+                    difficulty: snapshot.roundStartSnapshot.difficulty ?? snapshot.difficulty ?? initialDifficulty,
                     npcs: attachAvailableSchemes(
                         snapshot.roundStartSnapshot.npcs,
                         snapshot.roundStartSnapshot.currentRound,
@@ -711,6 +755,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             battleReport: snapshot.battleReport,
             shuCampaign: snapshot.shuCampaign ?? { ...initialCampaignState },
             huainanCampaign: snapshot.huainanCampaign ?? { ...initialCampaignState },
+            shuMomentum: snapshot.shuMomentum ?? 0,
+            huainanMomentum: snapshot.huainanMomentum ?? 0,
         })
     },
 }))

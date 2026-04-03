@@ -1,11 +1,14 @@
-import type { CampaignState, NationDimensions } from './types'
+import { getDifficultyProfile } from './difficulty'
+import type { CampaignState, GameDifficulty, NationDimensions } from './types'
 
 export interface CampaignEvaluationInput {
     round: number
+    difficulty?: GameDifficulty
     southStats: NationDimensions
     northStats: NationDimensions
     northPressurePenalty: number
     policyBoost: number
+    momentumBonus?: number
 }
 
 export interface CampaignEvaluationResult extends CampaignState {
@@ -14,38 +17,46 @@ export interface CampaignEvaluationResult extends CampaignState {
 }
 
 export function evaluateShuCampaignOutcome(input: CampaignEvaluationInput): CampaignEvaluationResult {
+    const profile = getDifficultyProfile(input.difficulty ?? 'normal')
     const southPrep =
-        input.southStats.military * 0.34 +
-        input.southStats.grain * 0.31 +
-        input.southStats.governance * 0.25 +
-        input.policyBoost * 2.6
-    const northCommitment =
+        (
+            input.southStats.military * 0.34 +
+            input.southStats.grain * 0.31 +
+            input.southStats.governance * 0.25 +
+            input.policyBoost * 2.1
+        ) * profile.campaign.southPrepMultiplier
+    const northCommitmentBase =
         input.northStats.military * 0.24 +
         input.northStats.grain * 0.18 +
         input.northStats.finance * 0.14 +
-        input.northStats.governance * 0.2 -
-        input.northPressurePenalty * 3
+        input.northStats.governance * 0.2
+    const northCommitment =
+        northCommitmentBase - input.northPressurePenalty * profile.campaign.northPressureWeight
 
-    const score = southPrep - northCommitment
-    return buildCampaignResult('shu', input.round, score)
+    const score = southPrep - northCommitment + profile.campaign.scoreBias + (input.momentumBonus ?? 0)
+    return buildCampaignResult('shu', input.round, score, profile.campaign.gainedThreshold, profile.campaign.stalemateThreshold)
 }
 
 export function evaluateHuainanCampaignOutcome(input: CampaignEvaluationInput): CampaignEvaluationResult {
+    const profile = getDifficultyProfile(input.difficulty ?? 'normal')
     const southPrep =
-        input.southStats.military * 0.32 +
-        input.southStats.grain * 0.22 +
-        input.southStats.finance * 0.16 +
-        input.southStats.socialOrder * 0.12 +
-        input.policyBoost * 2.8
-    const northCommitment =
+        (
+            input.southStats.military * 0.32 +
+            input.southStats.grain * 0.22 +
+            input.southStats.finance * 0.16 +
+            input.southStats.socialOrder * 0.12 +
+            input.policyBoost * 2.2
+        ) * profile.campaign.southPrepMultiplier
+    const northCommitmentBase =
         input.northStats.military * 0.28 +
         input.northStats.grain * 0.19 +
         input.northStats.finance * 0.17 +
-        input.northStats.governance * 0.13 -
-        input.northPressurePenalty * 3.2
+        input.northStats.governance * 0.13
+    const northCommitment =
+        northCommitmentBase - input.northPressurePenalty * profile.campaign.northPressureWeight
 
-    const score = southPrep - northCommitment
-    return buildCampaignResult('huainan', input.round, score)
+    const score = southPrep - northCommitment + profile.campaign.scoreBias + (input.momentumBonus ?? 0)
+    return buildCampaignResult('huainan', input.round, score, profile.campaign.gainedThreshold, profile.campaign.stalemateThreshold)
 }
 
 export function tickCampaignFallout(campaign: CampaignState): {
@@ -81,8 +92,10 @@ function buildCampaignResult(
     campaign: 'shu' | 'huainan',
     round: number,
     score: number,
+    gainedThreshold: number,
+    stalemateThreshold: number,
 ): CampaignEvaluationResult {
-    if (score >= 9) {
+    if (score >= gainedThreshold) {
         return campaign === 'shu'
             ? {
                 state: 'gained',
@@ -108,7 +121,7 @@ function buildCampaignResult(
             }
     }
 
-    if (score >= 0) {
+    if (score >= stalemateThreshold) {
         return campaign === 'shu'
             ? {
                 state: 'stalemate',

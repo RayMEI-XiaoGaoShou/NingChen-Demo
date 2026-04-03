@@ -2,6 +2,29 @@ import { describe, expect, it } from 'vitest'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 
 describe('campaignEngine', () => {
+    it('adds shu momentum bonus into round 10 campaign scoring', () => {
+        const withoutMomentum = evaluateShuCampaignOutcome({
+            round: 10,
+            southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+            northPressurePenalty: 4,
+            policyBoost: 2,
+            momentumBonus: 0,
+        })
+
+        const withMomentum = evaluateShuCampaignOutcome({
+            round: 10,
+            southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+            northPressurePenalty: 4,
+            policyBoost: 2,
+            momentumBonus: 3,
+        })
+
+        expect(withoutMomentum.state).toBe('failed')
+        expect(withMomentum.state).not.toBe('failed')
+    })
+
     it('marks shu campaign as gained when south prep beats north effective commitment', () => {
         const result = evaluateShuCampaignOutcome({
             round: 10,
@@ -14,6 +37,20 @@ describe('campaignEngine', () => {
         expect(result.state).toBe('gained')
         expect((result.instantNorthImpact.governance ?? 0)).toBeLessThan(0)
         expect(result.remainingRounds).toBeGreaterThan(0)
+    })
+
+    it('leans toward stalemate for more modest normal-mode battle advantages', () => {
+        const result = evaluateShuCampaignOutcome({
+            round: 10,
+            southStats: { finance: 54, grain: 61, military: 58, socialOrder: 56, governance: 60 },
+            northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+            northPressurePenalty: 4,
+            policyBoost: 2.5,
+        })
+
+        expect(result.state).toBe('stalemate')
+        expect((result.instantNorthImpact.governance ?? 0)).toBeLessThan(0)
+        expect((result.instantNorthImpact.governance ?? 0)).toBeGreaterThan(-2)
     })
 
     it('marks huainan campaign as failed when south prep is too weak', () => {

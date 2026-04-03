@@ -6,9 +6,11 @@ import type {
     Faction,
     FirstRoundGuideSeenMap,
     GameResult,
+    GameDifficulty,
     HelpOverlaySource,
     NationDimensions,
     NPC,
+    OmenGuideSeenMap,
     PlayerDangerStage,
     PolicyAftereffect,
     PolicyReasonParseResult,
@@ -26,12 +28,14 @@ const STORAGE_KEY = 'ningchen-save-v1'
 export interface GameSnapshotCore {
     currentRound: number
     currentPhase: RoundPhase
+    difficulty: GameDifficulty
     schemeCount: number
     maxSchemes: number
     prologueStep: PrologueStep
     helpOverlayOpen: boolean
     helpOverlaySource: HelpOverlaySource | null
     firstRoundGuideSeen: FirstRoundGuideSeenMap
+    omenGuideSeen: OmenGuideSeenMap
     playerDangerStage: PlayerDangerStage
     isGameOver: boolean
     gameResult: GameResult
@@ -59,6 +63,8 @@ export interface GameSnapshotCore {
     battleReport: BattleReport | null
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
+    shuMomentum: number
+    huainanMomentum: number
 }
 
 export interface RoundStartSnapshot extends GameSnapshotCore {}
@@ -72,12 +78,14 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
     return {
         currentRound: state.currentRound,
         currentPhase: state.currentPhase,
+        difficulty: state.difficulty,
         schemeCount: state.schemeCount,
         maxSchemes: state.maxSchemes,
         prologueStep: state.prologueStep,
         helpOverlayOpen: state.helpOverlayOpen,
         helpOverlaySource: state.helpOverlaySource,
         firstRoundGuideSeen: state.firstRoundGuideSeen,
+        omenGuideSeen: state.omenGuideSeen,
         playerDangerStage: state.playerDangerStage,
         isGameOver: state.isGameOver,
         gameResult: state.gameResult,
@@ -105,6 +113,8 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         battleReport: state.battleReport,
         shuCampaign: state.shuCampaign,
         huainanCampaign: state.huainanCampaign,
+        shuMomentum: state.shuMomentum,
+        huainanMomentum: state.huainanMomentum,
     }
 }
 
@@ -142,9 +152,20 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
     if (!raw) return null
 
     try {
-        const parsed = JSON.parse(raw) as PersistedGameSnapshot
+        const parsed = JSON.parse(raw) as PersistedGameSnapshot & {
+            difficulty?: GameDifficulty
+            omenGuideSeen?: OmenGuideSeenMap
+            shuMomentum?: number
+            huainanMomentum?: number
+        }
         if (parsed.version !== 1) return null
-        return parsed
+        return {
+            ...parsed,
+            difficulty: parsed.difficulty ?? 'normal',
+            omenGuideSeen: parsed.omenGuideSeen ?? { first_omen_modal: false },
+            shuMomentum: parsed.shuMomentum ?? 0,
+            huainanMomentum: parsed.huainanMomentum ?? 0,
+        }
     } catch {
         return null
     }

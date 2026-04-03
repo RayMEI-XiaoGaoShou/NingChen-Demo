@@ -20,6 +20,7 @@ function resetStore() {
     useGameStore.setState({
         currentRound: 1,
         currentPhase: 'PROLOGUE',
+        difficulty: 'normal',
         schemeCount: 0,
         maxSchemes: 3,
         isGameOver: false,
@@ -48,6 +49,8 @@ function resetStore() {
         roundHistory: [],
         endingReport: null,
         battleReport: null,
+        shuMomentum: 0,
+        huainanMomentum: 0,
         shuCampaign: {
             state: 'idle',
             sourceRound: null,
@@ -68,6 +71,9 @@ function resetStore() {
         helpOverlayOpen: false,
         helpOverlaySource: null,
         firstRoundGuideSeen: initialFirstRoundGuideSeen,
+        omenGuideSeen: {
+            first_omen_modal: false,
+        },
     })
 }
 
@@ -78,6 +84,8 @@ describe('gameStore addScheme', () => {
 
     it('starts with idle campaign states', () => {
         const state = useGameStore.getState()
+        expect(state.shuMomentum).toBe(0)
+        expect(state.huainanMomentum).toBe(0)
         expect(state.shuCampaign.state).toBe('idle')
         expect(state.huainanCampaign.state).toBe('idle')
     })
@@ -217,6 +225,17 @@ describe('gameStore guide and prologue state', () => {
         resetStore()
     })
 
+    it('defaults to normal difficulty, allows switching, and resets to normal on full reset', () => {
+        const state = useGameStore.getState()
+        expect(state.difficulty).toBe('normal')
+
+        state.setDifficulty('hard')
+        expect(useGameStore.getState().difficulty).toBe('hard')
+
+        useGameStore.getState().resetGame()
+        expect(useGameStore.getState().difficulty).toBe('normal')
+    })
+
     it('starts a new game in the prologue step', () => {
         const state = useGameStore.getState()
         expect(state.currentPhase).toBe('PROLOGUE')
@@ -288,6 +307,14 @@ describe('gameStore guide and prologue state', () => {
         expect(state.firstRoundGuideSeen).toEqual(initialFirstRoundGuideSeen)
     })
 
+    it('marks the omen onboarding as seen and clears it on reset', () => {
+        useGameStore.getState().markOmenGuideSeen()
+        expect(useGameStore.getState().omenGuideSeen.first_omen_modal).toBe(true)
+
+        useGameStore.getState().resetGame()
+        expect(useGameStore.getState().omenGuideSeen.first_omen_modal).toBe(false)
+    })
+
     it('hydrates old snapshots without prologueStep using the current phase as fallback', () => {
         const prologueSnapshot = {
             version: 1,
@@ -340,6 +367,9 @@ describe('gameStore guide and prologue state', () => {
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: false,
+            omenGuideSeen: {
+                first_omen_modal: false,
+            },
         } as unknown as PersistedGameSnapshot
 
         useGameStore.getState().hydrateSnapshot(prologueSnapshot)
@@ -361,6 +391,7 @@ describe('gameStore guide and prologue state', () => {
             version: 1,
             currentRound: 3,
             currentPhase: 'ROUND_START',
+            difficulty: 'easy',
             schemeCount: 1,
             maxSchemes: 3,
             playerDangerStage: 'safe',
@@ -416,6 +447,9 @@ describe('gameStore guide and prologue state', () => {
                 scheme_feedback: true,
                 settlement: false,
             },
+            omenGuideSeen: {
+                first_omen_modal: false,
+            },
         } as PersistedGameSnapshot & {
             prologueStep: 'GAMEPLAY_GUIDE'
             helpOverlayOpen: boolean
@@ -428,12 +462,16 @@ describe('gameStore guide and prologue state', () => {
                 scheme_feedback: boolean
                 settlement: boolean
             }
+            omenGuideSeen: {
+                first_omen_modal: boolean
+            }
         }
 
         useGameStore.getState().hydrateSnapshot(snapshot)
 
         const state = useGameStore.getState()
         expect(state.currentPhase).toBe('ROUND_START')
+        expect(state.difficulty).toBe('easy')
         expect(state.prologueStep).toBe('GAMEPLAY_GUIDE')
         expect(state.helpOverlayOpen).toBe(true)
         expect(state.helpOverlaySource).toBe('prologue')
