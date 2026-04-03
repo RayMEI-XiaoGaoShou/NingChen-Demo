@@ -54,4 +54,30 @@ describe('campaignMomentum', () => {
         expect(result.shuMomentumGain).toBe(0)
         expect(result.huainanMomentumGain).toBe(0)
     })
+
+    it('gives omen a larger momentum gain only when legitimacy-oriented governance pressure is real', async () => {
+        const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
+
+        const result = deriveCampaignMomentumGain({
+            round: 14,
+            schemeType: 'omen',
+            success: true,
+            parse: {
+                characterFit: 0.75,
+                eventFit: 0.8,
+                structuralPenetration: 0.7,
+                executability: 0.35,
+                exposureRisk: 0.45,
+                financeRelevance: 0.1,
+                grainRelevance: 0.1,
+                militaryRelevance: 0.2,
+                socialOrderRelevance: 0.5,
+                governanceRelevance: 0.85,
+                dominantIntent: 'divide',
+                evidence: [],
+            },
+        })
+
+        expect(result.huainanMomentumGain).toBeGreaterThan(0.8)
+    })
 })
