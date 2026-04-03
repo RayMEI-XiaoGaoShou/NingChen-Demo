@@ -35,6 +35,32 @@ describe('simulationRunner', () => {
         expect(result.finalState.shuCampaign.resolvedState).toBe('gained')
     })
 
+    it('uses accumulated shu momentum during round 10 resolution', () => {
+        const baseline = simulateGame({
+            throughRound: 10,
+            initialState: {
+                currentRound: 10,
+                difficulty: 'normal',
+                northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+                southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            },
+        })
+
+        const withMomentum = simulateGame({
+            throughRound: 10,
+            initialState: {
+                currentRound: 10,
+                difficulty: 'normal',
+                shuMomentum: 2.8,
+                northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+                southStats: { finance: 55, grain: 60, military: 58, socialOrder: 56, governance: 58 },
+            },
+        })
+
+        expect(baseline.finalState.shuCampaign.resolvedState).toBe('failed')
+        expect(withMomentum.finalState.shuCampaign.resolvedState).not.toBe('failed')
+    })
+
     it('keeps the combined map after huainan is gained on top of an earlier bashu victory', () => {
         const result = simulateGame({
             throughRound: 19,

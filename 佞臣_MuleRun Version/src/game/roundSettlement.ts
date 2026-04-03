@@ -323,6 +323,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
             policyBoost: derivePolicyBoost(policyReport),
+            momentumBonus: Math.min(3, shuMomentum),
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -346,6 +347,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
             policyBoost: derivePolicyBoost(policyReport),
+            momentumBonus: Math.min(3, huainanMomentum),
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
