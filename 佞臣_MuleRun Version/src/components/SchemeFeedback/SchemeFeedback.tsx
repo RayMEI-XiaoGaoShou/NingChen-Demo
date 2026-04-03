@@ -91,6 +91,7 @@ export function SchemeFeedback() {
                     parseNorthSchemeInput({
                         round: currentRound,
                         npc: targetNpc,
+                        schemeType: action.schemeType,
                         speech: action.playerSpeech,
                         relatedNpc,
                     }).then(parsed => {
@@ -176,6 +177,7 @@ export function SchemeFeedback() {
             parseNorthSchemeInput({
                 round: currentRound,
                 npc: targetNpc,
+                schemeType: action.schemeType,
                 speech: action.playerSpeech,
                 relatedNpc,
             }).then(parsed => {

@@ -9,6 +9,7 @@ import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
+import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
@@ -24,6 +25,7 @@ import './SchemePanel.css'
 export function SchemePanel() {
     const {
         currentRound,
+        difficulty,
         schemeCount,
         maxSchemes,
         addScheme,
@@ -41,6 +43,8 @@ export function SchemePanel() {
         updateSchemeParse,
         firstRoundGuideSeen,
         markFirstRoundGuideSeen,
+        omenGuideSeen,
+        markOmenGuideSeen,
         openGameplayGuide,
     } = useGameStore()
 
@@ -60,6 +64,14 @@ export function SchemePanel() {
         : []
     const currentSchemeData = selectedScheme ? getSchemeByType(selectedScheme) : undefined
     const currentRoundEvent = ROUND_EVENTS[currentRound - 1]
+    const omenGuidePresentation = getOmenGuidePresentation({
+        round: currentRound,
+        difficulty,
+        firstRoundGuideSeen,
+        omenGuideSeen,
+    })
+    const shouldShowOmenGuide = omenGuidePresentation === 'modal'
+    const shouldShowOmenInlineHint = omenGuidePresentation === 'inline'
 
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
     const aliveNpcs = npcs.filter(n => n.isAlive)
@@ -125,6 +137,7 @@ export function SchemePanel() {
         parseNorthSchemeInput({
             round: currentRound,
             npc: npcSnapshot,
+            schemeType: selectedScheme,
             speech: speechSnapshot,
             relatedNpc: relatedNpcSnapshot,
         }).then(parsed => {
@@ -188,6 +201,14 @@ export function SchemePanel() {
                 />
             )}
 
+            {shouldShowOmenGuide && (
+                <FirstRoundGuideModal
+                    title={FIRST_ROUND_GUIDE_CONTENT.first_omen_modal.title}
+                    body={FIRST_ROUND_GUIDE_CONTENT.first_omen_modal.body}
+                    onClose={markOmenGuideSeen}
+                />
+            )}
+
             <div className="page-utility-row utility-split animate-slide-up">
                 <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
@@ -202,6 +223,12 @@ export function SchemePanel() {
                         今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
                     </div>
                 </div>
+
+                {shouldShowOmenInlineHint && (
+                    <div className="scheme-inline-hint omen-hint">
+                        谶纬偏灾异、法统、天命与人心，不宜写成兵粮调度。
+                    </div>
+                )}
 
                 <div className="scheme-body">
                     {justSubmitted ? (

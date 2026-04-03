@@ -76,6 +76,7 @@ describe('buildNorthSchemeParsePrompt', () => {
         const prompt = buildNorthSchemeParsePrompt({
             round: 11,
             npc,
+            schemeType: 'advise',
             speech: '如今兵粮都紧，朝里若还争功，最后多半还是前线吃亏。',
             eventName: '蜀地战局僵持',
             eventBriefing: '北周上下正在争论战后如何安置西线兵权。',
@@ -92,6 +93,7 @@ describe('buildNorthSchemeParsePrompt', () => {
         const prompt = buildNorthSchemeParsePrompt({
             round: 13,
             npc,
+            schemeType: 'omen',
             speech: '天意未安，人心易摇，若还强作无事，只怕流言先于诏令而行。',
             eventName: '灾异频仍',
             eventBriefing: '朝中开始借灾异与名分之说相互攻讦。',
@@ -100,5 +102,22 @@ describe('buildNorthSchemeParsePrompt', () => {
         expect(prompt).toContain('财政、粮草、军事、民生、治理五项相关度，默认从低分起判')
         expect(prompt).toContain('未直接触及该维度时，应接近 0')
         expect(prompt).toContain('不要因为一句话显得有格局，就同时给多个维度高相关')
+    })
+
+    it('includes scheme-specific caution so slander and alienate are not over-rewarded for generic pressure', () => {
+        const npc = INITIAL_NPCS.find(item => item.name === '祖廷')!
+
+        const prompt = buildNorthSchemeParsePrompt({
+            round: 8,
+            npc,
+            schemeType: 'slander',
+            speech: '宫里一乱，谁都可能先把自己摘出去。',
+            eventName: '清查仓廪',
+            eventBriefing: '朝中正在围绕仓储与责任归属互相攻讦。',
+        })[1].content
+
+        expect(prompt).toContain('本次计谋类型：谗言')
+        expect(prompt).toContain('若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条')
+        expect(prompt).toContain('单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration')
     })
 })

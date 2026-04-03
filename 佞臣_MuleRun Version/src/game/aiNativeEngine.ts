@@ -10,6 +10,7 @@ import type {
     PolicyReasonParseResult,
     PolicyResolutionMeta,
     PolicyStance,
+    SchemeType,
 } from './types'
 
 const NORTH_INTENTS: NorthDominantIntent[] = ['neutral', 'induce', 'threaten', 'divide', 'empathize', 'strategize']
@@ -280,6 +281,7 @@ export function fallbackPolicyParseFromReason(
 export async function parseNorthSchemeInput(params: {
     round: number
     npc: NPC
+    schemeType: SchemeType
     speech: string
     relatedNpc?: NPC | null
 }): Promise<NorthSchemeParseResult> {
@@ -294,6 +296,7 @@ export async function parseNorthSchemeInput(params: {
         buildNorthSchemeParsePrompt({
             round: params.round,
             npc: params.npc,
+            schemeType: params.schemeType,
             speech: params.speech,
             eventName: roundEvent?.eventName ?? `第${params.round}回合`,
             eventBriefing: roundEvent?.briefing ?? '',

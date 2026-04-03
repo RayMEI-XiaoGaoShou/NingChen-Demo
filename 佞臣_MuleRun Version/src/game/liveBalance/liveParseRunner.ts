@@ -7,7 +7,7 @@ import {
     normalizePolicyReasonParse,
 } from '../aiNativeEngine'
 import { ROUND_EVENTS } from '../../data/rounds'
-import type { NPC, PolicyResolutionMeta } from '../types'
+import type { NPC, PolicyResolutionMeta, SchemeType } from '../types'
 import type { LiveParseRecord } from './types'
 
 function tryParseJson<T>(text: string): T | null {
@@ -31,13 +31,14 @@ export async function runNorthLiveParse(params: {
     round: number
     npc: NPC
     speech: string
-    schemeType: LiveParseRecord['schemeType']
+    schemeType: SchemeType
     relatedNpc?: NPC | null
 }): Promise<LiveParseRecord> {
     const rawResponse = await chatCompletion(
         buildNorthSchemeParsePrompt({
             round: params.round,
             npc: params.npc,
+            schemeType: params.schemeType,
             speech: params.speech,
             eventName: ROUND_EVENTS[params.round - 1]?.eventName ?? `第${params.round}回合`,
             eventBriefing: ROUND_EVENTS[params.round - 1]?.briefing ?? '',

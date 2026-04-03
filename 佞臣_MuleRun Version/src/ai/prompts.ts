@@ -293,10 +293,32 @@ const STRUCTURED_PARSE_SYSTEM = '你是《佞臣》的结构化裁判。你只�
 export function buildNorthSchemeParsePrompt(params: {
     round: number
     npc: NPC
+    schemeType: SchemeType
     speech: string
     eventName: string
     eventBriefing: string
 }): ChatMessage[] {
+    const parseSchemeLabels: Record<SchemeType, string> = {
+        probe: '试探',
+        advise: '献策',
+        slander: '谗言',
+        alienate: '离间',
+        frame: '构陷',
+        proxy: '借刀',
+        appeal: '求援',
+        omen: '谶纬',
+        secession: '煽动割据',
+        rebellion: '煽动造反',
+    }
+    const schemeSpecificRubric =
+        params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'
+            ? '\n- 若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，但没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。'
+            : params.schemeType === 'omen'
+                ? '\n- 若是谶纬，重点看是否真正触及灾异、天命、名分、法统，不要把普通危言耸听当成高 omen 质量。'
+                : params.schemeType === 'advise' || params.schemeType === 'probe'
+                    ? '\n- 若是献策、试探之类稳计，除非说辞真的点出人物、局势与抓手，否则不要轻易给出高 structuralPenetration 或高 executability。'
+                    : ''
+
     return [
         { role: 'system', content: STRUCTURED_PARSE_SYSTEM },
         {
@@ -310,6 +332,7 @@ export function buildNorthSchemeParsePrompt(params: {
 性格：${params.npc.personality}
 软肋：${params.npc.softSpot}
 逆鳞：${params.npc.triggerPoint}
+本次计谋类型：${parseSchemeLabels[params.schemeType]}
 说辞：${params.speech}
 
 评分口径：
@@ -324,6 +347,7 @@ export function buildNorthSchemeParsePrompt(params: {
 - 财政、粮草、军事、民生、治理五项相关度，默认从低分起判。
 - 未直接触及该维度时，应接近 0；不要因为一句话显得有格局，就同时给多个维度高相关。
 - evidence 只摘录最直接的 1-3 条判分依据，不要复述整段说辞。
+${schemeSpecificRubric}
 
 输出字段：{
   "characterFit": 0-1,
