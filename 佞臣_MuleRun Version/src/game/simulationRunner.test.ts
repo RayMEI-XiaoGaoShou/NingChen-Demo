@@ -248,4 +248,42 @@ describe('simulationRunner', () => {
 
         expect(result.finalState.southPower - result.finalState.northPower).toBeLessThan(10)
     })
+
+    it('preserves the intended fallback ordering across mainline and rookie aggressive samples', () => {
+        const ids = ['expert-mainline', 'average-mainline', 'rookie-mainline', 'rookie-aggressive'] as const
+        const margins = new Map<string, number>()
+
+        for (const id of ids) {
+            const sample = LIVE_BALANCE_SAMPLE_SET.find(item => item.id === id)!
+            const result = simulateGame({
+                throughRound: 20,
+                initialState: {
+                    difficulty: sample.difficulty,
+                },
+                resolveRound: ({ round }) => {
+                    const plan = sample.rounds.find(item => item.round === round)
+                    if (!plan) return {}
+
+                    return {
+                        schemes: plan.schemes.map((scheme, index) => ({
+                            id: `${sample.id}-r${round}-s${index + 1}`,
+                            targetNpcId: scheme.targetNpcId,
+                            relatedNpcId: scheme.relatedNpcId,
+                            schemeType: scheme.schemeType,
+                            playerSpeech: scheme.speech,
+                            resolutionRoll: 0.28,
+                        })),
+                        policyOptionIndex: plan.policy.optionIndex,
+                        policyReason: plan.policy.reason,
+                    }
+                },
+            })
+
+            margins.set(id, result.finalState.southPower - result.finalState.northPower)
+        }
+
+        expect(margins.get('expert-mainline')!).toBeGreaterThanOrEqual(margins.get('average-mainline')!)
+        expect(margins.get('average-mainline')!).toBeGreaterThanOrEqual(margins.get('rookie-mainline')!)
+        expect(margins.get('rookie-aggressive')!).toBeLessThan(10)
+    })
 })

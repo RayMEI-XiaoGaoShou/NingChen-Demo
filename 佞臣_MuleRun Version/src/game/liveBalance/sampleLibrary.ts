@@ -23,11 +23,11 @@ function rotate<T>(items: T[], round: number): T {
 function buildExpertMainlineSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
     const leadAdvice = rotate([
         '先稳仓储、诏令与转运节次，再议前线轻重，莫让灾年把中枢拖散。',
-        '先把接管次序、馆阁号令与地方仓廪理顺，再谈谁来主战。',
+        '先把接管次序、馆阁号令与地方仓廪理顺，再谈谁来主战，别让后党借乱局继续卡住中枢。',
     ], round)
     const strategicProbe = rotate([
-        '都督以为，眼下最伤国本的究竟是仓粮失次，还是朝中借南征争权？',
-        '若先不分清主战与安内哪头更耗国力，西线再添兵也只是空转吧？',
+        '都督以为，眼下最伤国本的究竟是仓粮失次，还是朝中借南征争权夺调度？',
+        '若先不分清主战与安内哪头更耗国力，西线再添兵也只是替中枢遮丑吧？',
     ], round)
     const closingMove = round <= 4
         ? rotate([
@@ -35,8 +35,8 @@ function buildExpertMainlineSchemes(round: number): [RoundSchemeSample, RoundSch
             '宫里若总由摄政旧人借灾情伸手，陛下身边的出入口迟早都要被人替换。',
         ], round)
         : rotate([
-            '河西若再被中朝拖住饷路与军令，边镇迟早会先替朝里的人背责。',
-            '地方将帅最怕的不是敌军，而是中枢先乱了调度与赏罚。',
+            '宗艾若继续替后党打理宫中耳目，朝里许多锅最后都能顺手扣到帝党头上。',
+            '地方将帅最怕的不是敌军，而是宫里先替后党改写调度与赏罚。',
         ], round)
 
     return [
@@ -44,18 +44,18 @@ function buildExpertMainlineSchemes(round: number): [RoundSchemeSample, RoundSch
         makeScheme('linghuelvguang', 'probe', strategicProbe),
         round <= 4
             ? makeScheme('zongai', 'slander', closingMove)
-            : makeScheme('duguwenyue', 'probe', closingMove),
+            : makeScheme('zongai', 'slander', closingMove),
     ]
 }
 
 function buildAverageMainlineSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
     const leadAdvice = rotate([
-        '现在先稳住钱粮和执行，再谈别的。',
-        '先把中枢调度和地方接应稳住，局面才有转圜。',
+        '现在先稳住局面和后面接应，再谈别的。',
+        '先别急着争强，把中枢和地方的事情顺一顺就好。',
     ], round)
     const strategicProbe = rotate([
-        '朝里眼下最该先处理的是战事，还是先把内部理顺？',
-        '都督觉得现在最拖后腿的是哪一头？',
+        '朝里眼下该先顾战事，还是先把内部理顺？',
+        '都督觉得现在最麻烦的是哪一头？',
     ], round)
     const closingMove = round <= 4
         ? rotate([
@@ -64,7 +64,7 @@ function buildAverageMainlineSchemes(round: number): [RoundSchemeSample, RoundSc
         ], round)
         : rotate([
             '宫里如今谁最值得提防？',
-            '边镇现在最怕朝里哪种牵制？',
+            '边上现在最怕朝里哪种拖累？',
         ], round)
 
     return [
@@ -254,8 +254,8 @@ function buildPolicyReason(level: SampleSkillLevel, round: number): RoundPolicyS
         return {
             optionIndex: (round + 1) % 4,
             reason: rotate([
-                '先稳后勤和地方执行，再往前推。',
-                '先把钱粮和接应顾住，别把局面推得太急。',
+                '先稳后面接应，再往前推。',
+                '先把局面顾住，别一下子推得太急。',
             ], round),
         }
     }
