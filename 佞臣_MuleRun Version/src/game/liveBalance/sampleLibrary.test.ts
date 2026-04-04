@@ -47,4 +47,21 @@ describe('live balance sample library', () => {
         expect(rookieRoundTwoSpeech).not.toMatch(/仓储|诏令|节次|接管|法统|灾异/)
         expect(expertRoundTwoSpeech).toMatch(/仓储|诏令|节次|接管|法统|灾异/)
     })
+
+    it('keeps average mainline battle-aware through shu resolution without turning expert-like', () => {
+        const averageMainline = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'average-mainline')
+
+        expect(averageMainline).toBeTruthy()
+
+        const roundOne = averageMainline!.rounds[0]
+        const roundSix = averageMainline!.rounds[5]
+
+        expect(roundOne.schemes[0].targetNpcId).toBe('zuting')
+        expect(roundOne.schemes[0].speech).toMatch(/仓储|转运|诏令|接应/)
+        expect(roundOne.schemes[1].targetNpcId).toBe('linghuelvguang')
+        expect(roundOne.schemes[1].speech).toMatch(/军令|调度|粮道/)
+        expect(roundSix.schemes[2].targetNpcId).toBe('zongai')
+        expect(roundSix.schemes[2].schemeType).toBe('probe')
+        expect(roundSix.schemes[0].speech).not.toMatch(/莫让灾年把中枢拖散|别让后党借乱继续卡住中枢/)
+    })
 })

@@ -48,30 +48,33 @@ function buildExpertMainlineSchemes(round: number): [RoundSchemeSample, RoundSch
 
 function buildAverageMainlineSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
     const leadAdvice = rotate([
-        '现在先稳住局面和后面的接应，再谈别的。',
-        '先别急着争强，把中枢和地方的事情顺一顺就好。',
+        '先把仓储、转运和州郡接应顺过来，再争谁来主战，才不至于前线先吃空。',
+        '先稳住诏令出口和后面的接应，再谈谁该出头，免得前线、州郡各听各的。',
     ], round)
     const strategicProbe = rotate([
-        '朝里眼下该先顾战事，还是先把内部理顺？',
-        '都督觉得现在最麻烦的是哪一头？',
+        '都督眼下最怕的，是前线军令拖成两套，还是朝里先把调度争乱了？',
+        '若粮道和调度先乱了，再谈主战与安内，是否只会把前线拖得更慢？',
     ], round)
-    const closingMove = round <= 4
-        ? rotate([
-            '此人未必真会替你担责。',
-            '他得势太快，未必不会借你的名义给自己铺路。',
-        ], round)
-        : rotate([
-            '宫里如今谁最值得提防？',
-            '边上现在最怕朝里哪种拖累？',
-        ], round)
+    const earlyClosingMove = rotate([
+        '宫里若先把诏令和赏罚改来改去，前线那边还肯不肯照旧听命？',
+        '若有人只顾在宫里争谁说了算，前线最后多半先乱在军令和粮道上。',
+    ], round)
+    const lateClosingMove = rotate([
+        '边上如今最怕的，不是兵少，而是朝里一句一变，叫地方不敢照旧接令。',
+        '真到久战时，最拖人的往往不是敌军，而是朝里今天这样、明天那样。',
+    ], round)
 
-    return [
-        makeScheme('zuting', 'advise', leadAdvice),
-        makeScheme('linghuelvguang', 'probe', strategicProbe),
-        round <= 4
-            ? makeScheme('zongai', 'slander', closingMove)
-            : makeScheme('duguwenyue', 'probe', closingMove),
-    ]
+    return round <= 10
+        ? [
+            makeScheme('zuting', 'advise', leadAdvice),
+            makeScheme('linghuelvguang', 'probe', strategicProbe),
+            makeScheme('zongai', 'probe', earlyClosingMove),
+        ]
+        : [
+            makeScheme('zuting', 'advise', leadAdvice),
+            makeScheme('linghuelvguang', 'probe', strategicProbe),
+            makeScheme('duguwenyue', 'probe', lateClosingMove),
+        ]
 }
 
 function buildRookieMainlineSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
@@ -129,11 +132,11 @@ function buildExpertOmenSchemes(round: number): [RoundSchemeSample, RoundSchemeS
     const omenSpeech = round >= 13
         ? rotate([
             '灾异一旦压到皇统与摄政名分上，宫中越想强压，外朝越会怀疑军令究竟出自谁手，边上诸军也会先松掉那口气。',
-            '天象若与法统裂口缠在一起，就不是一道安民诏能压住的事；朝里每多遮掩一分，前线对中枢的服气就少一分。',
+            '天象若与法统裂口缠在一处，就不是一道安民诏能压住的事；朝里每多遮掩一分，前线对中枢的服气就少一分。',
         ], round)
         : rotate([
             '若灾年、军粮与摄政名分被人绑作一处，真正先乱的会是前线调度，还是宫中法统？',
-            '眼下最该防的，不只是边患，而是灾异一旦落到名分上，朝中谁还有资格下最后一道军令。',
+            '眼下最该防的，不只边患，而是灾异一旦落到名分上，朝中谁还有资格下最后一道军令。',
         ], round)
     const structuralAdvice = rotate([
         '先把仓储、转运、诏令节次与州郡承接收回中枢，再谈压流言，否则名分裂口迟早会传到前线。',
@@ -153,7 +156,7 @@ function buildExpertOmenSchemes(round: number): [RoundSchemeSample, RoundSchemeS
 
 function buildAverageExternalSchemes(round: number): [RoundSchemeSample, RoundSchemeSample, RoundSchemeSample] {
     const externalProbe = rotate([
-        '边镇现在最怕的是朝里猜忌，还是后续跟不上？',
+        '边镇现在最怕的是朝里猜忌，还是后面跟不上？',
         '若朝里继续只催人出力，不管后面接不接得住，外边还能撑多久？',
     ], round)
     const courtBridge = rotate([
@@ -282,19 +285,19 @@ function getCuratedPolicyReason(
         const curatedExpertOmenPolicy: Partial<Record<number, RoundPolicySample>> = {
             4: {
                 optionIndex: 0,
-                reason: '趁北线吃紧先整军练兵，补足蜀道推进前最怕短缺的军力与调度底子。',
+                reason: '趁北线吃紧先整军练兵，补足征蜀推进前最怕短缺的军力与调度底子。',
             },
             5: {
                 optionIndex: 0,
-                reason: '先修交通、囤粮与前运节点，把征蜀所需的粮道和后勤骨架搭稳。',
+                reason: '先修交通、固粮与前运节点，把征蜀所需的粮道和后勤骨架搭稳。',
             },
             6: {
                 optionIndex: 3,
-                reason: '借蜀中生变之机练兵整队，但先把军政承接和补给次序压实。',
+                reason: '借蜀中生变之机练军整阵，但先把军政承接和补给次序压实。',
             },
             8: {
                 optionIndex: 1,
-                reason: '漕运优先，先把仓储、转运与前线补给线捋顺，再谈更大的推进。',
+                reason: '漕运优先，先把仓储、转运与前线补给线理顺，再谈更大的推进。',
             },
             9: {
                 optionIndex: 2,
