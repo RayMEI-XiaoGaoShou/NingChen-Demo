@@ -499,6 +499,61 @@ describe('settleRound layered settlement', () => {
         expect(result.shuCampaign?.remainingRounds).toBe(1)
     })
 
+    it('lets shu gained improve huainan conversion in round 16', () => {
+        const baseParams = {
+            round: 16,
+            schemes: [],
+            northStats: { finance: 60, grain: 64, military: 72, socialOrder: 52, governance: 58 },
+            southStats: { finance: 60, grain: 63, military: 63, socialOrder: 58, governance: 60 },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: 3,
+            policyReason: '先稳住渡口、军粮和接管秩序，再把淮南推进做成可持续的占领。',
+            policyParse: {
+                focusAlignment: 0.84,
+                executionClarity: 0.8,
+                costAwareness: 0.62,
+                legitimacyAlignment: 0.46,
+                policyStance: 'balanced' as const,
+                evidence: [],
+            },
+            shuMomentum: 5,
+            huainanMomentum: 3.9,
+        }
+
+        const withoutCarry = settleRound({
+            ...baseParams,
+            shuCampaign: {
+                state: 'failed',
+                resolvedState: 'failed',
+                sourceRound: 10,
+                summary: '蜀地受挫',
+                ongoingNorthImpact: {},
+                ongoingSouthImpact: {},
+                remainingRounds: 0,
+            },
+            huainanCampaign: idleCampaign,
+        } as any)
+
+        const withCarry = settleRound({
+            ...baseParams,
+            shuCampaign: {
+                state: 'idle',
+                resolvedState: 'gained',
+                sourceRound: 10,
+                summary: '蜀地已得手',
+                ongoingNorthImpact: {},
+                ongoingSouthImpact: {},
+                remainingRounds: 0,
+            },
+            huainanCampaign: idleCampaign,
+        } as any)
+
+        expect(withoutCarry.huainanCampaign.state).toBe('stalemate')
+        expect(withCarry.huainanCampaign.state).toBe('gained')
+    })
+
     it('does not let a dead rebel keep inflating later campaign pressure', () => {
         const baselineNpcs = INITIAL_NPCS.map(npc => (
             npc.powerBase === 'external'

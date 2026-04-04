@@ -18,6 +18,7 @@ import { settleScheme, type FactionVector, type SchemeResult } from './schemeEng
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 import { deriveCampaignMomentumGain } from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
+import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
 import { calculateCompositePower } from './types'
 import type {
@@ -333,6 +334,7 @@ export function settleRound(params: {
             recentBattleSignal: deriveRecentBattleSignal('shu', schemeResults, policyReport, policyParse ?? null),
             policyMomentum: policyMomentumGain.shuMomentumGain,
         })
+        const shuGainBias = deriveShuGainBias(difficulty, Math.min(5, shuMomentum), shuPreparedBonus)
         const evaluation = evaluateShuCampaignOutcome({
             round,
             difficulty,
@@ -340,7 +342,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, shuMomentum) + shuPreparedBonus,
+            momentumBonus: Math.min(5, shuMomentum) + shuPreparedBonus + shuGainBias,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -363,6 +365,7 @@ export function settleRound(params: {
             recentBattleSignal: deriveRecentBattleSignal('huainan', schemeResults, policyReport, policyParse ?? null),
             policyMomentum: policyMomentumGain.huainanMomentumGain,
         })
+        const huainanCarryBonus = deriveHuainanCarryBonus(shuCampaign.resolvedState ?? shuCampaign.state, difficulty)
         const evaluation = evaluateHuainanCampaignOutcome({
             round,
             difficulty,
@@ -370,7 +373,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus,
+            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus + huainanCarryBonus,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
