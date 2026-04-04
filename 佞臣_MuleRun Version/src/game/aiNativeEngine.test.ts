@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { fallbackNorthParseFromSpeech, normalizeNorthSchemeParse, normalizePolicyReasonParse } from './aiNativeEngine'
+import {
+    fallbackNorthParseFromSpeech,
+    fallbackPolicyParseFromReason,
+    normalizeNorthSchemeParse,
+    normalizePolicyReasonParse,
+} from './aiNativeEngine'
 
 describe('normalizeNorthSchemeParse', () => {
     it('falls back to safe defaults when AI output is invalid', () => {
@@ -30,13 +35,28 @@ describe('normalizeNorthSchemeParse', () => {
         })
 
         const warLogistics = fallbackNorthParseFromSpeech({
-            speech: '若不先稳住兵粮、转运与前线调度，河西一线很快就会失控。',
+            speech: '若不先稳住军粮、转运与前线调度，河西一线很快就会失控。',
             npc: heba,
             round: 8,
         })
 
         expect(warLogistics.militaryRelevance).toBeGreaterThan(generic.militaryRelevance)
         expect(warLogistics.grainRelevance).toBeGreaterThan(generic.grainRelevance)
+    })
+
+    it('recognizes court logistics advice as governance-heavy battle preparation', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '先把仓储、转运、诏令节次与州郡承接收回中枢，再谈压流言，否则名分裂口迟早会传到前线。',
+            npc: zuting,
+            round: 10,
+        })
+
+        expect(parsed.governanceRelevance).toBeGreaterThan(0.45)
+        expect(parsed.grainRelevance).toBeGreaterThan(0.35)
+        expect(parsed.structuralPenetration).toBeGreaterThan(0.35)
+        expect(parsed.executability).toBeGreaterThan(0.45)
     })
 })
 
@@ -57,5 +77,20 @@ describe('normalizePolicyReasonParse', () => {
         expect(parsed.legitimacyAlignment).toBe(0.8)
         expect(parsed.policyStance).toBe('balanced')
         expect(parsed.evidence).toEqual(['a'])
+    })
+
+    it('recognizes logistics-first policy reasoning as campaign preparation', () => {
+        const parsed = fallbackPolicyParseFromReason(
+            '先断粮道、稳转运、压实接管次序，宁可慢一步也别把补给线拖垮，再把蜀地战果变成可持续的占领。',
+            {
+                aiScoringFocus: '是否考虑蜀道之难与后勤现实',
+                legitimacyEffect: 'steady',
+            },
+        )
+
+        expect(parsed.focusAlignment).toBeGreaterThan(0.4)
+        expect(parsed.executionClarity).toBeGreaterThan(0.45)
+        expect(parsed.costAwareness).toBeGreaterThan(0.2)
+        expect(parsed.policyStance).toBe('balanced')
     })
 })

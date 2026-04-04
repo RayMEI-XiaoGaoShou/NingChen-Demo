@@ -38,6 +38,13 @@ export function deriveCampaignMomentumGain(params: {
         params.parse.characterFit >= 0.48
         && params.parse.eventFit >= 0.45
         && params.parse.structuralPenetration >= 0.38
+    const strategicPreparationGate =
+        params.parse.structuralPenetration >= 0.42
+        && (
+            (params.schemeType === 'advise' && params.parse.executability >= 0.5 && battleSignal >= 0.32)
+            || (params.schemeType === 'probe' && battleSignal >= 0.44)
+            || (params.schemeType === 'omen' && omenLegitimacySignal >= 0.46 && params.parse.governanceRelevance >= 0.48)
+        )
 
     const omenGate =
         params.schemeType === 'omen'
@@ -48,7 +55,7 @@ export function deriveCampaignMomentumGain(params: {
         params.schemeType === 'advise'
         && params.parse.executability >= 0.45
 
-    if (!qualityGate || (!omenGate && battleSignal < 0.42)) {
+    if ((!qualityGate && !strategicPreparationGate) || (!omenGate && battleSignal < 0.42 && !strategicPreparationGate)) {
         return { shuMomentumGain: 0, huainanMomentumGain: 0 }
     }
 

@@ -433,6 +433,45 @@ describe('settleRound layered settlement', () => {
         expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance - 1)
     })
 
+    it('lets prepared shu conversion push a successful line from stalemate to gained', () => {
+        const pressuredNpcs = INITIAL_NPCS.map(npc => (
+            npc.powerBase === 'external'
+                ? { ...npc, externalStatus: 'watchful' as const }
+                : { ...npc }
+        ))
+        const pressuredFactions = INITIAL_FACTIONS.map(faction => (
+            faction.id === 'emperor'
+                ? { ...faction, internalStability: 22, courtInfluence: 21 }
+                : faction.id === 'empress'
+                    ? { ...faction, internalStability: 24, courtInfluence: 20 }
+                    : { ...faction }
+        ))
+
+        const result = settleRound({
+            round: 10,
+            schemes: [],
+            northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+            southStats: { finance: 57, grain: 58, military: 57, socialOrder: 56, governance: 60 },
+            npcs: pressuredNpcs,
+            factions: pressuredFactions,
+            intelProgress: {},
+            policyOptionIndex: 1,
+            policyReason: '先断粮道、稳转运、压实接管次序，再把蜀地战果变成可持续的占领。',
+            policyParse: {
+                focusAlignment: 0.88,
+                executionClarity: 0.84,
+                costAwareness: 0.66,
+                legitimacyAlignment: 0.5,
+                policyStance: 'balanced',
+                evidence: [],
+            },
+            shuMomentum: 4.8,
+            huainanMomentum: 0,
+        } as any)
+
+        expect(result.shuCampaign.state).toBe('gained')
+    })
+
     it('applies stored shu fallout on round 11', () => {
         const result = settleRound({
             round: 11,

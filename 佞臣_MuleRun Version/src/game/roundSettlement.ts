@@ -17,6 +17,7 @@ import { applyRelationshipShock, combineStructureEffects } from './relationshipE
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
 import { deriveCampaignMomentumGain } from './campaignMomentum'
+import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
 import { calculateCompositePower } from './types'
 import type {
@@ -140,6 +141,7 @@ export function settleRound(params: {
     let factionCollapseReports: FactionCollapseReport[] = []
     let policyReport: PolicySettlementReport | null = null
     let policyAftereffect: PolicyAftereffect | null = null
+    let policyMomentumGain = { shuMomentumGain: 0, huainanMomentumGain: 0 }
     let delayedBacklash: DelayedBacklash[] = []
     const campaignReports: string[] = []
 
@@ -314,7 +316,7 @@ export function settleRound(params: {
                 scoringFocus: question.aiScoringFocus,
             }
 
-            const policyMomentumGain = derivePolicyCampaignMomentum({
+            policyMomentumGain = derivePolicyCampaignMomentum({
                 round,
                 effects: policyEffect,
                 policyParse: policyParse ?? null,
@@ -325,6 +327,12 @@ export function settleRound(params: {
     }
 
     if (round === 10) {
+        const shuPreparedBonus = deriveCampaignPreparedBonus({
+            campaign: 'shu',
+            momentum: shuMomentum,
+            recentBattleSignal: deriveRecentBattleSignal('shu', schemeResults, policyReport, policyParse ?? null),
+            policyMomentum: policyMomentumGain.shuMomentumGain,
+        })
         const evaluation = evaluateShuCampaignOutcome({
             round,
             difficulty,
@@ -332,7 +340,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, shuMomentum),
+            momentumBonus: Math.min(5, shuMomentum) + shuPreparedBonus,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -349,6 +357,12 @@ export function settleRound(params: {
     }
 
     if (round === 16) {
+        const huainanPreparedBonus = deriveCampaignPreparedBonus({
+            campaign: 'huainan',
+            momentum: huainanMomentum,
+            recentBattleSignal: deriveRecentBattleSignal('huainan', schemeResults, policyReport, policyParse ?? null),
+            policyMomentum: policyMomentumGain.huainanMomentumGain,
+        })
         const evaluation = evaluateHuainanCampaignOutcome({
             round,
             difficulty,
@@ -356,7 +370,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, huainanMomentum),
+            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -628,6 +642,58 @@ function derivePolicyBoost(policyReport: PolicySettlementReport | null): number 
     if (!policyReport) return 0
     const total = Object.values(policyReport.effects).reduce((sum, value) => sum + (value ?? 0), 0)
     return Math.max(0, Math.min(6, total / 2.5 + (policyReport.focusMatched ? 1 : 0)))
+}
+
+function deriveRecentBattleSignal(
+    campaign: 'shu' | 'huainan',
+    schemeResults: SchemeResult[],
+    policyReport: PolicySettlementReport | null,
+    policyParse: PolicyReasonParseResult | null,
+): number {
+    const schemeSignal = Math.max(
+        0,
+        ...schemeResults
+            .filter(result => result.success)
+            .map(result => {
+                if (campaign === 'shu') {
+                    return (
+                        result.northParse.grainRelevance * 0.38 +
+                        result.northParse.governanceRelevance * 0.34 +
+                        result.northParse.militaryRelevance * 0.28
+                    )
+                }
+
+                return (
+                    result.northParse.militaryRelevance * 0.4 +
+                    result.northParse.grainRelevance * 0.34 +
+                    result.northParse.financeRelevance * 0.26
+                )
+            }),
+    )
+
+    if (!policyReport || !policyParse) {
+        return round(schemeSignal)
+    }
+
+    const policyEffectSignal =
+        campaign === 'shu'
+            ? Math.max(0, policyReport.effects.grain ?? 0) * 0.45
+            + Math.max(0, policyReport.effects.governance ?? 0) * 0.35
+            + Math.max(0, policyReport.effects.finance ?? 0) * 0.2
+            : Math.max(0, policyReport.effects.military ?? 0) * 0.4
+            + Math.max(0, policyReport.effects.grain ?? 0) * 0.3
+            + Math.max(0, policyReport.effects.finance ?? 0) * 0.3
+
+    const policySignal =
+        policyEffectSignal > 0
+            ? (
+                policyParse.focusAlignment * 0.42 +
+                policyParse.executionClarity * 0.36 +
+                policyParse.costAwareness * 0.22
+            ) * Math.min(1, policyEffectSignal / 1)
+            : 0
+
+    return round(Math.max(schemeSignal, policySignal))
 }
 
 function deriveNorthPressurePenalty(

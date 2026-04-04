@@ -16,6 +16,15 @@ import type {
 const NORTH_INTENTS: NorthDominantIntent[] = ['neutral', 'induce', 'threaten', 'divide', 'empathize', 'strategize']
 const POLICY_STANCES: PolicyStance[] = ['neutral', 'balanced', 'aggressive', 'conservative', 'expedient']
 
+const NORTH_STRUCTURAL_WORDS = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛', '法统', '名分', '军令', '州郡', '接管']
+const NORTH_EXECUTION_WORDS = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度', '接管', '断粮', '编户', '屯田', '安置']
+const NORTH_EXPOSURE_WORDS = ['夺权', '逼宫', '起兵', '翻掉', '杀', '今夜', '一举', '反旗', '举兵']
+const NORTH_FINANCE_WORDS = ['财政', '国库', '赋税', '钱粮', '商道', '饷银', '军费', '开源', '节流', '库藏', '财用']
+const NORTH_GRAIN_WORDS = ['粮道', '军粮', '口粮', '转运', '漕运', '仓储', '屯田', '后勤', '补给', '仓廪', '粮秣']
+const NORTH_MILITARY_WORDS = ['兵权', '前线', '战线', '调兵', '帅印', '节度', '都督', '平叛', '守军', '军令', '边镇', '诸军', '将令']
+const NORTH_SOCIAL_ORDER_WORDS = ['流民', '民变', '人心', '骚乱', '州郡', '百姓', '安民', '哗变', '恐慌', '离散']
+const NORTH_GOVERNANCE_WORDS = ['中枢', '诏令', '门阀', '权柄', '体制', '调度', '执行', '都督', '节度', '官吏', '法令', '秩序', '接管', '州郡', '法统', '名分']
+
 export function clamp01(value: unknown): number {
     const numeric = typeof value === 'number' ? value : Number(value)
     if (!Number.isFinite(numeric)) return 0
@@ -70,7 +79,7 @@ function extractKeywords(text: string): string[] {
     return Array.from(
         new Set(
             text
-                .split(/[，。；：、！\s（）()"'“”‘’\-+/]/)
+                .split(/[，。；：、！？\s（）()"'“”‘’—\-+/]+/)
                 .map(part => part.trim())
                 .filter(part => part.length >= 2),
         ),
@@ -103,6 +112,7 @@ export function fallbackNorthParseFromSpeech(params: {
         ...extractKeywords(params.npc.publicStance),
         ...extractKeywords(params.npc.schemeHooks),
         ...extractKeywords(params.npc.publicPersona),
+        ...extractKeywords(params.npc.secretThreads.join(' ')),
     ]
     const triggerWords = extractKeywords(params.npc.triggerPoint)
     const eventWords = roundEvent
@@ -112,15 +122,6 @@ export function fallbackNorthParseFromSpeech(params: {
             ...extractKeywords(roundEvent.northDescription),
         ]
         : []
-
-    const structuralWords = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛']
-    const executionWords = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度']
-    const exposureWords = ['夺权', '逼宫', '起兵', '翻掉', '杀', '今夜', '一举', '反旗']
-    const financeWords = ['财政', '国库', '赋税', '钱粮', '商道', '饷银', '军费', '开源', '节流', '库藏']
-    const grainWords = ['粮', '粮道', '军粮', '口粮', '转运', '漕运', '仓储', '屯田', '后勤', '补给']
-    const militaryWords = ['兵', '军', '前线', '战', '调兵', '帅印', '节度', '都督', '平叛', '守军', '军令', '边镇']
-    const socialOrderWords = ['流民', '民变', '人心', '骚乱', '州郡', '百姓', '安民', '哗变', '恐慌', '离散']
-    const governanceWords = ['中枢', '诏令', '门阀', '权柄', '体制', '调度', '执行', '都督', '节度', '官吏', '法令', '秩序']
 
     const characterFit = clamp01(
         0.12
@@ -132,12 +133,12 @@ export function fallbackNorthParseFromSpeech(params: {
     const eventFit = clamp01(
         0.08
         + scoreMatches(speech, eventWords) * 0.6
-        + (includesAny(speech, ['灾', '疫', '边患', '淮南', '河西', '河北', '流民']) ? 0.18 : 0),
+        + (includesAny(speech, ['灾异', '疫', '边患', '淮南', '河西', '河北', '流民', '征蜀', '寿春']) ? 0.18 : 0),
     )
 
     const structuralPenetration = clamp01(
         0.05
-        + scoreMatches(speech, structuralWords) * 0.8
+        + scoreMatches(speech, NORTH_STRUCTURAL_WORDS) * 0.8
         + (params.relatedNpc ? 0.08 : 0),
     )
 
@@ -145,47 +146,47 @@ export function fallbackNorthParseFromSpeech(params: {
         0.08
         + (speech.length >= 18 ? 0.18 : 0)
         + (speech.length >= 34 ? 0.12 : 0)
-        + scoreMatches(speech, executionWords) * 0.62,
+        + scoreMatches(speech, NORTH_EXECUTION_WORDS) * 0.62,
     )
 
     const exposureRisk = clamp01(
         scoreMatches(speech, triggerWords) * 0.35
-        + scoreMatches(speech, exposureWords) * 0.65
+        + scoreMatches(speech, NORTH_EXPOSURE_WORDS) * 0.65
         + (speech.length >= 70 ? 0.08 : 0),
     )
 
     const financeRelevance = clamp01(
-        scoreMatches(speech, financeWords) * 0.88
-        + (includesAny(speech, ['国库', '赋税', '商道', '饷银', '军费']) ? 0.16 : 0),
+        scoreMatches(speech, NORTH_FINANCE_WORDS) * 0.88
+        + (includesAny(speech, ['国库', '赋税', '商道', '饷银', '军费', '钱粮']) ? 0.16 : 0),
     )
 
     const grainRelevance = clamp01(
-        scoreMatches(speech, grainWords) * 0.92
-        + (includesAny(speech, ['粮道', '军粮', '转运', '补给', '后勤']) ? 0.2 : 0),
+        scoreMatches(speech, NORTH_GRAIN_WORDS) * 0.92
+        + (includesAny(speech, ['粮道', '军粮', '转运', '补给', '后勤', '仓储']) ? 0.2 : 0),
     )
 
     const militaryRelevance = clamp01(
-        scoreMatches(speech, militaryWords) * 0.9
-        + (includesAny(speech, ['前线', '调兵', '战线', '平叛', '军令']) ? 0.18 : 0),
+        scoreMatches(speech, NORTH_MILITARY_WORDS) * 0.9
+        + (includesAny(speech, ['前线', '调兵', '战线', '平叛', '军令', '边镇']) ? 0.18 : 0),
     )
 
     const socialOrderRelevance = clamp01(
-        scoreMatches(speech, socialOrderWords) * 0.84
-        + (includesAny(speech, ['流民', '民变', '安民', '人心']) ? 0.16 : 0),
+        scoreMatches(speech, NORTH_SOCIAL_ORDER_WORDS) * 0.84
+        + (includesAny(speech, ['流民', '民变', '安民', '人心', '州郡']) ? 0.16 : 0),
     )
 
     const governanceRelevance = clamp01(
-        scoreMatches(speech, governanceWords) * 0.9
-        + scoreMatches(speech, structuralWords) * 0.18
-        + (includesAny(speech, ['中枢', '诏令', '门阀', '调度', '执行']) ? 0.16 : 0),
+        scoreMatches(speech, NORTH_GOVERNANCE_WORDS) * 0.9
+        + scoreMatches(speech, NORTH_STRUCTURAL_WORDS) * 0.18
+        + (includesAny(speech, ['中枢', '诏令', '门阀', '调度', '执行', '接管', '法统', '名分']) ? 0.16 : 0),
     )
 
     const dominantIntent: NorthDominantIntent =
-        includesAny(speech, ['逼', '胁', '今夜', '立刻']) ? 'threaten'
-            : includesAny(speech, ['离间', '猜疑', '互疑', '反压']) ? 'divide'
-                : includesAny(speech, ['仓储', '中枢', '节度', '兵权', '转运', '军费']) ? 'strategize'
-                    : includesAny(speech, ['体恤', '同忧', '不忍', '委屈']) ? 'empathize'
-                        : includesAny(speech, ['可得', '有利', '坐实', '收回']) ? 'induce'
+        includesAny(speech, ['逼宫', '夺权', '今夜', '立刻', '举兵', '起兵']) ? 'threaten'
+            : includesAny(speech, ['离间', '猜疑', '互疑', '反压', '名分裂口', '两套']) ? 'divide'
+                : includesAny(speech, ['仓储', '中枢', '节度', '兵权', '转运', '军费', '粮道', '军令', '接管']) ? 'strategize'
+                    : includesAny(speech, ['体谅', '同忧', '不忍', '委屈']) ? 'empathize'
+                        : includesAny(speech, ['可得', '有利', '坐实', '收回', '借势']) ? 'induce'
                             : 'neutral'
 
     const evidence = [
@@ -224,17 +225,20 @@ export function fallbackPolicyParseFromReason(
     const thematicFocusBoost =
         /流民|资源/.test(focusText) && includesAny(text, ['流民', '编户', '屯田', '劳力', '口粮', '安置'])
             ? 0.24
-            : /门阀|豪族|士族/.test(focusText) && includesAny(text, ['门阀', '地方', '州郡', '掣肘', '反弹'])
+            : /门阀|豪族|士族/.test(focusText) && includesAny(text, ['门阀', '地方', '州郡', '豪族', '反弹', '士族'])
                 ? 0.2
-                : /执行|成本|路径/.test(focusText) && includesAny(text, ['执行', '责任', '州郡', '先', '再', '推进'])
+                : /执行|成本|路径/.test(focusText) && includesAny(text, ['执行', '责任', '州郡', '兵', '军', '推进', '转运'])
                     ? 0.18
-                    : /财政|国库/.test(focusText) && includesAny(text, ['财政', '国库', '税', '钱', '节流', '开源'])
+                    : /蜀道|后勤|军粮|转运|战果/.test(focusText) && includesAny(text, ['粮道', '军粮', '转运', '补给', '接管', '占领', '战果'])
+                        ? 0.22
+                    : /财政|国库/.test(focusText) && includesAny(text, ['财政', '国库', '税', '钱粮', '节流', '开源'])
                         ? 0.18
                         : 0
+
     const focusAlignment = clamp01(
         0.12
         + scoreMatches(text, focusWords) * 0.72
-        + (includesAny(text, ['流民', '门阀', '地方', '执行', '成本', '后勤', '缓急']) ? 0.12 : 0)
+        + (includesAny(text, ['流民', '门阀', '地方', '执行', '成本', '后勤', '缓急', '粮道', '转运', '接管', '战果']) ? 0.12 : 0)
         + thematicFocusBoost,
     )
 
@@ -242,11 +246,11 @@ export function fallbackPolicyParseFromReason(
         0.08
         + (text.length >= 18 ? 0.16 : 0)
         + (text.length >= 32 ? 0.1 : 0)
-        + scoreMatches(text, ['先', '再', '随后', '分州郡', '编户', '屯田', '口粮', '执行责任', '清点']) * 0.72,
+        + scoreMatches(text, ['先', '再', '随后', '分州郡', '编户', '屯田', '口粮', '执行责任', '清点', '转运', '接管', '压实', '断粮', '占领']) * 0.72,
     )
 
     const costAwareness = clamp01(
-        scoreMatches(text, ['代价', '风险', '地方', '门阀', '国库', '后勤', '推进', '反弹', '缓急', '权衡']) * 0.92,
+        scoreMatches(text, ['代价', '风险', '地方', '门阀', '国库', '后勤', '推进', '反弹', '缓急', '权衡', '拖垮', '宁可']) * 0.92,
     )
 
     const legitimacyAlignment = clamp01(
@@ -259,7 +263,7 @@ export function fallbackPolicyParseFromReason(
         includesAny(text, ['急征', '强压', '急攻', '立刻扩军']) ? 'aggressive'
             : includesAny(text, ['权宜', '先救急', '暂缓', '先缓']) ? 'expedient'
                 : includesAny(text, ['渐进', '安民', '稳住', '先稳']) ? 'conservative'
-                    : includesAny(text, ['先', '再', '权衡', '缓急', '执行']) ? 'balanced'
+                    : includesAny(text, ['兵', '军', '权衡', '缓急', '执行', '转运', '接管', '断粮']) ? 'balanced'
                         : 'neutral'
 
     const evidence = [

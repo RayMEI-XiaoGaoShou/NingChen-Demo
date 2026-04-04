@@ -244,6 +244,37 @@ describe('simulationRunner', () => {
         expect(result.finalState.southPower - result.finalState.northPower).toBeLessThanOrEqual(5)
     })
 
+    it('builds meaningful shu momentum for expert omen lines before the round-10 battle check', () => {
+        const sample = LIVE_BALANCE_SAMPLE_SET.find(item => item.id === 'expert-omen')
+        expect(sample).toBeTruthy()
+
+        const result = simulateGame({
+            throughRound: 10,
+            initialState: {
+                difficulty: sample!.difficulty,
+            },
+            resolveRound: ({ round }) => {
+                const plan = sample!.rounds.find(item => item.round === round)
+                if (!plan) return {}
+
+                return {
+                    schemes: plan.schemes.map((scheme, index) => ({
+                        id: `${sample!.id}-r${round}-s${index + 1}`,
+                        targetNpcId: scheme.targetNpcId,
+                        relatedNpcId: scheme.relatedNpcId,
+                        schemeType: scheme.schemeType,
+                        playerSpeech: scheme.speech,
+                        resolutionRoll: 0.28,
+                    })),
+                    policyOptionIndex: plan.policy.optionIndex,
+                    policyReason: plan.policy.reason,
+                }
+            },
+        })
+
+        expect(result.finalState.shuMomentum).toBeGreaterThanOrEqual(7)
+    })
+
     it('keeps rookie aggressive pressure below a comfortable double-digit normal-mode victory', () => {
         const sample = LIVE_BALANCE_SAMPLE_SET.find(item => item.id === 'rookie-aggressive')
         expect(sample).toBeTruthy()

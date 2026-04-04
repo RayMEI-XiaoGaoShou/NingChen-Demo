@@ -273,7 +273,55 @@ function buildSchemesForSample(level: SampleSkillLevel, strategy: SampleStrategy
     }
 }
 
-function buildPolicyReason(level: SampleSkillLevel, round: number): RoundPolicySample {
+function getCuratedPolicyReason(
+    level: SampleSkillLevel,
+    strategy: SampleStrategy,
+    round: number,
+): RoundPolicySample | null {
+    if (level === 'expert' && strategy === 'omen') {
+        const curatedExpertOmenPolicy: Partial<Record<number, RoundPolicySample>> = {
+            4: {
+                optionIndex: 0,
+                reason: '趁北线吃紧先整军练兵，补足蜀道推进前最怕短缺的军力与调度底子。',
+            },
+            5: {
+                optionIndex: 0,
+                reason: '先修交通、囤粮与前运节点，把征蜀所需的粮道和后勤骨架搭稳。',
+            },
+            6: {
+                optionIndex: 3,
+                reason: '借蜀中生变之机练兵整队，但先把军政承接和补给次序压实。',
+            },
+            8: {
+                optionIndex: 1,
+                reason: '漕运优先，先把仓储、转运与前线补给线捋顺，再谈更大的推进。',
+            },
+            9: {
+                optionIndex: 2,
+                reason: '先西后北，先把征蜀的军政承接、粮道和后续治理说透，再开战。',
+            },
+            10: {
+                optionIndex: 1,
+                reason: '先断粮道、稳转运、压实接管次序，宁可慢一步也别把补给线拖垮，再把蜀地战果变成可持续的占领。',
+            },
+            16: {
+                optionIndex: 3,
+                reason: '水陆并进，但先稳渡口、粮道与前线协同，别把淮南战果打成昙花一现。',
+            },
+        }
+
+        return curatedExpertOmenPolicy[round] ?? null
+    }
+
+    return null
+}
+
+function buildPolicyReason(level: SampleSkillLevel, strategy: SampleStrategy, round: number): RoundPolicySample {
+    const curated = getCuratedPolicyReason(level, strategy, round)
+    if (curated) {
+        return curated
+    }
+
     if (level === 'expert') {
         return {
             optionIndex: round % 4,
@@ -318,7 +366,7 @@ function makeSample(
         rounds: Array.from({ length: 20 }, (_, index) => ({
             round: index + 1,
             schemes: buildSchemesForSample(level, strategy, index + 1),
-            policy: buildPolicyReason(level, index + 1),
+            policy: buildPolicyReason(level, strategy, index + 1),
         })),
     }
 }
