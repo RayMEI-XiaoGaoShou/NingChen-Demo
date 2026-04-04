@@ -105,4 +105,42 @@ describe('aiService', () => {
         expect(fetchMock.mock.calls[0]?.[0]).toBe('https://api.deepseek.com/chat/completions')
         expect(result).toBe('script runtime ok')
     })
+
+    it('retries json completion once when the first response is truncated', async () => {
+        delete (globalThis as any).window
+        processEnv.VITE_KIMI_API_KEY = 'script-runtime-key'
+        processEnv.VITE_KIMI_BASE_URL = 'https://api.deepseek.com'
+        processEnv.VITE_KIMI_MODEL = 'deepseek-chat'
+        processEnv.DEV = 'false'
+
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    choices: [{ message: { content: '{"characterFit":0.8,"eventFit":0.7,"evidence":["第一条","第二条"' } }],
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    choices: [{ message: { content: '{"characterFit":0.8,"eventFit":0.7,"evidence":["第一条","第二条"]}' } }],
+                }),
+            })
+        ;(globalThis as any).fetch = fetchMock
+
+        const { chatCompletionJson } = await import('./aiService')
+
+        const result = await chatCompletionJson<{ characterFit: number; eventFit: number; evidence: string[] }>(
+            [{ role: 'user', content: 'return json only' }],
+            { temperature: 0.2, maxTokens: 120, tag: 'north_scheme_parse' },
+        )
+
+        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(result).toEqual({
+            characterFit: 0.8,
+            eventFit: 0.7,
+            evidence: ['第一条', '第二条'],
+        })
+    })
 })

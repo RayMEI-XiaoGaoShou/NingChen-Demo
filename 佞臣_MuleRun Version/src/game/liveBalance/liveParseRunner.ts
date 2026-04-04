@@ -10,20 +10,72 @@ import { ROUND_EVENTS } from '../../data/rounds'
 import type { NPC, PolicyResolutionMeta, SchemeType } from '../types'
 import type { LiveParseRecord } from './types'
 
-function tryParseJson<T>(text: string): T | null {
-    const cleaned = text
+function cleanStructuredJsonText(text: string): string {
+    return text
         .trim()
         .replace(/^```json\s*/i, '')
         .replace(/^```\s*/i, '')
         .replace(/```$/i, '')
         .trim()
+}
 
+function tryParseJson<T>(text: string): T | null {
+    const cleaned = cleanStructuredJsonText(text)
     if (!cleaned) return null
 
     try {
         return JSON.parse(cleaned) as T
     } catch {
         return null
+    }
+}
+
+function shouldRetryStructuredJson(text: string): boolean {
+    const cleaned = cleanStructuredJsonText(text)
+    if (!cleaned) return false
+
+    const startsLikeJson = cleaned.startsWith('{') || cleaned.startsWith('[')
+    if (!startsLikeJson) return false
+
+    return !cleaned.endsWith('}') && !cleaned.endsWith(']')
+}
+
+function getStructuredRetryMaxTokens(maxTokens: number): number {
+    return Math.max(Math.ceil(maxTokens * 2), maxTokens + 160, 360)
+}
+
+async function completeStructuredJson<T>(params: {
+    messages: ReturnType<typeof buildNorthSchemeParsePrompt> | ReturnType<typeof buildPolicyReasonParsePrompt>
+    temperature: number
+    maxTokens: number
+    tag: string
+}): Promise<{ rawResponse: string; parsed: T | null }> {
+    const firstText = await chatCompletion(params.messages, {
+        temperature: params.temperature,
+        maxTokens: params.maxTokens,
+        tag: params.tag,
+    })
+    const firstParsed = tryParseJson<T>(firstText)
+    if (firstParsed) {
+        return { rawResponse: firstText, parsed: firstParsed }
+    }
+
+    if (shouldRetryStructuredJson(firstText)) {
+        const retryText = await chatCompletion(params.messages, {
+            temperature: params.temperature,
+            maxTokens: getStructuredRetryMaxTokens(params.maxTokens),
+            tag: params.tag,
+        })
+        const retryParsed = tryParseJson<T>(retryText)
+        return {
+            rawResponse: retryText,
+            parsed: retryParsed,
+        }
+    }
+
+    return {
+        rawResponse: firstText,
+        parsed: null,
     }
 }
 
@@ -34,19 +86,21 @@ export async function runNorthLiveParse(params: {
     schemeType: SchemeType
     relatedNpc?: NPC | null
 }): Promise<LiveParseRecord> {
-    const rawResponse = await chatCompletion(
-        buildNorthSchemeParsePrompt({
-            round: params.round,
-            npc: params.npc,
-            schemeType: params.schemeType,
-            speech: params.speech,
-            eventName: ROUND_EVENTS[params.round - 1]?.eventName ?? `第${params.round}回合`,
-            eventBriefing: ROUND_EVENTS[params.round - 1]?.briefing ?? '',
-        }),
-        { temperature: 0.2, maxTokens: 220, tag: 'north_scheme_parse' },
-    )
+    const messages = buildNorthSchemeParsePrompt({
+        round: params.round,
+        npc: params.npc,
+        schemeType: params.schemeType,
+        speech: params.speech,
+        eventName: ROUND_EVENTS[params.round - 1]?.eventName ?? `第${params.round}回合`,
+        eventBriefing: ROUND_EVENTS[params.round - 1]?.briefing ?? '',
+    })
+    const { rawResponse, parsed } = await completeStructuredJson<ReturnType<typeof normalizeNorthSchemeParse>>({
+        messages,
+        temperature: 0.2,
+        maxTokens: 220,
+        tag: 'north_scheme_parse',
+    })
 
-    const parsed = tryParseJson<ReturnType<typeof normalizeNorthSchemeParse>>(rawResponse)
     if (parsed) {
         const normalized = normalizeNorthSchemeParse(parsed)
         const hasDimensionRelevance =
@@ -110,18 +164,20 @@ export async function runPolicyLiveParse(params: {
     reason: string
     meta: PolicyResolutionMeta
 }): Promise<LiveParseRecord> {
-    const rawResponse = await chatCompletion(
-        buildPolicyReasonParsePrompt({
-            round: params.round,
-            topic: params.topic,
-            question: params.question,
-            reason: params.reason,
-            meta: params.meta,
-        }),
-        { temperature: 0.2, maxTokens: 220, tag: 'policy_reason_parse' },
-    )
+    const messages = buildPolicyReasonParsePrompt({
+        round: params.round,
+        topic: params.topic,
+        question: params.question,
+        reason: params.reason,
+        meta: params.meta,
+    })
+    const { rawResponse, parsed } = await completeStructuredJson<ReturnType<typeof normalizePolicyReasonParse>>({
+        messages,
+        temperature: 0.2,
+        maxTokens: 220,
+        tag: 'policy_reason_parse',
+    })
 
-    const parsed = tryParseJson<ReturnType<typeof normalizePolicyReasonParse>>(rawResponse)
     if (parsed) {
         return {
             round: params.round,

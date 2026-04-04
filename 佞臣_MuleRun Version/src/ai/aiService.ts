@@ -55,7 +55,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 function getMujianOpenApiConfig(): MujianOpenApiConfig | null {
-    const openapi = mujianSdk?.openapi ?? window.$mujian_lite?.openapi
+    const openapi = mujianSdk?.openapi ?? (typeof window !== 'undefined' ? window.$mujian_lite?.openapi : null)
     if (!openapi?.baseURL || !openapi?.apiKey) return null
 
     return {
@@ -96,6 +96,40 @@ async function openAiCompatibleCompletion(
     return data?.choices?.[0]?.message?.content?.trim() || getFallbackResponse(tag)
 }
 
+function cleanStructuredJsonText(text: string): string {
+    return text
+        .trim()
+        .replace(/^```json\s*/i, '')
+        .replace(/^```\s*/i, '')
+        .replace(/```$/i, '')
+        .trim()
+}
+
+function tryParseStructuredJson<T>(text: string): T | null {
+    const cleaned = cleanStructuredJsonText(text)
+    if (!cleaned) return null
+
+    try {
+        return JSON.parse(cleaned) as T
+    } catch {
+        return null
+    }
+}
+
+function shouldRetryStructuredJson(text: string): boolean {
+    const cleaned = cleanStructuredJsonText(text)
+    if (!cleaned) return false
+
+    const startsLikeJson = cleaned.startsWith('{') || cleaned.startsWith('[')
+    if (!startsLikeJson) return false
+
+    return !cleaned.endsWith('}') && !cleaned.endsWith(']')
+}
+
+function getStructuredRetryMaxTokens(maxTokens: number): number {
+    return Math.max(Math.ceil(maxTokens * 2), maxTokens + 160, 360)
+}
+
 export async function initAiService(): Promise<AiMode> {
     if (initPromise) return initPromise
 
@@ -105,21 +139,21 @@ export async function initAiService(): Promise<AiMode> {
                 await withTimeout(window.$mujian_lite.init(), 1500)
                 mujianSdk = window.$mujian_lite
                 currentMode = 'mujian'
-                console.log('[AI] 骞曢棿骞冲彴妯″紡宸叉縺娲?')
+                console.log('[AI] Mujian runtime active')
                 return currentMode
             } catch (error) {
-                console.warn('[AI] 骞曢棿 SDK 褰撳墠涓嶅彲鐢紝鏀硅蛋 DeepSeek API', error)
+                console.warn('[AI] Mujian SDK init failed, falling back to DeepSeek API', error)
             }
         }
 
         if (hasKimiConfig()) {
             currentMode = 'kimi'
-            console.log('[AI] DeepSeek API 妯″紡宸叉縺娲?')
+            console.log('[AI] DeepSeek API mode active')
             return currentMode
         }
 
         currentMode = 'fallback'
-        console.warn('[AI] 鏈娴嬪埌鍙敤 AI 閰嶇疆锛屼娇鐢ㄦ湰鍦板厹搴曟ā鏉?')
+        console.warn('[AI] No remote AI config detected, using local fallback responses')
         return currentMode
     })()
 
@@ -133,17 +167,17 @@ export function getAiMode(): AiMode {
 export function getAiModeLabel(mode: AiMode = currentMode): string {
     switch (mode) {
         case 'mujian':
-            return '骞曢棿鍘熺敓'
+            return '幕间 SDK'
         case 'kimi':
             return 'DeepSeek API'
         case 'fallback':
-            return '鏈湴鍏滃簳'
+            return '本地回退'
     }
 }
 
 export async function chatCompletion(
     messages: ChatMessage[],
-    options?: { temperature?: number; maxTokens?: number; tag?: string }
+    options?: { temperature?: number; maxTokens?: number; tag?: string },
 ): Promise<string> {
     const { temperature = 0.8, maxTokens = 500, tag = '' } = options ?? {}
     await initAiService()
@@ -160,21 +194,32 @@ export async function chatCompletion(
 
 export async function chatCompletionJson<T>(
     messages: ChatMessage[],
-    options?: { temperature?: number; maxTokens?: number; tag?: string }
+    options?: { temperature?: number; maxTokens?: number; tag?: string },
 ): Promise<T | null> {
-    try {
-        const text = await chatCompletion(messages, options)
-        const cleaned = text
-            .trim()
-            .replace(/^```json\s*/i, '')
-            .replace(/^```\s*/i, '')
-            .replace(/```$/i, '')
-            .trim()
+    const { temperature = 0.8, maxTokens = 500, tag = '' } = options ?? {}
 
-        if (!cleaned) return null
-        return JSON.parse(cleaned) as T
+    try {
+        const firstText = await chatCompletion(messages, { temperature, maxTokens, tag })
+        const firstParsed = tryParseStructuredJson<T>(firstText)
+        if (firstParsed) {
+            return firstParsed
+        }
+
+        if (shouldRetryStructuredJson(firstText)) {
+            const retryText = await chatCompletion(messages, {
+                temperature,
+                maxTokens: getStructuredRetryMaxTokens(maxTokens),
+                tag,
+            })
+            const retryParsed = tryParseStructuredJson<T>(retryText)
+            if (retryParsed) {
+                return retryParsed
+            }
+        }
+
+        return null
     } catch (error) {
-        console.warn('[AI] JSON 缁撴瀯鍖栬В鏋愬け璐ワ紝鏀硅蛋鏈湴鍥為€€', error)
+        console.warn('[AI] Structured JSON parse failed, returning null', error)
         return null
     }
 }
@@ -212,7 +257,7 @@ async function mujianCompletion(
             tag,
         )
     } catch (error) {
-        console.error('[AI] 骞曢棿鍘熺敓璋冪敤澶辫触:', error)
+        console.error('[AI] Mujian completion failed:', error)
         return getFallbackResponse(tag)
     }
 }
@@ -239,7 +284,7 @@ async function kimiCompletion(
             tag,
         )
     } catch (error) {
-        console.error('[AI] DeepSeek API 璋冪敤澶辫触:', error)
+        console.error('[AI] DeepSeek completion failed:', error)
         return getFallbackResponse(tag)
     }
 }
