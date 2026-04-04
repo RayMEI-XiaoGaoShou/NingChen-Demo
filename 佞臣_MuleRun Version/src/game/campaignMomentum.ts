@@ -35,9 +35,9 @@ export function deriveCampaignMomentumGain(params: {
                 : 0
 
     const qualityGate =
-        params.parse.characterFit >= 0.45
-        && params.parse.eventFit >= 0.4
-        && params.parse.structuralPenetration >= 0.35
+        params.parse.characterFit >= 0.48
+        && params.parse.eventFit >= 0.45
+        && params.parse.structuralPenetration >= 0.38
 
     const omenGate =
         params.schemeType === 'omen'
@@ -54,13 +54,21 @@ export function deriveCampaignMomentumGain(params: {
 
     const typeMultiplier =
         omenGate
-            ? 1.45
+            ? 1.6
             : lowRiskAdviceGate
-                ? 1.4
+                ? 1.6
                 : 1
 
-    const momentumBaseline = omenGate ? 0.05 : lowRiskAdviceGate ? 0.23 : 0.32
-    const baseGain = Math.min(1.4, roundValue((battleSignal - momentumBaseline) * typeMultiplier))
+    const momentumBaseline = omenGate ? 0.03 : lowRiskAdviceGate ? 0.19 : 0.32
+    const expertAdviceBoost =
+        lowRiskAdviceGate
+        && battleSignal >= 0.78
+        && params.parse.characterFit >= 0.72
+        && params.parse.eventFit >= 0.7
+        && params.parse.structuralPenetration >= 0.7
+            ? 0.1
+            : 0
+    const baseGain = Math.min(1.8, roundValue((battleSignal - momentumBaseline) * typeMultiplier + expertAdviceBoost))
 
     if (params.round <= 10) {
         return { shuMomentumGain: baseGain, huainanMomentumGain: 0 }

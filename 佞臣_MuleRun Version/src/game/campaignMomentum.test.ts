@@ -55,6 +55,58 @@ describe('campaignMomentum', () => {
         expect(result.huainanMomentumGain).toBeGreaterThan(0.7)
     })
 
+    it('pushes shu momentum above the previous plateau for strong grain-governance advice', async () => {
+        const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
+
+        const result = deriveCampaignMomentumGain({
+            round: 8,
+            schemeType: 'advise',
+            success: true,
+            parse: {
+                characterFit: 0.78,
+                eventFit: 0.76,
+                structuralPenetration: 0.74,
+                executability: 0.66,
+                exposureRisk: 0.18,
+                financeRelevance: 0.16,
+                grainRelevance: 0.88,
+                militaryRelevance: 0.72,
+                socialOrderRelevance: 0.18,
+                governanceRelevance: 0.84,
+                dominantIntent: 'strategize',
+                evidence: [],
+            },
+        })
+
+        expect(result.shuMomentumGain).toBeGreaterThan(1)
+    })
+
+    it('lets strong omen pressure build huainan momentum more aggressively after round 10', async () => {
+        const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
+
+        const result = deriveCampaignMomentumGain({
+            round: 14,
+            schemeType: 'omen',
+            success: true,
+            parse: {
+                characterFit: 0.8,
+                eventFit: 0.82,
+                structuralPenetration: 0.78,
+                executability: 0.4,
+                exposureRisk: 0.44,
+                financeRelevance: 0.22,
+                grainRelevance: 0.34,
+                militaryRelevance: 0.42,
+                socialOrderRelevance: 0.72,
+                governanceRelevance: 0.9,
+                dominantIntent: 'divide',
+                evidence: [],
+            },
+        })
+
+        expect(result.huainanMomentumGain).toBeGreaterThan(1)
+    })
+
     it('does not reward generic pressure speeches with momentum', async () => {
         const { deriveCampaignMomentumGain } = await import('./campaignMomentum')
 
