@@ -41,7 +41,7 @@ function shouldRetryStructuredJson(text: string): boolean {
 }
 
 function getStructuredRetryMaxTokens(maxTokens: number): number {
-    return Math.max(Math.ceil(maxTokens * 2), maxTokens + 160, 360)
+    return Math.max(Math.ceil(maxTokens * 2.75), maxTokens + 320, 520)
 }
 
 async function completeStructuredJson<T>(params: {
