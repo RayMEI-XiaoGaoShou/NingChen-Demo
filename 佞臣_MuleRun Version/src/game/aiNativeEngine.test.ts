@@ -97,6 +97,18 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.suspicionDirection).toBeCloseTo(0.58, 2)
     })
 
+    it('normalizes intrigue transmission fields', () => {
+        const parsed = normalizeNorthSchemeParse({
+            suspicionTransmission: 0.64,
+            fractureTransmission: 0.71,
+            proxyTransmission: 0.58,
+        })
+
+        expect(parsed.suspicionTransmission).toBeCloseTo(0.64, 2)
+        expect(parsed.fractureTransmission).toBeCloseTo(0.71, 2)
+        expect(parsed.proxyTransmission).toBeCloseTo(0.58, 2)
+    })
+
     it('classifies clearly pro-state advice as pro_state in fallback parsing', () => {
         const parsed = fallbackNorthParseFromSpeech({
             speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',

@@ -89,6 +89,9 @@ export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResul
         omenAnchorStrength: clamp01(candidate.omenAnchorStrength),
         legitimacyCrack: clamp01(candidate.legitimacyCrack),
         suspicionDirection: clamp01(candidate.suspicionDirection),
+        suspicionTransmission: clamp01(candidate.suspicionTransmission),
+        fractureTransmission: clamp01(candidate.fractureTransmission),
+        proxyTransmission: clamp01(candidate.proxyTransmission),
         evidence: cleanEvidence(candidate.evidence),
     }
 }

@@ -250,6 +250,9 @@ export interface NorthSchemeParseResult {
     omenAnchorStrength?: number
     legitimacyCrack?: number
     suspicionDirection?: number
+    suspicionTransmission?: number
+    fractureTransmission?: number
+    proxyTransmission?: number
     evidence: string[]
 }
 
