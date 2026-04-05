@@ -262,6 +262,40 @@ function getLowRiskNationDamping(
     return round <= 6 ? 0.42 : round <= 12 ? 0.52 : 0.64
 }
 
+function getIntrigueTransmission(
+    schemeType: SchemeType,
+    parse: NorthSchemeParseResult,
+): number {
+    if (schemeType === 'slander') return parse.suspicionTransmission ?? 0
+    if (schemeType === 'alienate') return parse.fractureTransmission ?? 0
+    if (schemeType === 'proxy') return parse.proxyTransmission ?? 0
+    return 1
+}
+
+function getIntrigueNationGate(
+    schemeType: SchemeType,
+    parse: NorthSchemeParseResult,
+): number {
+    const transmission = getIntrigueTransmission(schemeType, parse)
+
+    if (schemeType === 'slander') {
+        if (transmission < 0.28) return 0
+        return clamp(0.1 + transmission * 0.95, 0.1, 1)
+    }
+
+    if (schemeType === 'alienate') {
+        if (transmission < 0.24) return 0
+        return clamp(0.18 + transmission * 0.92, 0.18, 1)
+    }
+
+    if (schemeType === 'proxy') {
+        if (transmission < 0.26) return 0
+        return clamp(0.14 + transmission * 0.96, 0.14, 1)
+    }
+
+    return 1
+}
+
 function softenEarlyNorthNationEffects(
     changes: Partial<NationDimensions>,
     roundNumber: number,
@@ -860,10 +894,15 @@ export function settleScheme(
     nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects, northParse))
     nationEffects = mergeDimensions(nationEffects, deriveCourtAdviceImpact(action, targetNpc, success, northParse))
     nationEffects = mergeDimensions(nationEffects, deriveOmenLegitimacyImpact(action, targetNpc, success, northParse))
+    const strategicSpillover = deriveStrategicSpillover(action, targetNpc, relatedNpc, round, success, northParse)
+    const intrigueGate = getIntrigueNationGate(action.schemeType, northParse)
     nationEffects = mergeDimensions(
         nationEffects,
-        scaleDimensions(deriveStrategicSpillover(action, targetNpc, relatedNpc, round, success, northParse), tunedNationMultiplier),
+        scaleDimensions(strategicSpillover, tunedNationMultiplier),
     )
+    if (action.schemeType === 'slander' || action.schemeType === 'alienate' || action.schemeType === 'proxy') {
+        nationEffects = scaleDimensions(nationEffects, intrigueGate)
+    }
     nationEffects = scaleDimensions(nationEffects, tunedNationMultiplier)
     nationEffects = scaleDimensions(nationEffects, getLowRiskNationDamping(action.schemeType, difficulty, round))
     nationEffects = softenEarlyNorthNationEffects(nationEffects, round)

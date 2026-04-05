@@ -400,6 +400,40 @@ export function fallbackNorthParseFromSpeech(params: {
     const omenSpecialization = params.schemeType === 'omen'
         ? deriveOmenSpecialization({ speech, omenSpeechInput: params.omenSpeechInput })
         : { omenAnchorStrength: 0, legitimacyCrack: 0, suspicionDirection: 0 }
+    const suspicionTransmission = params.schemeType === 'slander'
+        ? clamp01(scoreMatches(speech, [
+            '军令',
+            '粮道',
+            '转运',
+            '诏令',
+            '边镇',
+            '调度',
+            '谁来担责',
+            '众口一词',
+        ]) * 0.34)
+        : 0
+    const fractureTransmission = params.schemeType === 'alienate'
+        ? clamp01(scoreMatches(speech, [
+            '各听各的',
+            '两套军令',
+            '不再同心',
+            '互相掣肘',
+            '谁先保自己',
+            '接应断开',
+            '彼此留后手',
+        ]) * 0.42)
+        : 0
+    const proxyTransmission = params.schemeType === 'proxy'
+        ? clamp01(scoreMatches(speech, [
+            '借他出手',
+            '替你担名',
+            '趁机压他',
+            '公开收拾',
+            '顺手夺权',
+            '众人都会看见',
+            '借势发难',
+        ]) * 0.4)
+        : 0
 
     return normalizeNorthSchemeParse({
         characterFit,
@@ -424,6 +458,9 @@ export function fallbackNorthParseFromSpeech(params: {
         omenAnchorStrength: omenSpecialization.omenAnchorStrength,
         legitimacyCrack: omenSpecialization.legitimacyCrack,
         suspicionDirection: omenSpecialization.suspicionDirection,
+        suspicionTransmission,
+        fractureTransmission,
+        proxyTransmission,
         evidence,
     })
 }

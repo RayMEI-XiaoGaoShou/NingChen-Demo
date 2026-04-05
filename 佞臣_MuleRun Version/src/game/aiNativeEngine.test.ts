@@ -35,7 +35,7 @@ describe('normalizeNorthSchemeParse', () => {
         const heba = INITIAL_NPCS.find(npc => npc.powerBase === 'external' && npc.militaryPower === 55)!
 
         const generic = fallbackNorthParseFromSpeech({
-            speech: '西线局势复杂，望公先稳住地方，不必让朝中再生猜疑。',
+            speech: '西线局势复杂，望公安稳地方，不必令朝中再生猜疑。',
             npc: heba,
             round: 8,
         })
@@ -144,6 +144,20 @@ describe('normalizeNorthSchemeParse', () => {
 
         expect(parsed.omenPolarity).toBe('destabilizing')
         expect(parsed.legitimacyDirection).toBeLessThan(0)
+    })
+
+    it('keeps intrigue transmission conservative for generic pressure language', () => {
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '他未必真心，朝里风向也不稳，谁都可能先保自己。',
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zongai')!,
+            round: 10,
+            schemeType: 'slander',
+            relatedNpc: INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+        })
+
+        expect(parsed.suspicionTransmission ?? 0).toBeLessThan(0.35)
+        expect(parsed.fractureTransmission ?? 0).toBeLessThan(0.35)
+        expect(parsed.proxyTransmission ?? 0).toBeLessThan(0.35)
     })
 })
 

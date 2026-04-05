@@ -318,7 +318,13 @@ export function buildNorthSchemeParsePrompt(params: {
             ? '\n- 若是谗言、离间、设局嫁祸之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
               '\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。' +
               '\n- 若是设局嫁祸，要额外看它是否真能诱使目标自己失言、失态或误判，以及嫌疑是否会落回目标本人。' +
-              '\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，却没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。'
+              '\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，却没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。' +
+              '\n- For slander, generic suspicion or mood should not score high; only score suspicionTransmission high when the speech clearly shows why distrust reaches command, logistics, access, or execution.' +
+              '\n- For alienate, relationship crack must reach command, logistics, or coordination before fractureTransmission scores high; only score it highly when the speech creates a believable break over authority, precedence, logistics, grain, legal cover, or coordination.'
+            : params.schemeType === 'proxy'
+                ? '\n- 若是借刀，必须同时看出手动机、出手手段与公域后果，不能只因“想借某人之手”就给高 structuralPenetration。' +
+                  '\n- 普通的催促、示意、借势之词，只能说明私人攻击意图，不能直接推成高 nation-layer 破坏。' +
+                  '\n- For proxy, actor motive, means, and public consequence must all be present before proxyTransmission scores high; only score proxyTransmission high when the target has motive, means, and the resulting move would create a broader public consequence.'
             : params.schemeType === 'omen'
                 ? '\n- 若是谶纬，必须先看谶辞/征兆本身是否成立，再看解释/指向是否真正触及灾异、天命、名分、法统。' +
                   '\n- 要额外判断它究竟是在劝人修德安民、补法统，还是在借灾异放大名分裂缝与人心疑惧。' +
@@ -342,6 +348,9 @@ export function buildNorthSchemeParsePrompt(params: {
         '\n- omenAnchorStrength 只在 omen 里重点判断：谶辞/征兆本身是否像真正的征兆锚点，范围 0 到 1。' +
         '\n- legitimacyCrack 只在 omen 里重点判断：解释是否真的把征兆引向名分、法统、天命裂缝，范围 0 到 1。' +
         '\n- suspicionDirection 只在 omen 里重点判断：解释是否把警惕与怀疑导向某类人、某条关系线或某个权力结构，范围 0 到 1。' +
+        '\n- suspicionTransmission 只在 slander 里重点判断：怀疑是否会从私人猜忌传导到军令、粮道、诏令、边镇接应或中枢执行，范围 0 到 1。' +
+        '\n- fractureTransmission 只在 alienate 里重点判断：裂缝是否会真实破坏指挥、调度、接应、粮道或派系协调，范围 0 到 1。' +
+        '\n- proxyTransmission 只在 proxy 里重点判断：借刀之举是否真会触发可见的公域后果，而非仅是私怨与威吓，范围 0 到 1。' +
         '\n- 若是利国之策，即便也让目标人物得利，仍应优先判为 pro_state。' +
         '\n- 只有“对人或对派系有利、对北周整体有害”时，才应判成 pro_target_anti_state。' +
         '\n- 若谶纬只是礼仪化、模糊化、泛化不祥感，而未真正触及名分和法统裂缝，应判 vague_or_ceremonial。'
@@ -406,6 +415,9 @@ ${speechBlock}
   "omenAnchorStrength": 0-1,
   "legitimacyCrack": 0-1,
   "suspicionDirection": 0-1,
+  "suspicionTransmission": 0-1,
+  "fractureTransmission": 0-1,
+  "proxyTransmission": 0-1,
   "evidence": ["不超过 3 条短句"]
 }`,
         },

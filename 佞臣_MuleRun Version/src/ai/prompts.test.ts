@@ -138,4 +138,42 @@ describe('buildNorthSchemeParsePrompt', () => {
         expect(omenPrompt).toContain('解释 / 指向：此非独天灾，恐是朝中名分失序之兆。')
         expect(omenPrompt).toContain('必须先看谶辞/征兆本身是否成立')
     })
+
+    it('asks intrigue schemes to prove state-layer transmission before scoring nation impact highly', () => {
+        const npc = INITIAL_NPCS.find(item => item.id === 'zongai')!
+
+        const slanderPrompt = buildNorthSchemeParsePrompt({
+            round: 10,
+            npc,
+            schemeType: 'slander',
+            speech: '他未必真心，你最好别全信。',
+            eventName: '西线吃紧',
+            eventBriefing: '前线军令、粮道与中枢节次都在受压。',
+        })[1].content
+
+        const alienatePrompt = buildNorthSchemeParsePrompt({
+            round: 12,
+            npc,
+            schemeType: 'alienate',
+            speech: '你们未必真的一条心。',
+            eventName: '主战与安内再起争执',
+            eventBriefing: '朝中正在争论军令与转运节次。',
+        })[1].content
+
+        const proxyPrompt = buildNorthSchemeParsePrompt({
+            round: 15,
+            npc,
+            schemeType: 'proxy',
+            speech: '殿下若愿意出手，他自然不敢多言。',
+            eventName: '前线后方俱显疲态',
+            eventBriefing: '边镇军心、粮道与宫中节制都已吃紧。',
+        })[1].content
+
+        expect(slanderPrompt).toContain('"suspicionTransmission"')
+        expect(alienatePrompt).toContain('"fractureTransmission"')
+        expect(proxyPrompt).toContain('"proxyTransmission"')
+        expect(slanderPrompt).toContain('generic suspicion or mood should not score high')
+        expect(alienatePrompt).toContain('relationship crack must reach command, logistics, or coordination')
+        expect(proxyPrompt).toContain('actor motive, means, and public consequence')
+    })
 })
