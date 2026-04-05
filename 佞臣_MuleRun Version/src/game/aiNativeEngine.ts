@@ -83,6 +83,11 @@ export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResul
         advicePolarity: isAdvicePolarity(candidate.advicePolarity) ? candidate.advicePolarity : 'neutral_or_vague',
         legitimacyDirection: clampSigned(candidate.legitimacyDirection),
         omenPolarity: isOmenPolarity(candidate.omenPolarity) ? candidate.omenPolarity : 'vague_or_ceremonial',
+        selfTrapPotential: clamp01(candidate.selfTrapPotential),
+        scapegoatClarity: clamp01(candidate.scapegoatClarity),
+        omenAnchorStrength: clamp01(candidate.omenAnchorStrength),
+        legitimacyCrack: clamp01(candidate.legitimacyCrack),
+        suspicionDirection: clamp01(candidate.suspicionDirection),
         evidence: cleanEvidence(candidate.evidence),
     }
 }

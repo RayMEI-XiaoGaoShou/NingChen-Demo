@@ -81,6 +81,22 @@ describe('normalizeNorthSchemeParse', () => {
         expect(typeof parsed.legitimacyDirection).toBe('number')
     })
 
+    it('normalizes frame specialist fields and omen specialist fields', () => {
+        const parsed = normalizeNorthSchemeParse({
+            selfTrapPotential: 0.72,
+            scapegoatClarity: 0.64,
+            omenAnchorStrength: 0.81,
+            legitimacyCrack: 0.75,
+            suspicionDirection: 0.58,
+        })
+
+        expect(parsed.selfTrapPotential).toBeCloseTo(0.72, 2)
+        expect(parsed.scapegoatClarity).toBeCloseTo(0.64, 2)
+        expect(parsed.omenAnchorStrength).toBeCloseTo(0.81, 2)
+        expect(parsed.legitimacyCrack).toBeCloseTo(0.75, 2)
+        expect(parsed.suspicionDirection).toBeCloseTo(0.58, 2)
+    })
+
     it('classifies clearly pro-state advice as pro_state in fallback parsing', () => {
         const parsed = fallbackNorthParseFromSpeech({
             speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',

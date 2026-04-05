@@ -165,9 +165,15 @@ export interface SchemeAction {
     schemeType: SchemeType
     relatedNpcId?: string
     playerSpeech: string
+    omenSpeechInput?: OmenSpeechInput
     resolutionRoll?: number
     result?: string
     northParse?: NorthSchemeParseResult
+}
+
+export interface OmenSpeechInput {
+    omenText: string
+    interpretationText: string
 }
 
 export interface PolicyOption {
@@ -234,11 +240,16 @@ export interface NorthSchemeParseResult {
     governanceRelevance: number
     dominantIntent: NorthDominantIntent
   stateBenefit?: number
-  targetBenefit?: number
-  factionBenefit?: number
-  advicePolarity?: AdvicePolarity
-  legitimacyDirection?: number
-  omenPolarity?: OmenPolarity
+    targetBenefit?: number
+    factionBenefit?: number
+    advicePolarity?: AdvicePolarity
+    legitimacyDirection?: number
+    omenPolarity?: OmenPolarity
+    selfTrapPotential?: number
+    scapegoatClarity?: number
+    omenAnchorStrength?: number
+    legitimacyCrack?: number
+    suspicionDirection?: number
     evidence: string[]
 }
 
