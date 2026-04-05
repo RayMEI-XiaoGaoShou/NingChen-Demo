@@ -38,6 +38,12 @@ describe('settleRound layered settlement', () => {
                         socialOrderRelevance: 0.34,
                         governanceRelevance: 0.78,
                         dominantIntent: 'strategize',
+                        stateBenefit: -0.54,
+                        targetBenefit: 0.68,
+                        factionBenefit: 0.2,
+                        advicePolarity: 'pro_target_anti_state',
+                        legitimacyDirection: 0,
+                        omenPolarity: 'vague_or_ceremonial',
                         evidence: [],
                     },
                 },
@@ -472,6 +478,94 @@ describe('settleRound layered settlement', () => {
         expect(result.shuCampaign.state).toBe('gained')
     })
 
+    it('lets strong mainline shu preparation push round 10 into gained', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.name === '祖廷')!
+        const linghu = INITIAL_NPCS.find(npc => npc.name === '令狐律光')!
+        const pressuredNpcs = INITIAL_NPCS.map(npc => (
+            npc.id === zuting.id
+                ? { ...npc, trust: 70 }
+                : npc.id === linghu.id
+                    ? { ...npc, trust: 58 }
+                    : npc.powerBase === 'external'
+                        ? { ...npc, externalStatus: 'watchful' as const }
+                        : { ...npc }
+        ))
+        const pressuredFactions = INITIAL_FACTIONS.map(faction => (
+            faction.id === 'emperor'
+                ? { ...faction, internalStability: 22, courtInfluence: 21 }
+                : faction.id === 'empress'
+                    ? { ...faction, internalStability: 24, courtInfluence: 20 }
+                    : { ...faction }
+        ))
+
+        const result = settleRound({
+            round: 10,
+            schemes: [
+                {
+                    id: 'mainline-shu-advise',
+                    targetNpcId: zuting.id,
+                    schemeType: 'advise',
+                    playerSpeech: '先把仓储、诏令与转运节次理顺，再定谁主战谁接管，否则蜀地纵得一城也守不稳。',
+                    resolutionRoll: 0.03,
+                    northParse: {
+                        characterFit: 0.72,
+                        eventFit: 0.66,
+                        structuralPenetration: 0.74,
+                        executability: 0.78,
+                        exposureRisk: 0.16,
+                        financeRelevance: 0.24,
+                        grainRelevance: 0.86,
+                        militaryRelevance: 0.42,
+                        socialOrderRelevance: 0.18,
+                        governanceRelevance: 0.84,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+                {
+                    id: 'mainline-shu-probe',
+                    targetNpcId: linghu.id,
+                    schemeType: 'probe',
+                    playerSpeech: '都督眼下最怕的不是前线苦战，而是朝里先把调度、诏令和军粮拖成两套。',
+                    resolutionRoll: 0.04,
+                    northParse: {
+                        characterFit: 0.64,
+                        eventFit: 0.62,
+                        structuralPenetration: 0.68,
+                        executability: 0.58,
+                        exposureRisk: 0.18,
+                        financeRelevance: 0.12,
+                        grainRelevance: 0.66,
+                        militaryRelevance: 0.56,
+                        socialOrderRelevance: 0.16,
+                        governanceRelevance: 0.74,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { finance: 60, grain: 63, military: 70, socialOrder: 54, governance: 58 },
+            southStats: { finance: 57, grain: 58, military: 57, socialOrder: 56, governance: 60 },
+            npcs: pressuredNpcs,
+            factions: pressuredFactions,
+            intelProgress: {},
+            policyOptionIndex: 1,
+            policyReason: '先断粮道、稳转运、压实接管次序，再把蜀地战果变成可持续的占领。',
+            policyParse: {
+                focusAlignment: 0.88,
+                executionClarity: 0.84,
+                costAwareness: 0.66,
+                legitimacyAlignment: 0.5,
+                policyStance: 'balanced',
+                evidence: [],
+            },
+            shuMomentum: 4.6,
+            huainanMomentum: 0,
+        } as any)
+
+        expect(result.shuCampaign.state).toBe('gained')
+    })
+
     it('applies stored shu fallout on round 11', () => {
         const result = settleRound({
             round: 11,
@@ -552,6 +646,94 @@ describe('settleRound layered settlement', () => {
 
         expect(withoutCarry.huainanCampaign.state).toBe('stalemate')
         expect(withCarry.huainanCampaign.state).toBe('gained')
+    })
+
+    it('lets strong mainline follow-through after shu gained push huainan into gained', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.name === '祖廷')!
+        const linghu = INITIAL_NPCS.find(npc => npc.name === '令狐律光')!
+
+        const result = settleRound({
+            round: 16,
+            schemes: [
+                {
+                    id: 'mainline-huainan-advise',
+                    targetNpcId: zuting.id,
+                    schemeType: 'advise',
+                    playerSpeech: '先把渡口、军粮和州郡承接次序理顺，再议谁主攻，免得淮南推进一快就把后面拖散。',
+                    resolutionRoll: 0.03,
+                    northParse: {
+                        characterFit: 0.7,
+                        eventFit: 0.68,
+                        structuralPenetration: 0.74,
+                        executability: 0.78,
+                        exposureRisk: 0.14,
+                        financeRelevance: 0.62,
+                        grainRelevance: 0.78,
+                        militaryRelevance: 0.72,
+                        socialOrderRelevance: 0.18,
+                        governanceRelevance: 0.72,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+                {
+                    id: 'mainline-huainan-probe',
+                    targetNpcId: linghu.id,
+                    schemeType: 'probe',
+                    playerSpeech: '都督眼下最怕的不是淮南难攻，而是朝里先把军令、粮道和渡口节次拖成两套。',
+                    resolutionRoll: 0.04,
+                    northParse: {
+                        characterFit: 0.66,
+                        eventFit: 0.66,
+                        structuralPenetration: 0.7,
+                        executability: 0.64,
+                        exposureRisk: 0.16,
+                        financeRelevance: 0.46,
+                        grainRelevance: 0.72,
+                        militaryRelevance: 0.76,
+                        socialOrderRelevance: 0.16,
+                        governanceRelevance: 0.64,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { finance: 60, grain: 64, military: 72, socialOrder: 52, governance: 58 },
+            southStats: { finance: 60, grain: 63, military: 63, socialOrder: 58, governance: 60 },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === zuting.id
+                    ? { ...npc, trust: 70 }
+                    : npc.id === linghu.id
+                        ? { ...npc, trust: 60 }
+                        : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: 3,
+            policyReason: '先稳住渡口、军粮和接管秩序，再把淮南推进做成可持续的占领。',
+            policyParse: {
+                focusAlignment: 0.84,
+                executionClarity: 0.8,
+                costAwareness: 0.62,
+                legitimacyAlignment: 0.46,
+                policyStance: 'balanced',
+                evidence: [],
+            },
+            shuMomentum: 5,
+            huainanMomentum: 3.8,
+            shuCampaign: {
+                state: 'idle',
+                resolvedState: 'gained',
+                sourceRound: 10,
+                summary: '蜀地已得手',
+                ongoingNorthImpact: {},
+                ongoingSouthImpact: {},
+                remainingRounds: 0,
+            },
+            huainanCampaign: idleCampaign,
+        } as any)
+
+        expect(result.huainanCampaign.state).toBe('gained')
     })
 
     it('does not let a dead rebel keep inflating later campaign pressure', () => {

@@ -67,6 +67,35 @@ describe('buildNpcPrompt', () => {
 
         expect(sanitizeNpcReplyText(reply)).toBe('你此策太急。萧编修若再近一步，恐招祸端。')
     })
+
+    it('asks for advice and omen polarity fields in the north parse schema', () => {
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
+
+        const advisePrompt = buildNorthSchemeParsePrompt({
+            round: 5,
+            npc,
+            schemeType: 'advise',
+            speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
+            eventName: '测试事件',
+            eventBriefing: '测试简报',
+        })[1].content
+
+        const omenPrompt = buildNorthSchemeParsePrompt({
+            round: 13,
+            npc,
+            schemeType: 'omen',
+            speech: '灾异既著，名分已摇，若再强压，只会叫上下都疑心天命不在朝廷。',
+            eventName: '测试谶纬事件',
+            eventBriefing: '测试谶纬简报',
+        })[1].content
+
+        expect(advisePrompt).toContain('"stateBenefit"')
+        expect(advisePrompt).toContain('"targetBenefit"')
+        expect(advisePrompt).toContain('"factionBenefit"')
+        expect(advisePrompt).toContain('"advicePolarity"')
+        expect(omenPrompt).toContain('"legitimacyDirection"')
+        expect(omenPrompt).toContain('"omenPolarity"')
+    })
 })
 
 describe('buildNorthSchemeParsePrompt', () => {

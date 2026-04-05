@@ -2,11 +2,13 @@ import { ROUND_EVENTS } from '../data/rounds'
 import { chatCompletionJson } from '../ai/aiService'
 import { buildNorthSchemeParsePrompt, buildPolicyReasonParsePrompt } from '../ai/prompts'
 import type {
+    AdvicePolarity,
     DelayedBacklash,
     NationDimensions,
     NorthDominantIntent,
     NorthSchemeParseResult,
     NPC,
+    OmenPolarity,
     PolicyReasonParseResult,
     PolicyResolutionMeta,
     PolicyStance,
@@ -15,6 +17,8 @@ import type {
 
 const NORTH_INTENTS: NorthDominantIntent[] = ['neutral', 'induce', 'threaten', 'divide', 'empathize', 'strategize']
 const POLICY_STANCES: PolicyStance[] = ['neutral', 'balanced', 'aggressive', 'conservative', 'expedient']
+const ADVICE_POLARITIES: AdvicePolarity[] = ['pro_state', 'pro_target_anti_state', 'neutral_or_vague']
+const OMEN_POLARITIES: OmenPolarity[] = ['legitimizing', 'destabilizing', 'vague_or_ceremonial']
 
 const NORTH_STRUCTURAL_WORDS = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛', '法统', '名分', '军令', '州郡', '接管']
 const NORTH_EXECUTION_WORDS = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度', '接管', '断粮', '编户', '屯田', '安置']
@@ -31,12 +35,26 @@ export function clamp01(value: unknown): number {
     return Math.max(0, Math.min(1, Math.round(numeric * 100) / 100))
 }
 
+function clampSigned(value: unknown): number {
+    const numeric = typeof value === 'number' ? value : Number(value)
+    if (!Number.isFinite(numeric)) return 0
+    return Math.max(-1, Math.min(1, Math.round(numeric * 100) / 100))
+}
+
 function isNorthIntent(value: unknown): value is NorthDominantIntent {
     return typeof value === 'string' && NORTH_INTENTS.includes(value as NorthDominantIntent)
 }
 
 function isPolicyStance(value: unknown): value is PolicyStance {
     return typeof value === 'string' && POLICY_STANCES.includes(value as PolicyStance)
+}
+
+function isAdvicePolarity(value: unknown): value is AdvicePolarity {
+    return typeof value === 'string' && ADVICE_POLARITIES.includes(value as AdvicePolarity)
+}
+
+function isOmenPolarity(value: unknown): value is OmenPolarity {
+    return typeof value === 'string' && OMEN_POLARITIES.includes(value as OmenPolarity)
 }
 
 function cleanEvidence(input: unknown): string[] {
@@ -59,6 +77,12 @@ export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResul
         socialOrderRelevance: clamp01(candidate.socialOrderRelevance),
         governanceRelevance: clamp01(candidate.governanceRelevance),
         dominantIntent: isNorthIntent(candidate.dominantIntent) ? candidate.dominantIntent : 'neutral',
+        stateBenefit: clampSigned(candidate.stateBenefit),
+        targetBenefit: clampSigned(candidate.targetBenefit),
+        factionBenefit: clampSigned(candidate.factionBenefit),
+        advicePolarity: isAdvicePolarity(candidate.advicePolarity) ? candidate.advicePolarity : 'neutral_or_vague',
+        legitimacyDirection: clampSigned(candidate.legitimacyDirection),
+        omenPolarity: isOmenPolarity(candidate.omenPolarity) ? candidate.omenPolarity : 'vague_or_ceremonial',
         evidence: cleanEvidence(candidate.evidence),
     }
 }
@@ -93,6 +117,111 @@ function includesAny(text: string, words: string[]): boolean {
 function scoreMatches(text: string, words: string[]): number {
     const matches = words.filter(word => word && text.includes(word))
     return Math.min(1, matches.length / Math.max(1, Math.min(words.length, 4)))
+}
+
+function deriveAdvicePolarityFromSpeech(text: string): {
+    stateBenefit: number
+    targetBenefit: number
+    factionBenefit: number
+    advicePolarity: AdvicePolarity
+} {
+    const proState = scoreMatches(text, [
+        '稳住仓储',
+        '整饬诏令',
+        '安民',
+        '修补秩序',
+        '先稳后动',
+        '免得失序',
+        '补漏',
+        '收回中枢',
+        '整顿法令',
+    ])
+    const proTarget = scoreMatches(text, [
+        '抓在你自己手里',
+        '先保住你的兵权',
+        '先顾你这一线',
+        '先顾自家',
+        '让别人替你背',
+        '坐实你的权',
+        '旁人有怨也只能听命',
+    ])
+    const antiState = scoreMatches(text, [
+        '不必顾全大局',
+        '宁可伤国也要保位',
+        '旁人有怨也只能听命',
+        '先顾你这一线',
+        '只要你这一系稳住',
+        '朝廷一时受损也无妨',
+    ])
+
+    if (proTarget >= 0.28 && antiState >= 0.2) {
+        return {
+            stateBenefit: -(0.25 + antiState * 0.9),
+            targetBenefit: 0.3 + proTarget * 0.8,
+            factionBenefit: 0.12 + proTarget * 0.55,
+            advicePolarity: 'pro_target_anti_state',
+        }
+    }
+
+    if (proState >= 0.22 && antiState < 0.16) {
+        return {
+            stateBenefit: 0.22 + proState * 0.8,
+            targetBenefit: 0.08 + proState * 0.25,
+            factionBenefit: 0.04 + proState * 0.15,
+            advicePolarity: 'pro_state',
+        }
+    }
+
+    return {
+        stateBenefit: 0,
+        targetBenefit: Math.max(0.06, proTarget * 0.2),
+        factionBenefit: 0,
+        advicePolarity: 'neutral_or_vague',
+    }
+}
+
+function deriveOmenPolarityFromSpeech(text: string): {
+    legitimacyDirection: number
+    omenPolarity: OmenPolarity
+} {
+    const destabilizing = scoreMatches(text, [
+        '天命不在',
+        '名分已摇',
+        '灾异既著',
+        '人心先散',
+        '上下都疑心',
+        '法统不稳',
+        '天意已去',
+    ])
+    const legitimizing = scoreMatches(text, [
+        '修德',
+        '安民',
+        '整饬法统',
+        '弭灾',
+        '正名分',
+        '收人心',
+        '修补名分',
+        '整饬秩序',
+    ])
+
+    if (destabilizing >= 0.24 && destabilizing > legitimizing + 0.06) {
+        return {
+            legitimacyDirection: -(0.26 + destabilizing * 0.86),
+            omenPolarity: 'destabilizing',
+        }
+    }
+
+    if (legitimizing >= 0.22 && legitimizing > destabilizing + 0.06) {
+        return {
+            legitimacyDirection: 0.22 + legitimizing * 0.78,
+            omenPolarity: 'legitimizing',
+        }
+    }
+
+    return {
+        legitimacyDirection: 0,
+        omenPolarity: 'vague_or_ceremonial',
+    }
 }
 
 export function fallbackNorthParseFromSpeech(params: {
@@ -195,6 +324,9 @@ export function fallbackNorthParseFromSpeech(params: {
         exposureRisk >= 0.58 ? '说辞锋芒过露' : '',
     ].filter(Boolean)
 
+    const advicePolarity = deriveAdvicePolarityFromSpeech(speech)
+    const omenPolarity = deriveOmenPolarityFromSpeech(speech)
+
     return normalizeNorthSchemeParse({
         characterFit,
         eventFit,
@@ -207,6 +339,12 @@ export function fallbackNorthParseFromSpeech(params: {
         socialOrderRelevance,
         governanceRelevance,
         dominantIntent,
+        stateBenefit: advicePolarity.stateBenefit,
+        targetBenefit: advicePolarity.targetBenefit,
+        factionBenefit: advicePolarity.factionBenefit,
+        advicePolarity: advicePolarity.advicePolarity,
+        legitimacyDirection: omenPolarity.legitimacyDirection,
+        omenPolarity: omenPolarity.omenPolarity,
         evidence,
     })
 }

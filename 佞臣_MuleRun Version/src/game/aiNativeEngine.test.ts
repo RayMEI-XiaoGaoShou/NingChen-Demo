@@ -22,6 +22,12 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.socialOrderRelevance).toBe(0)
         expect(parsed.governanceRelevance).toBe(0)
         expect(parsed.dominantIntent).toBe('neutral')
+        expect(parsed.stateBenefit).toBe(0)
+        expect(parsed.targetBenefit).toBe(0)
+        expect(parsed.factionBenefit).toBe(0)
+        expect(parsed.advicePolarity).toBe('neutral_or_vague')
+        expect(parsed.legitimacyDirection).toBe(0)
+        expect(parsed.omenPolarity).toBe('vague_or_ceremonial')
         expect(parsed.evidence).toEqual([])
     })
 
@@ -57,6 +63,59 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.grainRelevance).toBeGreaterThan(0.35)
         expect(parsed.structuralPenetration).toBeGreaterThan(0.35)
         expect(parsed.executability).toBeGreaterThan(0.45)
+    })
+
+    it('adds polarity fields to fallback north parse results', () => {
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+            round: 5,
+            relatedNpc: null,
+        })
+
+        expect(parsed.advicePolarity).toBeDefined()
+        expect(parsed.omenPolarity).toBeDefined()
+        expect(typeof parsed.stateBenefit).toBe('number')
+        expect(typeof parsed.targetBenefit).toBe('number')
+        expect(typeof parsed.factionBenefit).toBe('number')
+        expect(typeof parsed.legitimacyDirection).toBe('number')
+    })
+
+    it('classifies clearly pro-state advice as pro_state in fallback parsing', () => {
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+            round: 5,
+            relatedNpc: null,
+        })
+
+        expect(parsed.advicePolarity).toBe('pro_state')
+        expect(parsed.stateBenefit).toBeGreaterThan(0)
+    })
+
+    it('classifies private-benefit advice as pro_target_anti_state in fallback parsing', () => {
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '不妨先把兵粮与节钺抓在你自己手里，旁人有怨也只能听命。',
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+            round: 5,
+            relatedNpc: null,
+        })
+
+        expect(parsed.advicePolarity).toBe('pro_target_anti_state')
+        expect(parsed.targetBenefit).toBeGreaterThan(0)
+        expect(parsed.stateBenefit).toBeLessThan(0)
+    })
+
+    it('classifies destabilizing omen as anti-legitimacy in fallback parsing', () => {
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '灾异既著，名分已摇，若再强压，只会叫上下都疑心天命不在朝廷。',
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+            round: 13,
+            relatedNpc: null,
+        })
+
+        expect(parsed.omenPolarity).toBe('destabilizing')
+        expect(parsed.legitimacyDirection).toBeLessThan(0)
     })
 })
 

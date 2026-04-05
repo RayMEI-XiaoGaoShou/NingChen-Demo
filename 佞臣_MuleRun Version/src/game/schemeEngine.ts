@@ -1,11 +1,13 @@
 ﻿import { getSchemeByType } from '../data/schemes'
 import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExternalAction } from '../data/roundRuleConfig'
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
+import { getDifficultyProfile } from './difficulty'
 import type {
     AlignmentBias,
     CourtFactionId,
     DelayedBacklash,
     ExternalStatus,
+    GameDifficulty,
     NationDimensions,
     NPC,
     NorthSchemeParseResult,
@@ -46,6 +48,7 @@ export interface SchemeResult {
 export interface SchemeContext {
     round: number
     unlockedSecrets: number
+    difficulty?: GameDifficulty
     northParse?: NorthSchemeParseResult
 }
 
@@ -127,9 +130,14 @@ function calculateSuccessRate(
     trust: number,
     trustThreshold: number,
     sameNpcSameRound: boolean,
+    difficulty: GameDifficulty = 'normal',
 ): number {
-    let rate = 0.62
-    const trustBonus = Math.min(Math.max(trust - trustThreshold, 0) / 100, 0.24)
+    const profile = getDifficultyProfile(difficulty)
+    let rate = profile.scheme.baseRate
+    const trustBonus = Math.min(
+        Math.max(trust - trustThreshold, 0) / 100,
+        roundValue(profile.scheme.baseRate * 0.18),
+    )
     rate += trustBonus
 
     if (sameNpcSameRound) {
@@ -137,8 +145,8 @@ function calculateSuccessRate(
     }
 
     const schemeModifiers: Record<SchemeType, number> = {
-        probe: 0.18,
-        advise: 0.14,
+        probe: profile.scheme.probeModifier,
+        advise: profile.scheme.adviseModifier,
         slander: 0.02,
         alienate: -0.06,
         frame: -0.08,
@@ -214,15 +222,59 @@ function getOpeningSchemeNationScale(round: number): number {
     return 1
 }
 
+function getLowRiskNationDamping(
+    schemeType: SchemeType,
+    difficulty: GameDifficulty,
+    round: number,
+): number {
+    if (schemeType !== 'advise' && schemeType !== 'probe') return 1
+
+    if (schemeType === 'probe') {
+        if (difficulty === 'easy') {
+            return round <= 6 ? 0.96 : round <= 12 ? 0.98 : 1
+        }
+
+        if (difficulty === 'normal') {
+            return round <= 6 ? 0.56 : round <= 12 ? 0.66 : 0.74
+        }
+
+        if (difficulty === 'hard') {
+            return round <= 6 ? 0.5 : round <= 12 ? 0.6 : 0.7
+        }
+
+        return round <= 6 ? 0.46 : round <= 12 ? 0.56 : 0.66
+    }
+
+    if (difficulty === 'easy') {
+        return round <= 6 ? 0.92 : round <= 12 ? 0.96 : 1
+    }
+
+    if (difficulty === 'normal') {
+        return round <= 6 ? 0.52 : round <= 12 ? 0.62 : 0.72
+    }
+
+    if (difficulty === 'hard') {
+        return round <= 6 ? 0.46 : round <= 12 ? 0.56 : 0.68
+    }
+
+    return round <= 6 ? 0.42 : round <= 12 ? 0.52 : 0.64
+}
+
 function softenEarlyNorthNationEffects(
     changes: Partial<NationDimensions>,
     roundNumber: number,
 ): Partial<NationDimensions> {
+    const financeScale = roundNumber <= 6 ? 0.58 : roundNumber <= 12 ? 0.8 : 1
+    const grainScale = roundNumber <= 6 ? 0.68 : roundNumber <= 12 ? 0.86 : 1
+    const militaryScale = roundNumber <= 6 ? 0.74 : roundNumber <= 12 ? 0.9 : 1
     const governanceScale = roundNumber <= 6 ? 0.45 : roundNumber <= 12 ? 0.72 : 1
     const socialOrderScale = roundNumber <= 6 ? 0.5 : roundNumber <= 12 ? 0.78 : 1
 
     return {
         ...changes,
+        finance: changes.finance !== undefined ? round((changes.finance ?? 0) * financeScale) : changes.finance,
+        grain: changes.grain !== undefined ? round((changes.grain ?? 0) * grainScale) : changes.grain,
+        military: changes.military !== undefined ? round((changes.military ?? 0) * militaryScale) : changes.military,
         governance: changes.governance !== undefined ? round((changes.governance ?? 0) * governanceScale) : changes.governance,
         socialOrder: changes.socialOrder !== undefined ? round((changes.socialOrder ?? 0) * socialOrderScale) : changes.socialOrder,
     }
@@ -338,6 +390,163 @@ function deriveNationEffectFromExternalPerson(
     })
 }
 
+function getAgendaRelevance(parse: NorthSchemeParseResult): number {
+    return Math.max(
+        parse.financeRelevance,
+        parse.grainRelevance,
+        parse.militaryRelevance,
+        parse.socialOrderRelevance,
+        parse.governanceRelevance,
+    )
+}
+
+function deriveCourtAdviceImpact(
+    action: SchemeAction,
+    targetNpc: NPC,
+    success: boolean,
+    parse: NorthSchemeParseResult,
+): Partial<NationDimensions> {
+    if (!success || action.schemeType !== 'advise' || targetNpc.powerBase !== 'court') return {}
+
+    const agendaRelevance = getAgendaRelevance(parse)
+    if (agendaRelevance < 0.24) return {}
+    const advicePolarity = parse.advicePolarity ?? 'neutral_or_vague'
+    const stateBenefit = parse.stateBenefit ?? 0
+    const targetBenefit = parse.targetBenefit ?? 0
+
+    if (advicePolarity === 'pro_state') {
+        const supportScale = clamp(0.72 + Math.max(0, stateBenefit) * 0.55, 0.72, 1.22)
+        return applyDimensionRelevance({
+            finance: 0.18 * supportScale,
+            grain: 0.16 * supportScale,
+            socialOrder: 0.18 * supportScale,
+            governance: 0.58 * supportScale,
+        }, parse, {
+            finance: 0.44,
+            grain: 0.4,
+            socialOrder: 0.34,
+            governance: 0.36,
+        }, {
+            finance: { min: 0.68, max: 1.06 },
+            grain: { min: 0.68, max: 1.08 },
+            socialOrder: { min: 0.66, max: 1.04 },
+            governance: { min: 0.78, max: 1.2 },
+        })
+    }
+
+    if (advicePolarity === 'neutral_or_vague') {
+        return applyDimensionRelevance({
+            socialOrder: -0.08,
+            governance: -0.12,
+        }, parse, {
+            socialOrder: 0.44,
+            governance: 0.48,
+        }, {
+            socialOrder: { min: 0.48, max: 0.82 },
+            governance: { min: 0.48, max: 0.82 },
+        })
+    }
+
+    const sabotageScale = clamp(0.78 + Math.max(0, targetBenefit) * 0.18 + Math.max(0, -stateBenefit) * 0.3, 0.78, 1.18)
+    return applyDimensionRelevance({
+        finance: -0.25 * sabotageScale,
+        grain: -0.18 * sabotageScale,
+        socialOrder: -0.2 * sabotageScale,
+        governance: -0.78 * sabotageScale,
+    }, parse, {
+        finance: 0.5,
+        grain: 0.46,
+        socialOrder: 0.4,
+        governance: 0.42,
+    }, {
+        finance: { min: 0.72, max: 1.02 },
+        grain: { min: 0.72, max: 1.08 },
+        socialOrder: { min: 0.68, max: 1.02 },
+        governance: { min: 0.8, max: 1.18 },
+    })
+}
+
+function deriveOmenLegitimacyImpact(
+    action: SchemeAction,
+    targetNpc: NPC,
+    success: boolean,
+    parse: NorthSchemeParseResult,
+): Partial<NationDimensions> {
+    if (!success || action.schemeType !== 'omen' || targetNpc.powerBase !== 'court') return {}
+
+    const legitimacyRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
+    if (legitimacyRelevance < 0.22) return {}
+    const omenPolarity = parse.omenPolarity ?? 'vague_or_ceremonial'
+    const legitimacyDirection = parse.legitimacyDirection ?? 0
+
+    if (omenPolarity === 'legitimizing') {
+        const supportScale = clamp(0.8 + Math.max(0, legitimacyDirection) * 0.6, 0.8, 1.3)
+        return applyDimensionRelevance({
+            socialOrder: 0.42 * supportScale,
+            governance: 0.86 * supportScale,
+        }, parse, {
+            socialOrder: 0.34,
+            governance: 0.36,
+        }, {
+            socialOrder: { min: 0.82, max: 1.18 },
+            governance: { min: 0.88, max: 1.24 },
+        })
+    }
+
+    if (omenPolarity === 'vague_or_ceremonial') {
+        return applyDimensionRelevance({
+            socialOrder: -0.06,
+            governance: -0.1,
+        }, parse, {
+            socialOrder: 0.42,
+            governance: 0.46,
+        }, {
+            socialOrder: { min: 0.45, max: 0.72 },
+            governance: { min: 0.45, max: 0.72 },
+        })
+    }
+
+    const destabilizeScale = clamp(0.82 + Math.max(0, -legitimacyDirection) * 0.64, 0.82, 1.34)
+    return applyDimensionRelevance({
+        socialOrder: -0.26 * destabilizeScale,
+        governance: -0.62 * destabilizeScale,
+    }, parse, {
+        socialOrder: 0.32,
+        governance: 0.34,
+    }, {
+        socialOrder: { min: 0.74, max: 1.08 },
+        governance: { min: 0.8, max: 1.18 },
+    })
+}
+
+function getCourtIntrigueFactionDamping(
+    action: SchemeAction,
+    targetNpc: NPC,
+    relatedNpc: NPC | null,
+    parse: NorthSchemeParseResult,
+    difficulty: GameDifficulty,
+): number {
+    if (action.schemeType !== 'alienate') return 1
+    if (targetNpc.powerBase !== 'court' || relatedNpc?.powerBase !== 'court') return 1
+
+    const agendaRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
+    const intrigueSignal =
+        parse.structuralPenetration * 0.55
+        + agendaRelevance * 0.7
+        + parse.characterFit * 0.1
+
+    const base =
+        difficulty === 'easy'
+            ? 0.14
+            : difficulty === 'normal'
+                ? 0
+                : difficulty === 'hard'
+                    ? 0
+                    : 0
+
+    return clamp(base + intrigueSignal, 0.08, 1)
+}
+
 function getSuccessTemplate(
     action: SchemeAction,
     targetNpc: NPC,
@@ -367,12 +576,6 @@ function getSuccessTemplate(
                 specialAction: null,
             }
         case 'advise':
-            if (targetNpc.powerBase === 'court') {
-                factionEffects = addFactionEffect(factionEffects, targetNpc.factionId as CourtFactionId, {
-                    courtInfluence: 2.2,
-                    internalStability: -0.8,
-                })
-            }
             return {
                 person: {
                     ...emptyPerson,
@@ -478,12 +681,6 @@ function getSuccessTemplate(
                 specialAction: null,
             }
         case 'omen':
-            if (targetNpc.powerBase === 'court') {
-                factionEffects = addFactionEffect(factionEffects, targetNpc.factionId as CourtFactionId, {
-                    internalStability: -1.8,
-                    courtInfluence: -1.2,
-                })
-            }
             return {
                 person: { ...emptyPerson, trustDelta: 1 },
                 factionEffects,
@@ -580,7 +777,14 @@ export function previewSchemeSuccess(
 ): boolean {
     const trustThreshold = getTrustThreshold(action.schemeType)
     const parse = getNorthParse(action, targetNpc, context.round ?? 1, null, context.northParse)
-    const successRate = calculateParsedSuccessRate(action.schemeType, targetNpc.trust, trustThreshold, existingActionsOnTarget > 0, parse)
+    const successRate = calculateParsedSuccessRate(
+        action.schemeType,
+        targetNpc.trust,
+        trustThreshold,
+        existingActionsOnTarget > 0,
+        parse,
+        context.difficulty ?? 'normal',
+    )
     return roll < successRate
 }
 
@@ -591,7 +795,7 @@ export function settleScheme(
     existingActionsOnTarget: number,
     context: Partial<SchemeContext> = {},
 ): SchemeResult {
-    const { round = 1, unlockedSecrets = 0 } = context
+    const { round = 1, unlockedSecrets = 0, difficulty = 'normal' } = context
     const roll = action.resolutionRoll ?? Math.random()
     const schemeAllowed = isSchemeAllowed(action.schemeType, targetNpc, round, unlockedSecrets)
     const northParse = getNorthParse(action, targetNpc, round, relatedNpc, context.northParse)
@@ -621,18 +825,22 @@ export function settleScheme(
 
     const personEffects = scalePersonEffects(template.person, personMultiplier)
     let factionEffects: Partial<Record<CourtFactionId, FactionVector>> = {}
+    const factionDamping = getCourtIntrigueFactionDamping(action, targetNpc, relatedNpc, northParse, difficulty)
     for (const [factionId, vector] of Object.entries(template.factionEffects) as Array<[CourtFactionId, FactionVector | undefined]>) {
         if (!vector) continue
-        factionEffects[factionId] = scaleVector(vector, factionMultiplier)
+        factionEffects[factionId] = scaleVector(vector, factionMultiplier * factionDamping)
     }
 
     let nationEffects = deriveNationEffectFromFactionEffects(factionEffects)
     nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects, northParse))
+    nationEffects = mergeDimensions(nationEffects, deriveCourtAdviceImpact(action, targetNpc, success, northParse))
+    nationEffects = mergeDimensions(nationEffects, deriveOmenLegitimacyImpact(action, targetNpc, success, northParse))
     nationEffects = mergeDimensions(
         nationEffects,
         scaleDimensions(deriveStrategicSpillover(action, targetNpc, relatedNpc, round, success, northParse), tunedNationMultiplier),
     )
     nationEffects = scaleDimensions(nationEffects, tunedNationMultiplier)
+    nationEffects = scaleDimensions(nationEffects, getLowRiskNationDamping(action.schemeType, difficulty, round))
     nationEffects = softenEarlyNorthNationEffects(nationEffects, round)
 
     if (template.specialAction === 'secession') {
@@ -757,11 +965,13 @@ function deriveStrategicSpillover(
     const scale = spilloverStrength * forceFactor * speechFactor
 
     switch (action.schemeType) {
-        case 'alienate':
+        case 'alienate': {
+            const courtSplitRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
+            const intrigueScale = clamp(0.25 + courtSplitRelevance * 0.85, 0.25, 1)
             return applyDimensionRelevance({
-                military: -0.8 * scale,
-                grain: -0.5 * scale,
-                governance: -0.4 * scale,
+                military: -0.58 * scale * intrigueScale,
+                grain: -0.34 * scale * intrigueScale,
+                governance: -0.24 * scale * intrigueScale,
             }, parse, {
                 military: 0.42,
                 grain: 0.38,
@@ -771,6 +981,7 @@ function deriveStrategicSpillover(
                 grain: { min: 0.7, max: 1.2 },
                 governance: { min: 0.65, max: 1.1 },
             })
+        }
         case 'frame':
             return applyDimensionRelevance({
                 military: -0.6 * scale,
@@ -821,17 +1032,31 @@ function deriveStrategicSpillover(
     }
 }
 
-function calculateParsedSuccessRate(
+export function calculateParsedSuccessRate(
     schemeType: SchemeType,
     trust: number,
     trustThreshold: number,
     sameNpcSameRound: boolean,
     parse: NorthSchemeParseResult,
+    difficulty: GameDifficulty = 'normal',
 ): number {
-    const baseRate = calculateSuccessRate(schemeType, trust, trustThreshold, sameNpcSameRound)
-    const characterBoost = parse.characterFit * 0.18 + parse.executability * 0.12
-    const eventBoost = parse.eventFit * 0.12
-    return clamp(baseRate + characterBoost + eventBoost - parse.exposureRisk * 0.08, 0.05, 0.98)
+    const profile = getDifficultyProfile(difficulty)
+    const baseRate = calculateSuccessRate(
+        schemeType,
+        trust,
+        trustThreshold,
+        sameNpcSameRound,
+        difficulty,
+    )
+    const characterBoost =
+        parse.characterFit * profile.scheme.characterFitWeight * 0.5
+        + parse.executability * profile.scheme.executabilityWeight * 0.5
+    const eventBoost = parse.eventFit * profile.scheme.eventFitWeight * 0.5
+    return clamp(
+        baseRate + characterBoost + eventBoost - parse.exposureRisk * profile.scheme.exposurePenaltyWeight,
+        0.05,
+        0.98,
+    )
 }
 
 function deriveDelayedBacklash(
@@ -842,6 +1067,17 @@ function deriveDelayedBacklash(
     round: number,
 ): DelayedBacklash[] {
     const highWeightTarget = /涓炵浉|澶悗|鐕曠帇|涓父渚峾涓婃煴鍥絴鑺傚害/.test(targetNpc.title) || targetNpc.canExecute
+    const agendaRelevance = getAgendaRelevance(parse)
+    const courtAgendaRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
+    const canTriggerMisdirected =
+        ['advise', 'slander', 'alienate', 'frame', 'proxy', 'omen'].includes(action.schemeType)
+        && (
+            courtAgendaRelevance >= 0.22
+            || (action.schemeType !== 'advise' && agendaRelevance >= 0.28)
+            || parse.dominantIntent === 'induce'
+            || parse.dominantIntent === 'divide'
+        )
+        && (targetNpc.canExecute || targetNpc.powerBase === 'external' || highWeightTarget)
 
     if (parse.exposureRisk >= 0.82 && highWeightTarget) {
         return [{
@@ -865,7 +1101,7 @@ function deriveDelayedBacklash(
         }]
     }
 
-    if (success && parse.structuralPenetration < 0.2 && parse.eventFit < 0.25) {
+    if (success && canTriggerMisdirected && parse.structuralPenetration < 0.2 && parse.eventFit < 0.25) {
         return [{
             npcId: targetNpc.id,
             npcName: targetNpc.name,

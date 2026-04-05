@@ -1,12 +1,80 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { getAvailableSchemesForNpc, settleScheme } from './schemeEngine'
+import { calculateParsedSuccessRate, getAvailableSchemesForNpc, settleScheme } from './schemeEngine'
+import type { NorthSchemeParseResult } from './types'
 
 afterEach(() => {
     vi.restoreAllMocks()
 })
 
+function makeNorthParse(overrides: Partial<NorthSchemeParseResult> = {}): NorthSchemeParseResult {
+    return {
+        characterFit: 0.72,
+        eventFit: 0.64,
+        structuralPenetration: 0.66,
+        executability: 0.7,
+        exposureRisk: 0.14,
+        financeRelevance: 0.24,
+        grainRelevance: 0.24,
+        militaryRelevance: 0.24,
+        socialOrderRelevance: 0.24,
+        governanceRelevance: 0.24,
+        dominantIntent: 'strategize',
+        stateBenefit: 0,
+        targetBenefit: 0,
+        factionBenefit: 0,
+        advicePolarity: 'neutral_or_vague',
+        legitimacyDirection: 0,
+        omenPolarity: 'vague_or_ceremonial',
+        evidence: [],
+        ...overrides,
+    }
+}
+
 describe('schemeEngine contextual scheme rules', () => {
+    it('uses the normal difficulty profile to lower low-risk success rates', () => {
+        const parse: NorthSchemeParseResult = {
+            characterFit: 0.8,
+            eventFit: 0.7,
+            structuralPenetration: 0.5,
+            executability: 0.8,
+            exposureRisk: 0.1,
+            financeRelevance: 0.2,
+            grainRelevance: 0.2,
+            militaryRelevance: 0.2,
+            socialOrderRelevance: 0.2,
+            governanceRelevance: 0.2,
+            dominantIntent: 'strategize',
+            evidence: [],
+        }
+
+        const rate = calculateParsedSuccessRate('advise', 62, 30, false, parse, 'normal')
+
+        expect(rate).toBeLessThan(0.85)
+    })
+
+    it('keeps easy above hard for the same low-risk setup', () => {
+        const parse: NorthSchemeParseResult = {
+            characterFit: 0.78,
+            eventFit: 0.66,
+            structuralPenetration: 0.48,
+            executability: 0.74,
+            exposureRisk: 0.12,
+            financeRelevance: 0.2,
+            grainRelevance: 0.2,
+            militaryRelevance: 0.2,
+            socialOrderRelevance: 0.2,
+            governanceRelevance: 0.2,
+            dominantIntent: 'strategize',
+            evidence: [],
+        }
+
+        const easy = calculateParsedSuccessRate('probe', 62, 0, false, parse, 'easy')
+        const hard = calculateParsedSuccessRate('probe', 62, 0, false, parse, 'hard')
+
+        expect(easy).toBeGreaterThan(hard)
+    })
+
     it('adds 谶纬 only on eligible rounds and targets', () => {
         const zongai = { ...INITIAL_NPCS.find(npc => npc.name === '宗艾')!, trust: 58 }
         const yuwendi = { ...INITIAL_NPCS.find(npc => npc.name === '宇文棣')!, trust: 58 }
@@ -122,6 +190,100 @@ describe('schemeEngine contextual scheme rules', () => {
         )
 
         expect(Math.abs(early.nationEffects.governance ?? 0)).toBeLessThan(Math.abs(later.nationEffects.governance ?? 0))
+    })
+
+    it.skip('keeps normal-mode advise lighter than easy-mode advise at the nation layer', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.name === '绁栧环')!, trust: 68 }
+        const speech = '瓒佺伨骞存妸浠撳华銆侀シ鏉冧笌璧堝姟骞舵敹涓灑锛屽厛鍫垫渤鍖楄豹鍙筹紝鍐嶅弽鍘嬪笣鍏氱€?'
+
+        const easy = settleScheme(
+            {
+                id: 'easy-advise-damage',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: speech,
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 8, unlockedSecrets: 1, difficulty: 'easy' },
+        )
+
+        const normal = settleScheme(
+            {
+                id: 'normal-advise-damage',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: speech,
+                resolutionRoll: 0.01,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 8, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(Math.abs(normal.nationEffects.governance ?? 0)).toBeLessThan(Math.abs(easy.nationEffects.governance ?? 0))
+        expect(Math.abs(normal.nationEffects.finance ?? 0)).toBeLessThanOrEqual(Math.abs(easy.nationEffects.finance ?? 0))
+    })
+
+    it('keeps normal-mode advise lighter than easy-mode advise at the nation layer with the same parsed speech', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+        const parse: NorthSchemeParseResult = {
+            characterFit: 0.82,
+            eventFit: 0.72,
+            structuralPenetration: 0.76,
+            executability: 0.8,
+            exposureRisk: 0.14,
+            financeRelevance: 0.42,
+            grainRelevance: 0.28,
+            militaryRelevance: 0.08,
+            socialOrderRelevance: 0.32,
+            governanceRelevance: 0.88,
+            dominantIntent: 'strategize',
+            stateBenefit: -0.62,
+            targetBenefit: 0.74,
+            factionBenefit: 0.26,
+            advicePolarity: 'pro_target_anti_state',
+            legitimacyDirection: 0,
+            omenPolarity: 'vague_or_ceremonial',
+            evidence: [],
+        }
+
+        const easy = settleScheme(
+            {
+                id: 'easy-advise-damage-parsed',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '趁灾年把仓廪、饷权与赈务并收中枢，先堵河北豪右，再反压帝党。',
+                resolutionRoll: 0.01,
+                northParse: parse,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 8, unlockedSecrets: 1, difficulty: 'easy' },
+        )
+
+        const normal = settleScheme(
+            {
+                id: 'normal-advise-damage-parsed',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '趁灾年把仓廪、饷权与赈务并收中枢，先堵河北豪右，再反压帝党。',
+                resolutionRoll: 0.01,
+                northParse: parse,
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 8, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(Math.abs(normal.nationEffects.governance ?? 0)).toBeLessThan(Math.abs(easy.nationEffects.governance ?? 0))
+        expect(Math.abs(normal.nationEffects.finance ?? 0)).toBeLessThanOrEqual(Math.abs(easy.nationEffects.finance ?? 0))
+        expect(normal.trustChange).toBe(easy.trustChange)
     })
 
     it('does not offer secession or rebellion again once an external warlord has already turned secessionist', () => {
@@ -284,5 +446,177 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(probeResult.feedbackText).toContain('试探')
         expect(adviseResult.feedbackText).not.toContain('鐚瓥')
         expect(probeResult.feedbackText).not.toContain('璇曟帰')
+    })
+
+    it('lets pro-state court advice stabilize North instead of automatically harming it', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'pro-state-advise',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    grainRelevance: 0.56,
+                    governanceRelevance: 0.84,
+                    socialOrderRelevance: 0.48,
+                    stateBenefit: 0.82,
+                    targetBenefit: 0.2,
+                    factionBenefit: 0.08,
+                    advicePolarity: 'pro_state',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 5, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.trustChange).toBeGreaterThan(0)
+        expect((result.nationEffects.governance ?? 0)).toBeGreaterThanOrEqual(0)
+    })
+
+    it('lets private-benefit advice damage North while still buying trust', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'anti-state-advise',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '不妨先把兵粮与节钺抓在你自己手里，旁人有怨也只能听命。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    financeRelevance: 0.52,
+                    grainRelevance: 0.44,
+                    governanceRelevance: 0.82,
+                    stateBenefit: -0.74,
+                    targetBenefit: 0.86,
+                    factionBenefit: 0.54,
+                    advicePolarity: 'pro_target_anti_state',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 5, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.trustChange).toBeGreaterThan(0)
+        expect((result.nationEffects.governance ?? 0)).toBeLessThan(0)
+    })
+
+    it('keeps vague advice from strongly changing North dimensions', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'vague-advise',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '眼下还是先稳一稳，再慢慢看局势变化。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.31,
+                    socialOrderRelevance: 0.28,
+                    stateBenefit: 0,
+                    targetBenefit: 0.12,
+                    factionBenefit: 0,
+                    advicePolarity: 'neutral_or_vague',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 5, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(Math.abs(result.nationEffects.governance ?? 0)).toBeLessThanOrEqual(0.2)
+    })
+
+    it('lets legitimizing omen stabilize North legitimacy-linked dimensions', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'legitimizing-omen',
+                targetNpcId: npc.id,
+                schemeType: 'omen',
+                playerSpeech: '灾异既见，更当修德安民、整饬法统，免使流言乘隙而起。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.78,
+                    socialOrderRelevance: 0.6,
+                    legitimacyDirection: 0.76,
+                    omenPolarity: 'legitimizing',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 14, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect((result.nationEffects.governance ?? 0)).toBeGreaterThanOrEqual(0)
+    })
+
+    it('lets destabilizing omen damage North legitimacy-linked dimensions', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'destabilizing-omen',
+                targetNpcId: npc.id,
+                schemeType: 'omen',
+                playerSpeech: '灾异既著，名分已摇，若再强压，只会叫上下都疑心天命不在朝廷。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.84,
+                    socialOrderRelevance: 0.62,
+                    legitimacyDirection: -0.88,
+                    omenPolarity: 'destabilizing',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 14, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect((result.nationEffects.governance ?? 0)).toBeLessThan(0)
+    })
+
+    it('keeps ceremonial omen from strongly changing North dimensions', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'vague-omen',
+                targetNpcId: npc.id,
+                schemeType: 'omen',
+                playerSpeech: '近来风声不对，朝里最好低调些。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.3,
+                    socialOrderRelevance: 0.22,
+                    legitimacyDirection: 0,
+                    omenPolarity: 'vague_or_ceremonial',
+                }),
+            },
+            npc,
+            null,
+            0,
+            { round: 14, unlockedSecrets: 0, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(Math.abs(result.nationEffects.governance ?? 0)).toBeLessThanOrEqual(0.2)
     })
 })

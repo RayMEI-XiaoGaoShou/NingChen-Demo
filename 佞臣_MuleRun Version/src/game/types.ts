@@ -11,8 +11,11 @@
 
 export type PrologueStep = 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'INGAME'
 export type HelpOverlaySource = 'gameplay' | 'prologue'
+export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'hell'
 export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' | 'empathize' | 'strategize'
 export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
+export type AdvicePolarity = 'pro_state' | 'pro_target_anti_state' | 'neutral_or_vague'
+export type OmenPolarity = 'legitimizing' | 'destabilizing' | 'vague_or_ceremonial'
 export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
@@ -24,6 +27,9 @@ export type FirstRoundGuideKey =
     | 'scheme_feedback'
     | 'settlement'
 export type FirstRoundGuideSeenMap = Record<FirstRoundGuideKey, boolean>
+export interface OmenGuideSeenMap {
+    first_omen_modal: boolean
+}
 
 export type GameResult =
     | 'NONE'
@@ -227,6 +233,12 @@ export interface NorthSchemeParseResult {
     socialOrderRelevance: number
     governanceRelevance: number
     dominantIntent: NorthDominantIntent
+  stateBenefit?: number
+  targetBenefit?: number
+  factionBenefit?: number
+  advicePolarity?: AdvicePolarity
+  legitimacyDirection?: number
+  omenPolarity?: OmenPolarity
     evidence: string[]
 }
 

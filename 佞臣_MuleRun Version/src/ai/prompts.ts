@@ -1,4 +1,4 @@
-import type {
+﻿import type {
     NationDimensions,
     NPC,
     PolicyResolutionMeta,
@@ -310,14 +310,32 @@ export function buildNorthSchemeParsePrompt(params: {
         secession: '煽动割据',
         rebellion: '煽动造反',
     }
+
     const schemeSpecificRubric =
         params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'
-            ? '\n- 若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，但没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。'
+            ? '\n- 若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
+              '\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。' +
+              '\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，却没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。'
             : params.schemeType === 'omen'
-                ? '\n- 若是谶纬，重点看是否真正触及灾异、天命、名分、法统，不要把普通危言耸听当成高 omen 质量。'
+                ? '\n- 若是谶纬，重点看是否真正触及灾异、天命、名分、法统。' +
+                  '\n- 要额外判断它究竟是在劝人修德安民、补法统，还是在借灾异放大名分裂缝与人心疑惧。' +
+                  '\n- 普通危言耸听、空泛不祥感，不得给高 omen 质量，也不得轻易判成 destabilizing。'
                 : params.schemeType === 'advise' || params.schemeType === 'probe'
-                    ? '\n- 若是献策、试探之类稳计，除非说辞真的点出人物、局势与抓手，否则不要轻易给出高 structuralPenetration 或高 executability。'
+                    ? '\n- 若是献策、试探之类稳计，除非说辞真的点出人物、局势与抓手，否则不要轻易给高 structuralPenetration 或高 executability。' +
+                      '\n- 对献策要额外判断：它究竟更利于北周国家整体，还是更利于目标人物或其派系而伤害北周整体。'
                     : ''
+
+    const polarityRubric =
+        '\n方向性判断：' +
+        '\n- stateBenefit 看的是这段话对北周国家整体是利是害，范围 -1 到 1。' +
+        '\n- targetBenefit 看的是这段话对目标人物个人利益是利是害，范围 -1 到 1。' +
+        '\n- factionBenefit 看的是这段话对其派系或局部权力网络是利是害，范围 -1 到 1。' +
+        '\n- advicePolarity 只在 advise 里重点判断：pro_state | pro_target_anti_state | neutral_or_vague。' +
+        '\n- legitimacyDirection 看的是谶纬对北周名分、法统、天命叙事的净方向，范围 -1 到 1。' +
+        '\n- omenPolarity 只在 omen 里重点判断：legitimizing | destabilizing | vague_or_ceremonial。' +
+        '\n- 若是利国之策，即便也让目标人物得利，仍应优先判为 pro_state。' +
+        '\n- 只有“对人或对派系有利、对北周整体有害”时，才应判成 pro_target_anti_state。' +
+        '\n- 若谶纬只是礼仪化、模糊化、泛化不祥感，而未真正触及名分和法统裂缝，应判 vague_or_ceremonial。'
 
     return [
         { role: 'system', content: STRUCTURED_PARSE_SYSTEM },
@@ -346,10 +364,10 @@ export function buildNorthSchemeParsePrompt(params: {
 - exposureRisk 只在说辞明显露锋芒、逼压过甚、易惹猜忌或近乎摊牌时提高，不要机械给中高分。
 - 财政、粮草、军事、民生、治理五项相关度，默认从低分起判。
 - 未直接触及该维度时，应接近 0；不要因为一句话显得有格局，就同时给多个维度高相关。
-- evidence 只摘录最直接的 1-3 条判分依据，不要复述整段说辞。
-${schemeSpecificRubric}
+- evidence 只摘录最直接的 1-3 条判分依据，不要复述整段说辞。${schemeSpecificRubric}${polarityRubric}
 
-输出字段：{
+输出字段：
+{
   "characterFit": 0-1,
   "eventFit": 0-1,
   "structuralPenetration": 0-1,
@@ -361,12 +379,17 @@ ${schemeSpecificRubric}
   "socialOrderRelevance": 0-1,
   "governanceRelevance": 0-1,
   "dominantIntent": "neutral|induce|threaten|divide|empathize|strategize",
+  "stateBenefit": -1 to 1,
+  "targetBenefit": -1 to 1,
+  "factionBenefit": -1 to 1,
+  "advicePolarity": "pro_state|pro_target_anti_state|neutral_or_vague",
+  "legitimacyDirection": -1 to 1,
+  "omenPolarity": "legitimizing|destabilizing|vague_or_ceremonial",
   "evidence": ["不超过 3 条短句"]
 }`,
         },
     ]
 }
-
 export function buildPolicyReasonParsePrompt(params: {
     round: number
     topic: string
@@ -397,3 +420,4 @@ export function buildPolicyReasonParsePrompt(params: {
         },
     ]
 }
+
