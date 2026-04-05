@@ -116,6 +116,27 @@ describe('gameStore addScheme', () => {
         expect(state.currentSchemes[0]?.targetNpcId).toBe(targetNpcId)
     })
 
+    it('preserves structured omen input when adding an omen action', () => {
+        useGameStore.getState().addScheme({
+            id: 'omen-1',
+            targetNpcId: INITIAL_NPCS[0]!.id,
+            schemeType: 'omen',
+            playerSpeech: '石人一只眼，挑动黄河天下反\n\n此非独天灾，恐是名分失序之兆。',
+            omenSpeechInput: {
+                omenText: '石人一只眼，挑动黄河天下反',
+                interpretationText: '此非独天灾，恐是名分失序之兆。',
+            },
+            resolutionRoll: 0.2,
+        })
+
+        const state = useGameStore.getState()
+        expect(state.currentSchemes).toHaveLength(1)
+        expect(state.currentSchemes[0]?.omenSpeechInput).toEqual({
+            omenText: '石人一只眼，挑动黄河天下反',
+            interpretationText: '此非独天灾，恐是名分失序之兆。',
+        })
+    })
+
     it('keeps existing schemes when leaving scheme page and entering it again in the same round', () => {
         const targetNpcId = INITIAL_NPCS[0]!.id
 

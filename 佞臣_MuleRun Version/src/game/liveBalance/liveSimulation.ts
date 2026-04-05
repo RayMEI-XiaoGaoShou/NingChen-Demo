@@ -13,6 +13,7 @@ import {
     type Faction,
     type NorthSchemeParseResult,
     type NPC,
+    type OmenSpeechInput,
     type PolicyReasonParseResult,
     type RelationshipEdge,
     type SchemeAction,
@@ -70,6 +71,9 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
             const relatedNpc = schemePlan.relatedNpcId
                 ? state.npcs.find(item => item.id === schemePlan.relatedNpcId) ?? null
                 : null
+            const omenSpeechInput = schemePlan.schemeType === 'omen'
+                ? getSampleOmenSpeechInput(schemePlan)
+                : undefined
 
             const parseRecord = await runNorthLiveParse({
                 round: state.currentRound,
@@ -77,6 +81,7 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
                 speech: schemePlan.speech,
                 schemeType: schemePlan.schemeType,
                 relatedNpc,
+                omenSpeechInput,
             })
             parseRecords.push(parseRecord)
 
@@ -86,6 +91,7 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
                 relatedNpcId: schemePlan.relatedNpcId,
                 schemeType: schemePlan.schemeType,
                 playerSpeech: schemePlan.speech,
+                omenSpeechInput,
                 resolutionRoll: deterministicRoll(sample.id, state.currentRound, index),
                 northParse: getNorthParse(parseRecord),
             })
@@ -162,6 +168,23 @@ export async function runLiveBalanceSample(sample: BalanceSample): Promise<LiveB
         parseRecords,
         snapshots,
         finalState: state,
+    }
+}
+
+function getSampleOmenSpeechInput(schemePlan: BalanceSample['rounds'][number]['schemes'][number]): OmenSpeechInput | undefined {
+    if (schemePlan.schemeType !== 'omen') return undefined
+    if (schemePlan.omenSpeechInput) return schemePlan.omenSpeechInput
+
+    const [blockOmen = '', blockInterpretation = ''] = schemePlan.speech.split(/\r?\n\r?\n/, 2)
+    const omenTextFromSentence = schemePlan.speech
+        .split(/[。！？]/, 1)[0]
+        ?.trim()
+        ?? ''
+    const omenText = (blockOmen || omenTextFromSentence).trim()
+    const interpretationText = (blockInterpretation || schemePlan.speech).trim()
+    return {
+        omenText,
+        interpretationText,
     }
 }
 

@@ -19,8 +19,55 @@ import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt } from '../../ai/prompts'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
-import type { SchemeType, SchemeAction } from '../../game/types'
+import type { OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
+
+export interface SchemeSpeechFields {
+    mode: 'single' | 'omen'
+    primaryLabel: string
+    secondaryLabel?: string
+    helperText: string
+}
+
+export function getSchemeSpeechFields(selectedScheme: SchemeType | null): SchemeSpeechFields {
+    if (selectedScheme === 'omen') {
+        return {
+            mode: 'omen',
+            primaryLabel: '谶辞 / 征兆',
+            secondaryLabel: '解释 / 指向',
+            helperText: '先给征兆，再解其意，最后暗示谁最该警惕。',
+        }
+    }
+
+    return {
+        mode: 'single',
+        primaryLabel: '补一句说辞',
+        helperText: '说辞若切中此人的立场与心结，将实际影响计谋成败与效果幅度。',
+    }
+}
+
+export function buildSchemeSpeechPayload(params: {
+    schemeType: SchemeType
+    speech: string
+    omenSpeechInput?: OmenSpeechInput
+}): Pick<SchemeAction, 'playerSpeech' | 'omenSpeechInput'> {
+    if (params.schemeType === 'omen') {
+        const omenText = params.omenSpeechInput?.omenText?.trim() ?? ''
+        const interpretationText = params.omenSpeechInput?.interpretationText?.trim() ?? ''
+        return {
+            playerSpeech: [omenText, interpretationText].filter(Boolean).join('\n\n'),
+            omenSpeechInput: {
+                omenText,
+                interpretationText,
+            },
+        }
+    }
+
+    return {
+        playerSpeech: params.speech,
+        omenSpeechInput: undefined,
+    }
+}
 
 export function SchemePanel() {
     const {
@@ -52,6 +99,8 @@ export function SchemePanel() {
     const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(null)
     const [relatedNpcId, setRelatedNpcId] = useState<string | null>(null)
     const [speech, setSpeech] = useState('')
+    const [omenText, setOmenText] = useState('')
+    const [interpretationText, setInterpretationText] = useState('')
     const [justSubmitted, setJustSubmitted] = useState(false)
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
@@ -72,6 +121,7 @@ export function SchemePanel() {
     })
     const shouldShowOmenGuide = omenGuidePresentation === 'modal'
     const shouldShowOmenInlineHint = omenGuidePresentation === 'inline'
+    const speechFields = getSchemeSpeechFields(selectedScheme)
 
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
     const aliveNpcs = npcs.filter(n => n.isAlive)
@@ -82,7 +132,7 @@ export function SchemePanel() {
         advise: '献策',
         slander: '谗言',
         alienate: '离间',
-        frame: '放风构陷',
+        frame: '设局嫁祸',
         proxy: '借刀',
         appeal: '求援',
         omen: '谶纬',
@@ -97,13 +147,21 @@ export function SchemePanel() {
         const actionId = createActionId()
         const resolutionRoll = Math.random()
         const existingActions = 0
+        const speechPayload = buildSchemeSpeechPayload({
+            schemeType: selectedScheme,
+            speech,
+            omenSpeechInput: selectedScheme === 'omen'
+                ? { omenText, interpretationText }
+                : undefined,
+        })
 
         const action: SchemeAction = {
             id: actionId,
             targetNpcId: selectedNpcId,
             schemeType: selectedScheme,
             relatedNpcId: relatedNpcId ?? undefined,
-            playerSpeech: speech,
+            playerSpeech: speechPayload.playerSpeech,
+            omenSpeechInput: speechPayload.omenSpeechInput,
             resolutionRoll,
         }
 
@@ -118,14 +176,14 @@ export function SchemePanel() {
             npcName: selectedNpc.name,
             schemeType: selectedScheme,
             schemeName,
-            playerSpeech: speech,
+            playerSpeech: speechPayload.playerSpeech,
             feedback: '',
             isLoading: true,
             source: getAiModeLabel(),
         })
 
         const npcSnapshot = { ...selectedNpc }
-        const speechSnapshot = speech
+        const speechSnapshot = speechPayload.playerSpeech
         const knownSecretThreads = npcSnapshot.secretThreads.slice(0, intelProgress[npcSnapshot.id] ?? 0)
         const dynamicContext = buildNpcPromptDynamicContext({
             npc: npcSnapshot,
@@ -140,6 +198,7 @@ export function SchemePanel() {
             schemeType: selectedScheme,
             speech: speechSnapshot,
             relatedNpc: relatedNpcSnapshot,
+            omenSpeechInput: speechPayload.omenSpeechInput,
         }).then(parsed => {
             updateSchemeParse(actionId, parsed)
             const success = previewSchemeSuccess(
@@ -254,6 +313,9 @@ export function SchemePanel() {
                                                         setSelectedNpcId(npc.id)
                                                         setSelectedScheme(null)
                                                         setRelatedNpcId(null)
+                                                        setSpeech('')
+                                                        setOmenText('')
+                                                        setInterpretationText('')
                                                     }}
                                                 >
                                                     <div className="npc-select-main">
@@ -287,7 +349,12 @@ export function SchemePanel() {
                                                         key={scheme.type}
                                                         className={`scheme-btn ${selectedScheme === scheme.type ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
                                                         disabled={!available}
-                                                        onClick={() => setSelectedScheme(scheme.type)}
+                                                        onClick={() => {
+                                                            setSelectedScheme(scheme.type)
+                                                            setSpeech('')
+                                                            setOmenText('')
+                                                            setInterpretationText('')
+                                                        }}
                                                     >
                                                         <div className="scheme-info">
                                                             <span className="scheme-name">{scheme.name}</span>
@@ -363,18 +430,47 @@ export function SchemePanel() {
                                     <div className="step animate-slide-up scheme-speech-step">
                                         <h3 className="step-title">
                                             <span className="step-num">{currentSchemeData?.needsSecondTarget ? '伍' : '肆'}</span>
-                                            补一句说辞
+                                            {speechFields.primaryLabel}
                                         </h3>
                                         <div className="speech-input-wrapper">
-                                            <textarea
-                                                className="speech-input"
-                                                value={speech}
-                                                onChange={e => setSpeech(e.target.value)}
-                                                placeholder="写一句话作为你的说辞（选填）……"
-                                                maxLength={100}
-                                            />
-                                            <p className="speech-tip">说辞若切中此人的立场与心结，将实际影响计谋成败与效果幅度。</p>
-                                            <div className="char-count">{speech.length}/100</div>
+                                            {speechFields.mode === 'omen' ? (
+                                                <div className="omen-inputs">
+                                                    <label className="omen-input-group">
+                                                        <span className="omen-input-label">{speechFields.primaryLabel}</span>
+                                                        <textarea
+                                                            className="speech-input omen-speech-input"
+                                                            value={omenText}
+                                                            onChange={e => setOmenText(e.target.value)}
+                                                            placeholder="先写一句谶辞、征兆或灾异异象……"
+                                                            maxLength={60}
+                                                        />
+                                                        <div className="char-count">{omenText.length}/60</div>
+                                                    </label>
+                                                    <label className="omen-input-group">
+                                                        <span className="omen-input-label">{speechFields.secondaryLabel}</span>
+                                                        <textarea
+                                                            className="speech-input omen-speech-input"
+                                                            value={interpretationText}
+                                                            onChange={e => setInterpretationText(e.target.value)}
+                                                            placeholder="再解释它意味着什么，以及谁最该警惕……"
+                                                            maxLength={100}
+                                                        />
+                                                        <div className="char-count">{interpretationText.length}/100</div>
+                                                    </label>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <textarea
+                                                        className="speech-input"
+                                                        value={speech}
+                                                        onChange={e => setSpeech(e.target.value)}
+                                                        placeholder="写一句话作为你的说辞（选填）……"
+                                                        maxLength={100}
+                                                    />
+                                                    <div className="char-count">{speech.length}/100</div>
+                                                </>
+                                            )}
+                                            <p className="speech-tip">{speechFields.helperText}</p>
                                         </div>
                                     </div>
                                 )}

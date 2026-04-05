@@ -35,8 +35,8 @@ export const SCHEMES: Scheme[] = [
     },
     {
         type: 'frame',
-        name: '放风构陷',
-        description: '放大疑点，逼对方背上政治成本',
+        name: '设局嫁祸',
+        description: '诱其失言、失态或误判，让他自己背上嫌疑',
         trustThreshold: 50,
         riskLevel: 'high',
         needsSecondTarget: false,

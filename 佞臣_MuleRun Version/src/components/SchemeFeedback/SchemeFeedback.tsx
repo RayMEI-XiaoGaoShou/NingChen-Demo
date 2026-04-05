@@ -16,7 +16,7 @@ const SCHEME_NAMES: Record<string, string> = {
     advise: '献策',
     slander: '谗言',
     alienate: '离间',
-    frame: '放风构陷',
+    frame: '设局嫁祸',
     proxy: '借刀',
     appeal: '求援',
     omen: '谶纬',
@@ -89,12 +89,13 @@ export function SchemeFeedback() {
                 : (
                     markSchemeParsePending(feedbackId),
                     parseNorthSchemeInput({
-                        round: currentRound,
-                        npc: targetNpc,
-                        schemeType: action.schemeType,
-                        speech: action.playerSpeech,
-                        relatedNpc,
-                    }).then(parsed => {
+                    round: currentRound,
+                    npc: targetNpc,
+                    schemeType: action.schemeType,
+                    speech: action.playerSpeech,
+                    relatedNpc,
+                    omenSpeechInput: action.omenSpeechInput,
+                }).then(parsed => {
                         updateSchemeParse(feedbackId, parsed)
                         return parsed
                     })
@@ -175,12 +176,13 @@ export function SchemeFeedback() {
 
             markSchemeParsePending(action.id)
             parseNorthSchemeInput({
-                round: currentRound,
-                npc: targetNpc,
-                schemeType: action.schemeType,
-                speech: action.playerSpeech,
-                relatedNpc,
-            }).then(parsed => {
+              round: currentRound,
+              npc: targetNpc,
+              schemeType: action.schemeType,
+              speech: action.playerSpeech,
+              relatedNpc,
+              omenSpeechInput: action.omenSpeechInput,
+          }).then(parsed => {
                 updateSchemeParse(action.id!, parsed)
             })
         })

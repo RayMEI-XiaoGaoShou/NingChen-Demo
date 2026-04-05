@@ -64,4 +64,19 @@ describe('live balance sample library', () => {
         expect(roundSix.schemes[2].schemeType).toBe('probe')
         expect(roundSix.schemes[0].speech).not.toMatch(/莫让灾年把中枢拖散|别让后党借乱继续卡住中枢/)
     })
+    it('can derive structured omen inputs from omen sample speeches', () => {
+        const expertOmen = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'expert-omen')
+        const averageOmen = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'average-omen')
+
+        expect(expertOmen).toBeTruthy()
+        expect(averageOmen).toBeTruthy()
+
+        const expertRoundThirteen = expertOmen!.rounds[12].schemes[0]
+        const averageRoundThirteen = averageOmen!.rounds[12].schemes[0]
+
+        expect(expertRoundThirteen.schemeType).toBe('omen')
+        expect(expertRoundThirteen.speech.length).toBeGreaterThan(12)
+        expect(averageRoundThirteen.schemeType).toBe('omen')
+        expect(averageRoundThirteen.speech.length).toBeGreaterThan(10)
+    })
 })

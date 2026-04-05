@@ -100,4 +100,29 @@ describe('liveParseRunner', () => {
         }
         expect(record.normalized.characterFit).toBe(0.7)
     })
+
+    it('passes structured omen input through fallback parsing', async () => {
+        chatCompletionMock.mockResolvedValue('not-json')
+        getAiModeMock.mockReturnValue('kimi')
+
+        const { runNorthLiveParse } = await import('./liveParseRunner')
+        const record = await runNorthLiveParse({
+            round: 13,
+            npc: INITIAL_NPCS.find(npc => npc.id === 'zongai')!,
+            speech: '石人一只眼，挑动黄河天下反。\n\n此非独天灾，恐是朝中名分失序之兆。',
+            schemeType: 'omen',
+            omenSpeechInput: {
+                omenText: '石人一只眼，挑动黄河天下反。',
+                interpretationText: '此非独天灾，恐是朝中名分失序之兆。',
+            },
+        })
+
+        expect(record.mode).toBe('fallback')
+        expect(record.normalized).not.toBeNull()
+        if (record.kind !== 'north' || !record.normalized || !('omenAnchorStrength' in record.normalized)) {
+            throw new Error('expected omen-aware north parse record')
+        }
+        expect(record.normalized.omenAnchorStrength).toBeGreaterThan(0)
+        expect(record.normalized.legitimacyCrack).toBeGreaterThan(0)
+    })
 })

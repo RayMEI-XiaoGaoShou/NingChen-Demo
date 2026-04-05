@@ -1,6 +1,7 @@
 ﻿import type {
     NationDimensions,
     NPC,
+    OmenSpeechInput,
     PolicyResolutionMeta,
     SchemeType,
 } from '../game/types'
@@ -16,7 +17,7 @@ const SCHEME_NAMES: Record<SchemeType, string> = {
     advise: '献策',
     slander: '谗言',
     alienate: '离间',
-    frame: '放风构陷',
+    frame: '设局嫁祸',
     proxy: '借刀',
     appeal: '求援',
     omen: '谶纬',
@@ -295,6 +296,7 @@ export function buildNorthSchemeParsePrompt(params: {
     npc: NPC
     schemeType: SchemeType
     speech: string
+    omenSpeechInput?: OmenSpeechInput
     eventName: string
     eventBriefing: string
 }): ChatMessage[] {
@@ -303,7 +305,7 @@ export function buildNorthSchemeParsePrompt(params: {
         advise: '献策',
         slander: '谗言',
         alienate: '离间',
-        frame: '构陷',
+        frame: '设局嫁祸',
         proxy: '借刀',
         appeal: '求援',
         omen: '谶纬',
@@ -313,12 +315,14 @@ export function buildNorthSchemeParsePrompt(params: {
 
     const schemeSpecificRubric =
         params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'
-            ? '\n- 若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
+            ? '\n- 若是谗言、离间、设局嫁祸之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
               '\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。' +
+              '\n- 若是设局嫁祸，要额外看它是否真能诱使目标自己失言、失态或误判，以及嫌疑是否会落回目标本人。' +
               '\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，却没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。'
             : params.schemeType === 'omen'
-                ? '\n- 若是谶纬，重点看是否真正触及灾异、天命、名分、法统。' +
+                ? '\n- 若是谶纬，必须先看谶辞/征兆本身是否成立，再看解释/指向是否真正触及灾异、天命、名分、法统。' +
                   '\n- 要额外判断它究竟是在劝人修德安民、补法统，还是在借灾异放大名分裂缝与人心疑惧。' +
+                  '\n- 若没有明确的征兆锚点，或解释没有把征兆引向名分裂缝与可疑对象，就不得给高 omen 质量。' +
                   '\n- 普通危言耸听、空泛不祥感，不得给高 omen 质量，也不得轻易判成 destabilizing。'
                 : params.schemeType === 'advise' || params.schemeType === 'probe'
                     ? '\n- 若是献策、试探之类稳计，除非说辞真的点出人物、局势与抓手，否则不要轻易给高 structuralPenetration 或高 executability。' +
@@ -333,9 +337,21 @@ export function buildNorthSchemeParsePrompt(params: {
         '\n- advicePolarity 只在 advise 里重点判断：pro_state | pro_target_anti_state | neutral_or_vague。' +
         '\n- legitimacyDirection 看的是谶纬对北周名分、法统、天命叙事的净方向，范围 -1 到 1。' +
         '\n- omenPolarity 只在 omen 里重点判断：legitimizing | destabilizing | vague_or_ceremonial。' +
+        '\n- selfTrapPotential 只在设局嫁祸里重点判断：此话是否真能诱使目标自己失言、失态或误判，范围 0 到 1。' +
+        '\n- scapegoatClarity 只在设局嫁祸里重点判断：嫌疑与责任是否会明确回落到目标本人，范围 0 到 1。' +
+        '\n- omenAnchorStrength 只在 omen 里重点判断：谶辞/征兆本身是否像真正的征兆锚点，范围 0 到 1。' +
+        '\n- legitimacyCrack 只在 omen 里重点判断：解释是否真的把征兆引向名分、法统、天命裂缝，范围 0 到 1。' +
+        '\n- suspicionDirection 只在 omen 里重点判断：解释是否把警惕与怀疑导向某类人、某条关系线或某个权力结构，范围 0 到 1。' +
         '\n- 若是利国之策，即便也让目标人物得利，仍应优先判为 pro_state。' +
         '\n- 只有“对人或对派系有利、对北周整体有害”时，才应判成 pro_target_anti_state。' +
         '\n- 若谶纬只是礼仪化、模糊化、泛化不祥感，而未真正触及名分和法统裂缝，应判 vague_or_ceremonial。'
+
+    const speechBlock =
+        params.schemeType === 'omen' && params.omenSpeechInput
+            ? `谶辞 / 征兆：${params.omenSpeechInput.omenText || '未填'}
+解释 / 指向：${params.omenSpeechInput.interpretationText || '未填'}
+合并说辞：${params.speech}`
+            : `说辞：${params.speech}`
 
     return [
         { role: 'system', content: STRUCTURED_PARSE_SYSTEM },
@@ -351,7 +367,7 @@ export function buildNorthSchemeParsePrompt(params: {
 软肋：${params.npc.softSpot}
 逆鳞：${params.npc.triggerPoint}
 本次计谋类型：${parseSchemeLabels[params.schemeType]}
-说辞：${params.speech}
+${speechBlock}
 
 评分口径：
 - 从严判分。泛泛的战略词、空泛大道理或两头都能套的话，不得打高分。
@@ -385,6 +401,11 @@ export function buildNorthSchemeParsePrompt(params: {
   "advicePolarity": "pro_state|pro_target_anti_state|neutral_or_vague",
   "legitimacyDirection": -1 to 1,
   "omenPolarity": "legitimizing|destabilizing|vague_or_ceremonial",
+  "selfTrapPotential": 0-1,
+  "scapegoatClarity": 0-1,
+  "omenAnchorStrength": 0-1,
+  "legitimacyCrack": 0-1,
+  "suspicionDirection": 0-1,
   "evidence": ["不超过 3 条短句"]
 }`,
         },

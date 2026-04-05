@@ -4,7 +4,7 @@ import { buildNorthSchemeParsePrompt, buildNpcPrompt, sanitizeNpcReplyText } fro
 
 describe('buildNpcPrompt', () => {
     it('forbids invented titles for the protagonist and injects dynamic round context', () => {
-        const npc = { ...INITIAL_NPCS.find(item => item.name === '祖廷')!, trust: 12 }
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')!, trust: 12 }
 
         const messages = buildNpcPrompt({
             npc,
@@ -33,8 +33,8 @@ describe('buildNpcPrompt', () => {
     })
 
     it('maps trust levels to explicit tone guidance', () => {
-        const hostileNpc = { ...INITIAL_NPCS.find(item => item.name === '宇文棣')!, trust: 8 }
-        const reliedNpc = { ...INITIAL_NPCS.find(item => item.name === '独孤文约')!, trust: 72 }
+        const hostileNpc = { ...INITIAL_NPCS.find(item => item.id === 'yuwendi')!, trust: 8 }
+        const reliedNpc = { ...INITIAL_NPCS.find(item => item.id === 'duguwenyue')!, trust: 72 }
 
         const hostilePrompt = buildNpcPrompt({
             npc: hostileNpc,
@@ -64,10 +64,11 @@ describe('buildNpcPrompt', () => {
 
     it('normalizes stray invented titles in npc replies', () => {
         const reply = '计相此策太急。计编修若再近一步，恐招祸端。'
-
         expect(sanitizeNpcReplyText(reply)).toBe('你此策太急。萧编修若再近一步，恐招祸端。')
     })
+})
 
+describe('buildNorthSchemeParsePrompt', () => {
     it('asks for advice and omen polarity fields in the north parse schema', () => {
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
@@ -84,9 +85,13 @@ describe('buildNpcPrompt', () => {
             round: 13,
             npc,
             schemeType: 'omen',
-            speech: '灾异既著，名分已摇，若再强压，只会叫上下都疑心天命不在朝廷。',
-            eventName: '测试谶纬事件',
-            eventBriefing: '测试谶纬简报',
+            speech: '石人一只眼，挑动黄河天下反。\n\n此非独天灾，恐是朝中名分失序之兆。',
+            omenSpeechInput: {
+                omenText: '石人一只眼，挑动黄河天下反。',
+                interpretationText: '此非独天灾，恐是朝中名分失序之兆。',
+            },
+            eventName: '灾异频仍',
+            eventBriefing: '朝中开始借灾异与名分之说相互攻讦。',
         })[1].content
 
         expect(advisePrompt).toContain('"stateBenefit"')
@@ -95,58 +100,42 @@ describe('buildNpcPrompt', () => {
         expect(advisePrompt).toContain('"advicePolarity"')
         expect(omenPrompt).toContain('"legitimacyDirection"')
         expect(omenPrompt).toContain('"omenPolarity"')
+        expect(omenPrompt).toContain('"omenAnchorStrength"')
+        expect(omenPrompt).toContain('"legitimacyCrack"')
+        expect(omenPrompt).toContain('"suspicionDirection"')
     })
-})
 
-describe('buildNorthSchemeParsePrompt', () => {
-    it('tells the model to score conservatively rather than rewarding generic strategic wording', () => {
-        const npc = INITIAL_NPCS.find(item => item.name === '令狐律光')!
+    it('includes scheme-specific caution so frame and omen use their special rubrics', () => {
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
-        const prompt = buildNorthSchemeParsePrompt({
-            round: 11,
+        const framePrompt = buildNorthSchemeParsePrompt({
+            round: 8,
             npc,
-            schemeType: 'advise',
-            speech: '如今兵粮都紧，朝里若还争功，最后多半还是前线吃亏。',
-            eventName: '蜀地战局僵持',
-            eventBriefing: '北周上下正在争论战后如何安置西线兵权。',
+            schemeType: 'frame',
+            speech: '只消再逼他一步，先失态的人多半便是他，最后嫌疑也会先落回他自己头上。',
+            eventName: '清查仓廪',
+            eventBriefing: '朝中正围绕仓储与责任归属相互攻讦。',
         })[1].content
 
-        expect(prompt).toContain('泛泛的战略词、空泛大道理或两头都能套的话，不得打高分')
-        expect(prompt).toContain('只有同时切中人物、回合局势、具体执行链条，相关分值才可超过 0.7')
-        expect(prompt).toContain('若只是“像那么回事”而缺乏人物针对性与落地路径，多数字段应落在 0.25-0.55')
-    })
-
-    it('requires dimension relevance to stay near zero unless the speech clearly touches that dimension', () => {
-        const npc = INITIAL_NPCS.find(item => item.name === '祖廷')!
-
-        const prompt = buildNorthSchemeParsePrompt({
+        const omenPrompt = buildNorthSchemeParsePrompt({
             round: 13,
             npc,
             schemeType: 'omen',
-            speech: '天意未安，人心易摇，若还强作无事，只怕流言先于诏令而行。',
+            speech: '石人一只眼，挑动黄河天下反。\n\n此非独天灾，恐是朝中名分失序之兆。',
+            omenSpeechInput: {
+                omenText: '石人一只眼，挑动黄河天下反。',
+                interpretationText: '此非独天灾，恐是朝中名分失序之兆。',
+            },
             eventName: '灾异频仍',
             eventBriefing: '朝中开始借灾异与名分之说相互攻讦。',
         })[1].content
 
-        expect(prompt).toContain('财政、粮草、军事、民生、治理五项相关度，默认从低分起判')
-        expect(prompt).toContain('未直接触及该维度时，应接近 0')
-        expect(prompt).toContain('不要因为一句话显得有格局，就同时给多个维度高相关')
-    })
-
-    it('includes scheme-specific caution so slander and alienate are not over-rewarded for generic pressure', () => {
-        const npc = INITIAL_NPCS.find(item => item.name === '祖廷')!
-
-        const prompt = buildNorthSchemeParsePrompt({
-            round: 8,
-            npc,
-            schemeType: 'slander',
-            speech: '宫里一乱，谁都可能先把自己摘出去。',
-            eventName: '清查仓廪',
-            eventBriefing: '朝中正在围绕仓储与责任归属互相攻讦。',
-        })[1].content
-
-        expect(prompt).toContain('本次计谋类型：谗言')
-        expect(prompt).toContain('若是谗言、离间、构陷之类高压计，必须看到明确的人事链条、权力链条或利益链条')
-        expect(prompt).toContain('单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration')
+        expect(framePrompt).toContain('本次计谋类型：设局嫁祸')
+        expect(framePrompt).toContain('selfTrapPotential')
+        expect(framePrompt).toContain('scapegoatClarity')
+        expect(framePrompt).toContain('诱使目标自己失言、失态或误判')
+        expect(omenPrompt).toContain('谶辞 / 征兆：石人一只眼，挑动黄河天下反。')
+        expect(omenPrompt).toContain('解释 / 指向：此非独天灾，恐是朝中名分失序之兆。')
+        expect(omenPrompt).toContain('必须先看谶辞/征兆本身是否成立')
     })
 })

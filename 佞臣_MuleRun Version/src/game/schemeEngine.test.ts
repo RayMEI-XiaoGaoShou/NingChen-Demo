@@ -300,6 +300,54 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(schemes).not.toContain('rebellion')
     })
 
+    it('amplifies frame fallout when the speech truly lures the target into taking the blame', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zongai')!, trust: 62 }
+
+        const lowTrap = settleScheme(
+            {
+                id: 'frame-low-trap',
+                targetNpcId: npc.id,
+                schemeType: 'frame',
+                playerSpeech: '宫中风声未必都站在你这边。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    selfTrapPotential: 0.12,
+                    scapegoatClarity: 0.14,
+                    governanceRelevance: 0.52,
+                    socialOrderRelevance: 0.46,
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 10, unlockedSecrets: 1 },
+        )
+
+        const highTrap = settleScheme(
+            {
+                id: 'frame-high-trap',
+                targetNpcId: npc.id,
+                schemeType: 'frame',
+                playerSpeech: '只消再逼他一步，先失态的人多半便是他，最后嫌疑也会先落回他自己头上。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    selfTrapPotential: 0.84,
+                    scapegoatClarity: 0.88,
+                    governanceRelevance: 0.52,
+                    socialOrderRelevance: 0.46,
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 10, unlockedSecrets: 1 },
+        )
+
+        expect(Math.abs(highTrap.nationEffects.governance ?? 0)).toBeGreaterThan(Math.abs(lowTrap.nationEffects.governance ?? 0))
+        expect(Math.abs(highTrap.factionEffects.emperor?.internalStability ?? 0)).toBeGreaterThan(Math.abs(lowTrap.factionEffects.emperor?.internalStability ?? 0))
+        expect(highTrap.feedbackText).toMatch(/失态|背上嫌疑|露了口风|设下的局|来不及全身而退|破绽已被你轻轻带出来|落回他自己身上/)
+    })
+
     it('does not spill military damage from non-military slander even against frontline commanders', () => {
         const weichimu = { ...INITIAL_NPCS.find(npc => npc.militaryPower === 68)!, trust: 62 }
         const linghu = { ...INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!, trust: 55 }

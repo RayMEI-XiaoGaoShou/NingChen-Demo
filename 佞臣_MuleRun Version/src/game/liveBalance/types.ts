@@ -1,6 +1,7 @@
 import type {
     GameDifficulty,
     NorthSchemeParseResult,
+    OmenSpeechInput,
     PolicyReasonParseResult,
     SchemeType,
 } from '../types'
@@ -18,6 +19,7 @@ export interface RoundSchemeSample {
     schemeType: SchemeType
     relatedNpcId?: string
     speech: string
+    omenSpeechInput?: OmenSpeechInput
 }
 
 export interface RoundPolicySample {

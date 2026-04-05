@@ -7,7 +7,7 @@ import {
     normalizePolicyReasonParse,
 } from '../aiNativeEngine'
 import { ROUND_EVENTS } from '../../data/rounds'
-import type { NPC, PolicyResolutionMeta, SchemeType } from '../types'
+import type { NPC, OmenSpeechInput, PolicyResolutionMeta, SchemeType } from '../types'
 import type { LiveParseRecord } from './types'
 
 function cleanStructuredJsonText(text: string): string {
@@ -85,12 +85,14 @@ export async function runNorthLiveParse(params: {
     speech: string
     schemeType: SchemeType
     relatedNpc?: NPC | null
+    omenSpeechInput?: OmenSpeechInput
 }): Promise<LiveParseRecord> {
     const messages = buildNorthSchemeParsePrompt({
         round: params.round,
         npc: params.npc,
         schemeType: params.schemeType,
         speech: params.speech,
+        omenSpeechInput: params.omenSpeechInput,
         eventName: ROUND_EVENTS[params.round - 1]?.eventName ?? `第${params.round}回合`,
         eventBriefing: ROUND_EVENTS[params.round - 1]?.briefing ?? '',
     })
@@ -114,7 +116,9 @@ export async function runNorthLiveParse(params: {
             speech: params.speech,
             npc: params.npc,
             round: params.round,
+            schemeType: params.schemeType,
             relatedNpc: params.relatedNpc,
+            omenSpeechInput: params.omenSpeechInput,
         })
 
         return {
@@ -149,7 +153,9 @@ export async function runNorthLiveParse(params: {
             speech: params.speech,
             npc: params.npc,
             round: params.round,
+            schemeType: params.schemeType,
             relatedNpc: params.relatedNpc,
+            omenSpeechInput: params.omenSpeechInput,
         }),
         rawResponse,
         mode: 'fallback',

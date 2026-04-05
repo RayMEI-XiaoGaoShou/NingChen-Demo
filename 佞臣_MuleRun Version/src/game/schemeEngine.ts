@@ -63,7 +63,7 @@ const SCHEME_NAMES: Record<SchemeType, string> = {
     advise: '献策',
     slander: '谗言',
     alienate: '离间',
-    frame: '放风构陷',
+    frame: '设局嫁祸',
     proxy: '借刀',
     appeal: '求援',
     omen: '谶纬',
@@ -173,7 +173,9 @@ function getNorthParse(
             speech: action.playerSpeech,
             npc: targetNpc,
             round,
+            schemeType: action.schemeType,
             relatedNpc,
+            omenSpeechInput: action.omenSpeechInput,
         })
 }
 
@@ -547,10 +549,17 @@ function getCourtIntrigueFactionDamping(
     return clamp(base + intrigueSignal, 0.08, 1)
 }
 
+function getFrameTrapFactor(parse: NorthSchemeParseResult): number {
+    const selfTrapPotential = parse.selfTrapPotential ?? 0
+    const scapegoatClarity = parse.scapegoatClarity ?? 0
+    return clamp(0.72 + selfTrapPotential * 0.42 + scapegoatClarity * 0.5, 0.72, 1.46)
+}
+
 function getSuccessTemplate(
     action: SchemeAction,
     targetNpc: NPC,
     relatedNpc?: NPC | null,
+    parse?: NorthSchemeParseResult,
 ): {
     person: PersonEffects
     factionEffects: Partial<Record<CourtFactionId, FactionVector>>
@@ -634,17 +643,33 @@ function getSuccessTemplate(
                 specialAction: null,
             }
         case 'frame':
+            const selfTrapPotential = parse?.selfTrapPotential ?? 0
+            const scapegoatClarity = parse?.scapegoatClarity ?? 0
+            const trapFactor = getFrameTrapFactor(parse ?? {
+                characterFit: 0,
+                eventFit: 0,
+                structuralPenetration: 0,
+                executability: 0,
+                exposureRisk: 0,
+                financeRelevance: 0,
+                grainRelevance: 0,
+                militaryRelevance: 0,
+                socialOrderRelevance: 0,
+                governanceRelevance: 0,
+                dominantIntent: 'neutral',
+                evidence: [],
+            })
             if (targetNpc.powerBase === 'court') {
                 factionEffects = addFactionEffect(factionEffects, targetNpc.factionId as CourtFactionId, {
-                    internalStability: -2.8,
-                    courtInfluence: -1.6,
+                    internalStability: -2.8 * trapFactor,
+                    courtInfluence: -1.6 * clamp(0.84 + trapFactor * 0.24, 0.84, 1.24),
                 })
             }
             return {
                 person: {
                     ...emptyPerson,
-                    trustDelta: 1,
-                    loyaltyDelta: targetNpc.powerBase === 'external' ? -8 : 0,
+                    trustDelta: clamp(0.8 + selfTrapPotential * 0.8 + scapegoatClarity * 0.35, 1, 3),
+                    loyaltyDelta: targetNpc.powerBase === 'external' ? -8 * trapFactor : 0,
                     alignmentShift: targetNpc.powerBase === 'external' ? 'self' : null,
                 },
                 factionEffects,
@@ -820,7 +845,7 @@ export function settleScheme(
         factionEffects: Partial<Record<CourtFactionId, FactionVector>>
         specialAction: 'secession' | 'rebellion' | null
     } = success
-        ? getSuccessTemplate(action, targetNpc, relatedNpc)
+        ? getSuccessTemplate(action, targetNpc, relatedNpc, northParse)
         : { ...getFailureTemplate(action, targetNpc), specialAction: null }
 
     const personEffects = scalePersonEffects(template.person, personMultiplier)
@@ -863,7 +888,7 @@ export function settleScheme(
         }, Math.max(factionMultiplier, tunedNationMultiplier)))
     }
 
-    const feedbackText = generateFeedback(action, targetNpc, success)
+    const feedbackText = generateFeedback(action, targetNpc, success, northParse)
     const delayedBacklash = deriveDelayedBacklash(action, targetNpc, success, northParse, round)
 
     return {
@@ -881,8 +906,31 @@ export function settleScheme(
     }
 }
 
-function generateFeedback(action: SchemeAction, npc: NPC, success: boolean): string {
+function generateFeedback(action: SchemeAction, npc: NPC, success: boolean, parse: NorthSchemeParseResult): string {
     const name = SCHEME_NAMES[action.schemeType]
+
+    if (action.schemeType === 'frame') {
+        if (success) {
+            const trapLines = [
+                `${npc.name}先是一怔，旋即像是意识到自己话说得过了，你知道这步${name}已逼他露了口风。`,
+                `${npc.name}神色微变，像是忽然察觉自己正往你设下的局里走去，可已来不及全身而退。`,
+                `${npc.name}话里那点破绽已被你轻轻带出来，这步${name}最要命的嫌疑，终究还是会落回他自己身上。`,
+            ]
+
+            if (((parse.selfTrapPotential ?? 0) + (parse.scapegoatClarity ?? 0)) / 2 >= 0.55) {
+                return randomPick(trapLines)
+            }
+        } else {
+            const failTrapLines = [
+                `${npc.name}没有顺着你的话失态，反而把口风收得更紧，你知道这步${name}没能把他逼进局里。`,
+                `${npc.name}神色一沉便不再接话，显然已觉出你想借题让他背嫌疑。`,
+            ]
+
+            if ((parse.selfTrapPotential ?? 0) >= 0.28 || (parse.scapegoatClarity ?? 0) >= 0.28) {
+                return randomPick(failTrapLines)
+            }
+        }
+    }
 
     if (success) {
         const successLines = [
@@ -983,11 +1031,12 @@ function deriveStrategicSpillover(
             })
         }
         case 'frame':
+            const trapFactor = getFrameTrapFactor(parse)
             return applyDimensionRelevance({
-                military: -0.6 * scale,
-                grain: -0.4 * scale,
-                socialOrder: -0.4 * scale,
-                governance: -0.6 * scale,
+                military: -0.6 * scale * trapFactor,
+                grain: -0.4 * scale * trapFactor,
+                socialOrder: -0.4 * scale * trapFactor,
+                governance: -0.6 * scale * trapFactor,
             }, parse, {
                 military: 0.42,
                 grain: 0.38,

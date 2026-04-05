@@ -8,6 +8,7 @@ import type {
     NorthDominantIntent,
     NorthSchemeParseResult,
     NPC,
+    OmenSpeechInput,
     OmenPolarity,
     PolicyReasonParseResult,
     PolicyResolutionMeta,
@@ -229,11 +230,70 @@ function deriveOmenPolarityFromSpeech(text: string): {
     }
 }
 
+function deriveFrameSpecializationFromSpeech(text: string): {
+    selfTrapPotential: number
+    scapegoatClarity: number
+} {
+    const selfTrapPotential = clamp01(
+        0.05
+        + scoreMatches(text, ['失言', '失态', '动气', '露口风', '先开口', '误判', '自乱阵脚', '沉不住气']) * 0.9
+        + scoreMatches(text, ['只消', '只要', '一逼', '一激', '一问']) * 0.24,
+    )
+
+    const scapegoatClarity = clamp01(
+        0.05
+        + scoreMatches(text, ['背锅', '落到你头上', '推到你身上', '先担责', '旁人便会指着你', '嫌疑落在你身上']) * 0.95
+        + scoreMatches(text, ['到头来', '最后', '终究']) * 0.18,
+    )
+
+    return { selfTrapPotential, scapegoatClarity }
+}
+
+function deriveOmenSpecialization(params: {
+    speech: string
+    omenSpeechInput?: OmenSpeechInput
+}): {
+    omenAnchorStrength: number
+    legitimacyCrack: number
+    suspicionDirection: number
+} {
+    const omenText = params.omenSpeechInput?.omenText?.trim() ?? ''
+    const interpretationText = params.omenSpeechInput?.interpretationText?.trim() ?? ''
+    const anchorSource = omenText || params.speech
+    const interpretationSource = interpretationText || params.speech
+
+    const omenAnchorStrength = clamp01(
+        0.04
+        + scoreMatches(anchorSource, ['灾异', '征兆', '谶', '石人', '龙气', '彗星', '大旱', '洪涝', '地动', '天火']) * 1
+        + (anchorSource.length >= 8 ? 0.1 : 0),
+    )
+
+    const legitimacyCrack = clamp01(
+        0.04
+        + scoreMatches(interpretationSource, ['名分', '法统', '天命', '越分', '失序', '僭越', '正朔', '宗庙']) * 0.95
+        + scoreMatches(interpretationSource, ['非独天灾', '不是独天灾', '人事相连', '朝中有人']) * 0.18,
+    )
+
+    const suspicionDirection = clamp01(
+        0.04
+        + scoreMatches(interpretationSource, ['最该警惕', '最可疑', '某类人', '朝中重臣', '摄政', '主战之人', '外镇', '中枢']) * 0.9
+        + (includesAny(interpretationSource, ['警惕', '可疑', '疑在', '疑向']) ? 0.14 : 0),
+    )
+
+    return {
+        omenAnchorStrength,
+        legitimacyCrack,
+        suspicionDirection,
+    }
+}
+
 export function fallbackNorthParseFromSpeech(params: {
     speech: string
     npc: NPC
     round: number
+    schemeType?: SchemeType
     relatedNpc?: NPC | null
+    omenSpeechInput?: OmenSpeechInput
 }): NorthSchemeParseResult {
     const speech = params.speech.trim()
     if (!speech) {
@@ -331,6 +391,12 @@ export function fallbackNorthParseFromSpeech(params: {
 
     const advicePolarity = deriveAdvicePolarityFromSpeech(speech)
     const omenPolarity = deriveOmenPolarityFromSpeech(speech)
+    const frameSpecialization = params.schemeType === 'frame'
+        ? deriveFrameSpecializationFromSpeech(speech)
+        : { selfTrapPotential: 0, scapegoatClarity: 0 }
+    const omenSpecialization = params.schemeType === 'omen'
+        ? deriveOmenSpecialization({ speech, omenSpeechInput: params.omenSpeechInput })
+        : { omenAnchorStrength: 0, legitimacyCrack: 0, suspicionDirection: 0 }
 
     return normalizeNorthSchemeParse({
         characterFit,
@@ -350,6 +416,11 @@ export function fallbackNorthParseFromSpeech(params: {
         advicePolarity: advicePolarity.advicePolarity,
         legitimacyDirection: omenPolarity.legitimacyDirection,
         omenPolarity: omenPolarity.omenPolarity,
+        selfTrapPotential: frameSpecialization.selfTrapPotential,
+        scapegoatClarity: frameSpecialization.scapegoatClarity,
+        omenAnchorStrength: omenSpecialization.omenAnchorStrength,
+        legitimacyCrack: omenSpecialization.legitimacyCrack,
+        suspicionDirection: omenSpecialization.suspicionDirection,
         evidence,
     })
 }
@@ -431,13 +502,16 @@ export async function parseNorthSchemeInput(params: {
     schemeType: SchemeType
     speech: string
     relatedNpc?: NPC | null
+    omenSpeechInput?: OmenSpeechInput
 }): Promise<NorthSchemeParseResult> {
     const roundEvent = ROUND_EVENTS[params.round - 1]
     const fallbackParsed = fallbackNorthParseFromSpeech({
         speech: params.speech,
         npc: params.npc,
         round: params.round,
+        schemeType: params.schemeType,
         relatedNpc: params.relatedNpc,
+        omenSpeechInput: params.omenSpeechInput,
     })
     const aiParsed = await chatCompletionJson<NorthSchemeParseResult>(
         buildNorthSchemeParsePrompt({
@@ -445,6 +519,7 @@ export async function parseNorthSchemeInput(params: {
             npc: params.npc,
             schemeType: params.schemeType,
             speech: params.speech,
+            omenSpeechInput: params.omenSpeechInput,
             eventName: roundEvent?.eventName ?? `第${params.round}回合`,
             eventBriefing: roundEvent?.briefing ?? '',
         }),
