@@ -16,6 +16,8 @@ export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' |
 export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
 export type AdvicePolarity = 'pro_state' | 'pro_target_anti_state' | 'neutral_or_vague'
 export type OmenPolarity = 'legitimizing' | 'destabilizing' | 'vague_or_ceremonial'
+export type BorrowedBladeDisposalStage = 'safe' | 'questioned' | 'isolated' | 'disposable'
+export type BorrowedBladeOutcome = 'failed' | 'light' | 'heavy' | 'kill'
 export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
@@ -118,6 +120,11 @@ export interface NPC {
     schemeHooks: string
     trust: number
     isAlive: boolean
+    disposalStage?: BorrowedBladeDisposalStage
+    deathCause?: 'borrowed_blade' | null
+    deathByNpcId?: string | null
+    deathByNpcName?: string | null
+    deathRound?: number | null
     canExecute: boolean
     militaryPower: number
     loyaltyToCourt: number
@@ -285,6 +292,15 @@ export interface FactionCollapseReport {
     factionName: string
     severity: 'breach' | 'collapse'
     reasons: string[]
+    summary: string
+}
+
+export interface BorrowedBladeReport {
+    actorNpcId: string
+    actorNpcName: string
+    targetNpcId: string
+    targetNpcName: string
+    outcome: BorrowedBladeOutcome
     summary: string
 }
 

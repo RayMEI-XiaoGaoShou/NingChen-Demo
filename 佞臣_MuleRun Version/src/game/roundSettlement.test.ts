@@ -821,4 +821,62 @@ describe('settleRound layered settlement', () => {
         expect(result.externalActionReports?.[0]?.action).toBe('rebellion')
         expect(result.externalActionReports?.[0]?.outcome).toContain('据地自守')
     })
+
+    it('lets proxy finish a disposable court target through the borrowed-blade chain', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+        const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
+
+        const result = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'borrowed-blade-kill',
+                    targetNpcId: zuting.id,
+                    relatedNpcId: yuwendi.id,
+                    schemeType: 'proxy',
+                    playerSpeech: '此刻只需顺着河北失序与主战失当的口实再推一步，燕王便会先被推出去担责。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.78,
+                        eventFit: 0.76,
+                        structuralPenetration: 0.8,
+                        executability: 0.72,
+                        exposureRisk: 0.18,
+                        financeRelevance: 0.14,
+                        grainRelevance: 0.24,
+                        militaryRelevance: 0.42,
+                        socialOrderRelevance: 0.38,
+                        governanceRelevance: 0.54,
+                        dominantIntent: 'divide',
+                        suspicionTransmission: 0.2,
+                        fractureTransmission: 0.3,
+                        proxyTransmission: 0.82,
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => {
+                if (npc.id === zuting.id) {
+                    return { ...npc, trust: 86 }
+                }
+                if (npc.id === yuwendi.id) {
+                    return { ...npc, disposalStage: 'disposable' as const }
+                }
+                return { ...npc }
+            }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedYuwendi = result.updatedNpcs.find((npc: any) => npc.id === yuwendi.id)
+
+        expect(updatedYuwendi?.isAlive).toBe(false)
+        expect(updatedYuwendi?.deathCause).toBe('borrowed_blade')
+        expect(updatedYuwendi?.deathByNpcName).toBe('祖廷')
+        expect(result.borrowedBladeReports?.[0]?.outcome).toBe('kill')
+    })
 })

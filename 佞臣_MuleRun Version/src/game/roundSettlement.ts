@@ -19,10 +19,19 @@ import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaig
 import { deriveCampaignMomentumGain } from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
+import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
+import {
+    advanceBorrowedBladeStage,
+    buildBorrowedBladeReport,
+    getBorrowedBladeStage,
+    normalizeBorrowedBladeNpc,
+    resolveBorrowedBladeProxy,
+} from './borrowedBladeEngine'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
+    BorrowedBladeReport,
     CampaignState,
     CourtFactionId,
     DelayedBacklash,
@@ -86,6 +95,7 @@ export interface RoundSettlementResult {
     intelUnlocks: Record<string, number>
     relationshipReports: RelationshipReport[]
     externalActionReports: ExternalActionReport[]
+    borrowedBladeReports: BorrowedBladeReport[]
     factionCollapseReports: FactionCollapseReport[]
     deathTriggered: boolean
     deathKiller: string | null
@@ -132,13 +142,14 @@ export function settleRound(params: {
     let huainanCampaign = cloneCampaign(params.huainanCampaign)
     let shuMomentum = params.shuMomentum ?? 0
     let huainanMomentum = params.huainanMomentum ?? 0
-    let updatedNpcs = params.npcs.map(npc => ({ ...npc }))
+    let updatedNpcs = params.npcs.map(npc => normalizeBorrowedBladeNpc({ ...npc }))
     let factionsAfter = params.factions.map(faction => ({ ...faction }))
     let relationshipsAfter = (params.relationships ?? INITIAL_RELATIONSHIP_EDGES).map(edge => ({ ...edge }))
     const trustChanges: Record<string, number> = {}
     const intelUnlocks: Record<string, number> = {}
     const relationshipReports: RelationshipReport[] = []
     const externalActionReports: ExternalActionReport[] = []
+    const borrowedBladeReports: BorrowedBladeReport[] = []
     let factionCollapseReports: FactionCollapseReport[] = []
     let policyReport: PolicySettlementReport | null = null
     let policyAftereffect: PolicyAftereffect | null = null
@@ -215,6 +226,81 @@ export function settleRound(params: {
 
         if (result.personEffects.intelDelta > 0) {
             intelUnlocks[targetNpc.id] = (intelUnlocks[targetNpc.id] ?? 0) + result.personEffects.intelDelta
+        }
+
+        if (action.schemeType === 'slander' && relatedNpc && relatedNpc.isAlive) {
+            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(relatedNpc), {
+                schemeType: 'slander',
+                success: result.success,
+                transmission: result.northParse.suspicionTransmission ?? 0,
+                scapegoat: 0,
+                legitimacyCrack: 0,
+            })
+            relatedNpc.disposalStage = nextStage
+        }
+
+        if (action.schemeType === 'alienate' && relatedNpc && relatedNpc.isAlive) {
+            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(relatedNpc), {
+                schemeType: 'alienate',
+                success: result.success,
+                transmission: result.northParse.fractureTransmission ?? 0,
+                scapegoat: 0,
+                legitimacyCrack: 0,
+            })
+            relatedNpc.disposalStage = nextStage
+        }
+
+        if (action.schemeType === 'frame' && targetNpc.isAlive) {
+            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(targetNpc), {
+                schemeType: 'frame',
+                success: result.success,
+                transmission: 0,
+                scapegoat: Math.max(result.northParse.selfTrapPotential ?? 0, result.northParse.scapegoatClarity ?? 0),
+                legitimacyCrack: 0,
+            })
+            targetNpc.disposalStage = nextStage
+        }
+
+        if (action.schemeType === 'omen' && targetNpc.isAlive) {
+            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(targetNpc), {
+                schemeType: 'omen',
+                success: result.success,
+                transmission: 0,
+                scapegoat: 0,
+                legitimacyCrack: result.northParse.legitimacyCrack ?? 0,
+                omenPolarity: result.northParse.omenPolarity,
+            })
+            targetNpc.disposalStage = nextStage
+        }
+
+        if (action.schemeType === 'proxy' && relatedNpc && relatedNpc.isAlive) {
+            const proxyResolution = resolveBorrowedBladeProxy({
+                round,
+                actorNpc: targetNpc,
+                targetNpc: relatedNpc,
+                parse: result.northParse,
+                success: result.success,
+            })
+
+            if (proxyResolution) {
+                relatedNpc.disposalStage = proxyResolution.nextStage
+                if (proxyResolution.kill) {
+                    relatedNpc.isAlive = false
+                    relatedNpc.militaryPower = 0
+                    relatedNpc.deathCause = 'borrowed_blade'
+                    relatedNpc.deathByNpcId = targetNpc.id
+                    relatedNpc.deathByNpcName = targetNpc.name
+                    relatedNpc.deathRound = round
+                }
+                borrowedBladeReports.push(
+                    buildBorrowedBladeReport({
+                        actorNpc: targetNpc,
+                        targetNpc: relatedNpc,
+                        outcome: proxyResolution.outcome,
+                        summary: proxyResolution.summary,
+                    }),
+                )
+            }
         }
 
         factionsAfter = applyFactionEffects(factionsAfter, result.factionEffects)
@@ -335,6 +421,13 @@ export function settleRound(params: {
             policyMomentum: policyMomentumGain.shuMomentumGain,
         })
         const shuGainBias = deriveShuGainBias(difficulty, Math.min(5, shuMomentum), shuPreparedBonus)
+        const mainlineShuPreparednessBonus = deriveMainlineShuBonus({
+            difficulty,
+            schemeSignals: collectMainlineShuSignals(schemes, schemeResults),
+            commandSignal: deriveMainlineCommandSignal(schemes, schemeResults),
+            preparedBonus: shuPreparedBonus,
+            existingMomentum: shuMomentum,
+        })
         const evaluation = evaluateShuCampaignOutcome({
             round,
             difficulty,
@@ -342,6 +435,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
             policyBoost: derivePolicyBoost(policyReport),
+            preparednessBonus: mainlineShuPreparednessBonus,
             momentumBonus: Math.min(5, shuMomentum) + shuPreparedBonus + shuGainBias,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
@@ -366,6 +460,13 @@ export function settleRound(params: {
             policyMomentum: policyMomentumGain.huainanMomentumGain,
         })
         const huainanCarryBonus = deriveHuainanCarryBonus(shuCampaign.resolvedState ?? shuCampaign.state, difficulty)
+        const mainlineHuainanBonus = deriveMainlineHuainanBonus({
+            difficulty,
+            shuResolvedState: shuCampaign.resolvedState ?? shuCampaign.state,
+            schemeSignals: collectMainlineHuainanSignals(schemes, schemeResults),
+            commandSignal: deriveMainlineHuainanCommandSignal(schemes, schemeResults),
+            preparedBonus: huainanPreparedBonus,
+        })
         const evaluation = evaluateHuainanCampaignOutcome({
             round,
             difficulty,
@@ -373,7 +474,7 @@ export function settleRound(params: {
             northStats,
             northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
             policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus + huainanCarryBonus,
+            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus + huainanCarryBonus + mainlineHuainanBonus,
         })
         northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
         southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
@@ -407,6 +508,7 @@ export function settleRound(params: {
     const summaryText = generateSummary(
         schemeResults,
         externalActionReports,
+        borrowedBladeReports,
         northPowerAfter - calculateCompositePower(params.northStats),
         southPowerAfter - calculateCompositePower(params.southStats),
     )
@@ -441,6 +543,7 @@ export function settleRound(params: {
         intelUnlocks,
         relationshipReports,
         externalActionReports,
+        borrowedBladeReports,
         factionCollapseReports,
         deathTriggered: deathCheck.triggered,
         deathKiller: deathCheck.killerName,
@@ -699,6 +802,63 @@ function deriveRecentBattleSignal(
     return round(Math.max(schemeSignal, policySignal))
 }
 
+function collectMainlineShuSignals(schemes: SchemeAction[], schemeResults: SchemeResult[]): number[] {
+    return schemeResults
+        .map((result, index) => ({ result, action: schemes[index] }))
+        .filter(item => item.result.success)
+        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
+        .map(item => round(
+            item.result.northParse.grainRelevance * 0.38
+            + item.result.northParse.governanceRelevance * 0.36
+            + item.result.northParse.militaryRelevance * 0.16
+            + item.result.northParse.executability * 0.1,
+        ))
+}
+
+function deriveMainlineCommandSignal(schemes: SchemeAction[], schemeResults: SchemeResult[]): number {
+    const strongest = schemeResults
+        .map((result, index) => ({ result, action: schemes[index] }))
+        .filter(item => item.result.success)
+        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
+        .map(item => round(
+            item.result.northParse.governanceRelevance * 0.4
+            + item.result.northParse.structuralPenetration * 0.32
+            + item.result.northParse.executability * 0.18
+            + item.result.northParse.eventFit * 0.1,
+        ))
+
+    return strongest.length > 0 ? Math.max(...strongest) : 0
+}
+
+function collectMainlineHuainanSignals(schemes: SchemeAction[], schemeResults: SchemeResult[]): number[] {
+    return schemeResults
+        .map((result, index) => ({ result, action: schemes[index] }))
+        .filter(item => item.result.success)
+        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
+        .map(item => round(
+            item.result.northParse.militaryRelevance * 0.34
+            + item.result.northParse.grainRelevance * 0.28
+            + item.result.northParse.financeRelevance * 0.22
+            + item.result.northParse.executability * 0.16,
+        ))
+}
+
+function deriveMainlineHuainanCommandSignal(schemes: SchemeAction[], schemeResults: SchemeResult[]): number {
+    const strongest = schemeResults
+        .map((result, index) => ({ result, action: schemes[index] }))
+        .filter(item => item.result.success)
+        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
+        .map(item => round(
+            item.result.northParse.militaryRelevance * 0.3
+            + item.result.northParse.structuralPenetration * 0.28
+            + item.result.northParse.executability * 0.18
+            + item.result.northParse.eventFit * 0.14
+            + item.result.northParse.governanceRelevance * 0.1,
+        ))
+
+    return strongest.length > 0 ? Math.max(...strongest) : 0
+}
+
 function deriveNorthPressurePenalty(
     npcs: NPC[],
     factions: Faction[],
@@ -877,10 +1037,16 @@ function extraEffectsToFactionVectors(
 function generateSummary(
     schemeResults: SchemeResult[],
     externalActionReports: ExternalActionReport[],
+    borrowedBladeReports: BorrowedBladeReport[],
     northDelta: number,
     southDelta: number,
 ): string {
     const successCount = schemeResults.filter(result => result.success).length
+    void borrowedBladeReports
+    const disposalSummary = borrowedBladeReports.length > 0
+        ? `借刀链上又有${borrowedBladeReports.length}次收口动作。`
+        : ''
+    void disposalSummary
     const actionSummary = externalActionReports.length > 0
         ? `另有${externalActionReports.length}股外部势力明牌动作。`
         : '外部势力尚未彻底明牌。'

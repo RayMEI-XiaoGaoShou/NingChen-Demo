@@ -89,4 +89,31 @@ describe('endingEngine', () => {
         expect(death.sceneLabel).toContain('贺拔琪')
         expect(death.epilogueLines[0]).toContain('南陈女帝')
     })
+
+    it('surfaces borrowed-blade death in npc fates', () => {
+        const report = buildEndingReport({
+            gameResult: 'VICTORY',
+            currentRound: 20,
+            northPower: 56,
+            southPower: 62,
+            npcs: INITIAL_NPCS.map(npc => npc.id === 'yuwendi'
+                ? {
+                    ...npc,
+                    isAlive: false,
+                    deathCause: 'borrowed_blade',
+                    deathByNpcName: '祖廷',
+                }
+                : { ...npc }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
+            lastSettlement: {
+                externalActionReports: [],
+                relationshipReports: [],
+                deathKiller: null,
+                invasionTriggered: false,
+            },
+        })
+
+        expect(report.npcFates.some(item => item.summary.includes('借刀'))).toBe(true)
+    })
 })

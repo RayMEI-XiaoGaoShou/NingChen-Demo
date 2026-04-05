@@ -1,8 +1,41 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { buildAdvisorHint, getHighlightedNpcIds, getNpcRoundReaction } from './roundIntelEngine'
+import { buildExternalActionStageHint } from './externalActionHint'
+import { buildAdvisorHint, buildBorrowedBladeAdvisorHint, getHighlightedNpcIds, getNpcRoundReaction, getRoundAdvisorHint } from './roundIntelEngine'
 
 describe('buildAdvisorHint', () => {
+    it('adds a stage hint when an external target is close to secession but still lacks trust', () => {
+        const hint = buildExternalActionStageHint({
+            round: 7,
+            npc: {
+                id: 'hebabogui',
+                name: '贺拔伯圭',
+                trust: 61,
+                loyaltyToCourt: 26,
+                externalStatus: 'watchful',
+                isAlive: true,
+                powerBase: 'external',
+                highActionBias: 'secession',
+            },
+            unlockedSecrets: 2,
+            difficulty: 'normal',
+        })
+
+        expect(hint).toContain('养信')
+        expect(hint).toContain('尚差信任')
+    })
+
+    it('merges external-action stage hints into the advisor line', () => {
+        const hint = getRoundAdvisorHint(
+            7,
+            [{ id: 'hebabogui', name: '贺拔伯圭', isAlive: true }],
+            '冯道之密语：贺拔伯圭眼下可先养信。',
+        )
+
+        expect(hint).toContain('冯道之密语')
+        expect(hint).toContain('养信')
+    })
+
     it('mentions only alive key figures for the round', () => {
         const hint = buildAdvisorHint(
             {
@@ -44,5 +77,14 @@ describe('buildAdvisorHint', () => {
 
         expect(shallow).not.toEqual(deep)
         expect(deep).toContain('归政')
+    })
+
+    it('adds a borrowed-blade hint when a supported target is already near disposal', () => {
+        const hint = buildBorrowedBladeAdvisorHint(
+            INITIAL_NPCS.map(npc => npc.id === 'zuting' ? { ...npc, disposalStage: 'disposable' } : { ...npc }),
+        )
+
+        expect(hint).toContain('祖廷')
+        expect(hint).toContain('借刀')
     })
 })

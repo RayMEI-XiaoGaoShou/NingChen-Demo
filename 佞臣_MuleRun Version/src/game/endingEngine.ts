@@ -267,8 +267,16 @@ function buildNpcFates(npcs: NPC[], factions: Faction[]): EndingNpcFate[] {
     return candidates.map(npc => ({
             npcId: npc.id,
             npcName: npc.name,
-            summary: summarizeNpcFate(npc, factions),
+            summary: summarizeNpcFateWithBorrowedBlade(npc, factions),
         }))
+}
+
+function summarizeNpcFateWithBorrowedBlade(npc: NPC, factions: Faction[]): string {
+    if (!npc.isAlive && npc.deathCause === 'borrowed_blade') {
+        return `${npc.name}死于借刀之局，${npc.deathByNpcName ?? '朝中权臣'}顺着裂缝将他正式推出了朝局。`
+    }
+
+    return summarizeNpcFate(npc, factions)
 }
 
 function summarizeNpcFate(npc: NPC, factions: Faction[]): string {
