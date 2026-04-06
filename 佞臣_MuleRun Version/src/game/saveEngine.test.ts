@@ -18,6 +18,10 @@ describe('saveEngine', () => {
     const initialOmenGuideSeen = {
         first_omen_modal: false,
     }
+    const initialSchemeOnboardingSeen = {
+        scheme_master_guide: false,
+        first_omen_teaching: false,
+    }
 
     const createBaseState = () => ({
         currentRound: 1,
@@ -29,7 +33,9 @@ describe('saveEngine', () => {
         helpOverlayOpen: false,
         helpOverlaySource: null,
         firstRoundGuideSeen: initialFirstRoundGuideSeen,
+        schemeOnboardingSeen: initialSchemeOnboardingSeen,
         omenGuideSeen: initialOmenGuideSeen,
+        fengDaozhiAssistsRemaining: 2,
         playerDangerStage: 'safe' as const,
         isGameOver: false,
         gameResult: 'NONE' as const,

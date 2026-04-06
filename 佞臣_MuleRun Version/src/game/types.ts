@@ -29,6 +29,8 @@ export type FirstRoundGuideKey =
     | 'scheme_feedback'
     | 'settlement'
 export type FirstRoundGuideSeenMap = Record<FirstRoundGuideKey, boolean>
+export type SchemeOnboardingGuideKey = 'scheme_master_guide' | 'first_omen_teaching'
+export type SchemeOnboardingSeenMap = Record<SchemeOnboardingGuideKey, boolean>
 export interface OmenGuideSeenMap {
     first_omen_modal: boolean
 }
@@ -181,6 +183,22 @@ export interface SchemeAction {
 export interface OmenSpeechInput {
     omenText: string
     interpretationText: string
+}
+
+export interface FengDaozhiDraftRequest {
+    round: number
+    difficulty: GameDifficulty
+    targetNpcId: string
+    schemeType: SchemeType
+    playerDangerStage: PlayerDangerStage
+    relatedNpcId?: string
+    omenSpeechInput?: OmenSpeechInput
+}
+
+export interface FengDaozhiDraftResult {
+    primaryText: string
+    secondaryText?: string
+    source: 'ai' | 'fallback'
 }
 
 export interface PolicyOption {

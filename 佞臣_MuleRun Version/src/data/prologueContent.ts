@@ -14,6 +14,13 @@ export interface FirstRoundGuideContent {
     body: string[]
 }
 
+export interface OnboardingGuidePage {
+    key: string
+    heading: string
+    intro?: string
+    bullets: string[]
+}
+
 export const PROLOGUE_SECTIONS: PrologueSection[] = [
     {
         title: '纷乱之世',
@@ -139,6 +146,15 @@ export const FIRST_ROUND_GUIDE_CONTENT = {
             '你的说辞会影响成败与效果强弱，切勿视作装饰文字。',
         ],
     },
+    first_omen_modal: {
+        title: '谶纬入局',
+        body: [
+            '谶纬不是普通献策，而是借灾异、名分与天命不稳去放大中枢裂缝。',
+            '它更适合名分焦虑重、身在宫廷中枢、又容易受流言与天意牵动的人物。',
+            '说辞宜写灾异、法统、天命、人心，不宜写成兵粮调度或寻常挑拨。',
+            '用得准，能把疑惧推成大势；用偏了，也更容易反噬到你自己。',
+        ],
+    },
     empress_letter: {
         title: '问政决定方向，附言决定强弱',
         body: [
@@ -161,3 +177,64 @@ export const FIRST_ROUND_GUIDE_CONTENT = {
         ],
     },
 } satisfies Record<string, FirstRoundGuideContent>
+
+export const SCHEME_MASTER_GUIDE_CONTENT = {
+    title: '施计总引导',
+    pages: [
+        {
+            key: 'scheme-definitions',
+            heading: '每一计都在做什么',
+            intro: '施计不是直接改数字，而是先影响人，再传到势力与国力。',
+            bullets: [
+                '试探：探口风、探弱点、探暗线，主要先看人心与可乘之隙。',
+                '献策：只有利于目标个人、却伤及北周整体时，才是你真正想要的好献策。',
+                '谗言：对他说别人的坏话，先让他对某人起疑。',
+                '离间：让两人或两方之间出现真实裂缝，而不只是嘴上不快。',
+                '设局嫁祸：诱他失言、失态或误判，让嫌疑和责任落回他自己身上。',
+                '借刀：让眼前之人替你去打另一个人，是整条权谋链的收尾重手。',
+            ],
+        },
+        {
+            key: 'settlement-chain',
+            heading: '天道如何判断你这一手有没有效',
+            intro: 'AI 先理解你的输入，本地规则再决定最终结算。',
+            bullets: [
+                '天道会看：是否切中人物、是否贴合当回合时局、是否真有执行链条、是否会暴露。',
+                '计谋要先在人物层成立，才会进一步传到关系层、势力层与国力层。',
+                '泛泛大道理、两头都能套的话，通常只能涨一点信任，很难直接打到国力。',
+            ],
+        },
+        {
+            key: 'special-notes',
+            heading: '特别说明',
+            intro: '这三类计谋最容易用错，也最值得细想。',
+            bullets: [
+                '献策可能反效果：若你给的是利国之策，北周会因此更稳，这对你反而不利。',
+                '谶纬不是普通离间：要先给出谶辞或征兆，再解释它如何指向名分裂缝与可疑之人。',
+                '设局嫁祸不是替他散布流言，而是引他自己掉进局里、背上嫌疑。',
+            ],
+        },
+    ] satisfies OnboardingGuidePage[],
+}
+
+export const FIRST_OMEN_TEACHING_CONTENT = {
+    title: '谶（chen）纬初解',
+    intro: '谶纬不是普通挑拨，而是借征兆、灾异与天命解释动摇法统和人心。',
+    steps: [
+        '先写一段谶辞或征兆。',
+        '再解释它意味着什么名分裂缝。',
+        '最后暗示谁最该警惕、哪条关系线最可疑。',
+    ],
+    goodExample: {
+        omen: '石人一只眼，挑动黄河天下反。',
+        interpretation: '这不是孤立天灾，恐是朝中名分失序、越分侵权之兆。若仍有人借龙气自重，朝野自会把祸兆归到人事上。',
+    },
+    badExample: {
+        omen: '最近天意不太好。',
+        interpretation: '大家最好都小心一点。',
+    },
+    impactNotes: [
+        '若你借灾异放大合法性裂缝，北周的治理、秩序与名分稳定会受损。',
+        '若你反而把征兆解释成修德安民之机，可能会帮北周稳局。',
+    ],
+}

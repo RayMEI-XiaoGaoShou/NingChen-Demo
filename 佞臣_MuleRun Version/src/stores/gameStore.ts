@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, NationDimensions, NorthSchemeParseResult, SchemeAction, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -19,6 +19,10 @@ import { getAvailableSchemesForNpc } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
 import { buildRoundStartSnapshot, type PersistedGameSnapshot, type RoundStartSnapshot } from '../game/saveEngine'
+import { getDifficultyProfile } from '../game/difficulty'
+import { chatCompletionJson } from '../ai/aiService'
+import { buildFengDaozhiDraftPrompt } from '../ai/prompts'
+import { buildFallbackFengDaozhiDraft, buildFengDaozhiDraftContext, normalizeFengDaozhiDraft } from '../game/fengDaozhiAdvisor'
 
 /** 单条NPC反馈记录 */
 export interface NpcFeedback {
@@ -44,7 +48,9 @@ interface GameState {
     helpOverlayOpen: boolean
     helpOverlaySource: HelpOverlaySource | null
     firstRoundGuideSeen: FirstRoundGuideSeenMap
+    schemeOnboardingSeen: SchemeOnboardingSeenMap
     omenGuideSeen: OmenGuideSeenMap
+    fengDaozhiAssistsRemaining: number
     playerDangerStage: PlayerDangerStage
 
     // 游戏结果
@@ -96,7 +102,11 @@ interface GameState {
     openGameplayGuide: (source?: HelpOverlaySource) => void
     closeGameplayGuide: () => void
     markFirstRoundGuideSeen: (key: FirstRoundGuideKey) => void
+    markSchemeOnboardingSeen: (key: SchemeOnboardingGuideKey) => void
     markOmenGuideSeen: () => void
+    consumeFengDaozhiAssist: () => void
+    resetFengDaozhiAssistsForRound: () => void
+    requestFengDaozhiDraft: (request: FengDaozhiDraftRequest) => Promise<FengDaozhiDraftResult | null>
     saveRoundStartSnapshot: () => void
     restoreRoundStartSnapshot: () => void
     resetGame: () => void
@@ -133,6 +143,12 @@ const initialFirstRoundGuideSeen: FirstRoundGuideSeenMap = {
 const initialOmenGuideSeen: OmenGuideSeenMap = {
     first_omen_modal: false,
 }
+const initialSchemeOnboardingSeen: SchemeOnboardingSeenMap = {
+    scheme_master_guide: false,
+    first_omen_teaching: false,
+}
+const getAssistQuotaForDifficulty = (difficulty: GameDifficulty) =>
+    getDifficultyProfile(difficulty).onboarding.fengDaozhiAssistsPerRound
 
 function normalizeFirstRoundGuideSeen(
     value?: FirstRoundGuideSeenMap | boolean,
@@ -182,7 +198,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     helpOverlayOpen: false,
     helpOverlaySource: null,
     firstRoundGuideSeen: initialFirstRoundGuideSeen,
+    schemeOnboardingSeen: initialSchemeOnboardingSeen,
     omenGuideSeen: initialOmenGuideSeen,
+    fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
     playerDangerStage: 'safe',
     isGameOver: false,
     gameResult: 'NONE',
@@ -406,6 +424,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         currentRound: currentRound + 1,
                         currentPhase: 'ROUND_START',
                         schemeCount: 0,
+                        fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(state.difficulty),
                         playerDangerStage: state.playerDangerStage,
                         southStats: nextSouthStats,
                         northStats: backlashResult.northStats,
@@ -468,7 +487,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     },
 
     setDifficulty: (difficulty: GameDifficulty) => {
-        set({ difficulty })
+        set({
+            difficulty,
+            fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(difficulty),
+        })
     },
 
     openGameplayGuide: (source: HelpOverlaySource = 'gameplay') => {
@@ -494,6 +516,15 @@ export const useGameStore = create<GameState>((set, get) => ({
         }))
     },
 
+    markSchemeOnboardingSeen: (key: SchemeOnboardingGuideKey) => {
+        set(state => ({
+            schemeOnboardingSeen: {
+                ...state.schemeOnboardingSeen,
+                [key]: true,
+            },
+        }))
+    },
+
     markOmenGuideSeen: () => {
         set(state => ({
             omenGuideSeen: {
@@ -501,6 +532,61 @@ export const useGameStore = create<GameState>((set, get) => ({
                 first_omen_modal: true,
             },
         }))
+    },
+
+    consumeFengDaozhiAssist: () => {
+        set(state => ({
+            fengDaozhiAssistsRemaining: Math.max(0, state.fengDaozhiAssistsRemaining - 1),
+        }))
+    },
+
+    resetFengDaozhiAssistsForRound: () => {
+        set(state => ({
+            fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(state.difficulty),
+        }))
+    },
+
+    requestFengDaozhiDraft: async (request: FengDaozhiDraftRequest) => {
+        const state = get()
+        if (state.fengDaozhiAssistsRemaining <= 0) return null
+
+        const npc = state.npcs.find(item => item.id === request.targetNpcId)
+        if (!npc || !npc.isAlive) return null
+
+        const relatedNpc = request.relatedNpcId
+            ? state.npcs.find(item => item.id === request.relatedNpcId)
+            : null
+        const context = buildFengDaozhiDraftContext({
+            request,
+            npc,
+            factions: state.factions,
+            unlockedSecrets: state.intelProgress[npc.id] ?? 0,
+            roundHistory: state.roundHistory,
+            recentBacklash: state.recentBacklash,
+        })
+
+        try {
+            const aiDraft = await chatCompletionJson<{ primaryText?: string; secondaryText?: string }>(
+                buildFengDaozhiDraftPrompt({
+                    context,
+                    schemeType: request.schemeType,
+                    relatedNpcName: relatedNpc?.name,
+                }),
+                { temperature: 0.55, maxTokens: request.schemeType === 'omen' ? 260 : 180, tag: 'feng_daozhi_draft' },
+            )
+            const normalized = normalizeFengDaozhiDraft(aiDraft, request.schemeType)
+            const draft = normalized ?? buildFallbackFengDaozhiDraft(request, context)
+            set(current => ({
+                fengDaozhiAssistsRemaining: Math.max(0, current.fengDaozhiAssistsRemaining - 1),
+            }))
+            return draft
+        } catch {
+            const fallback = buildFallbackFengDaozhiDraft(request, context)
+            set(current => ({
+                fengDaozhiAssistsRemaining: Math.max(0, current.fengDaozhiAssistsRemaining - 1),
+            }))
+            return fallback
+        }
     },
 
     saveRoundStartSnapshot: () => {
@@ -515,7 +601,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: state.firstRoundGuideSeen,
+            schemeOnboardingSeen: state.schemeOnboardingSeen,
             omenGuideSeen: state.omenGuideSeen,
+            fengDaozhiAssistsRemaining: state.fengDaozhiAssistsRemaining,
             playerDangerStage: state.playerDangerStage,
             isGameOver: false,
             gameResult: 'NONE',
@@ -572,7 +660,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: snapshot.firstRoundGuideSeen,
+            schemeOnboardingSeen: snapshot.schemeOnboardingSeen,
             omenGuideSeen: snapshot.omenGuideSeen,
+            fengDaozhiAssistsRemaining: snapshot.fengDaozhiAssistsRemaining,
             playerDangerStage: snapshot.playerDangerStage,
             isGameOver: false,
             gameResult: 'NONE',
@@ -618,7 +708,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: initialFirstRoundGuideSeen,
+            schemeOnboardingSeen: initialSchemeOnboardingSeen,
             omenGuideSeen: initialOmenGuideSeen,
+            fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
             playerDangerStage: 'safe',
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
@@ -705,7 +797,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen?: boolean
             helpOverlaySource?: HelpOverlaySource | null
             firstRoundGuideSeen?: FirstRoundGuideSeenMap | boolean
+            schemeOnboardingSeen?: SchemeOnboardingSeenMap
             omenGuideSeen?: OmenGuideSeenMap
+            fengDaozhiAssistsRemaining?: number
         }
 
         const prologueStep =
@@ -722,7 +816,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             helpOverlayOpen: guideSnapshot.helpOverlayOpen ?? false,
             helpOverlaySource: guideSnapshot.helpOverlaySource ?? null,
             firstRoundGuideSeen: normalizeFirstRoundGuideSeen(guideSnapshot.firstRoundGuideSeen),
+            schemeOnboardingSeen: guideSnapshot.schemeOnboardingSeen ?? initialSchemeOnboardingSeen,
             omenGuideSeen: guideSnapshot.omenGuideSeen ?? initialOmenGuideSeen,
+            fengDaozhiAssistsRemaining:
+                guideSnapshot.fengDaozhiAssistsRemaining ??
+                getAssistQuotaForDifficulty(snapshot.difficulty ?? initialDifficulty),
             playerDangerStage: snapshot.playerDangerStage ?? 'safe',
             isGameOver: snapshot.isGameOver,
             gameResult: snapshot.gameResult,

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { buildNorthSchemeParsePrompt, buildNpcPrompt, sanitizeNpcReplyText } from './prompts'
+import { buildFengDaozhiDraftPrompt, buildNorthSchemeParsePrompt, buildNpcPrompt, sanitizeNpcReplyText } from './prompts'
+import type { FengDaozhiDraftContext } from '../game/fengDaozhiAdvisor'
 
 describe('buildNpcPrompt', () => {
     it('forbids invented titles for the protagonist and injects dynamic round context', () => {
@@ -175,5 +176,46 @@ describe('buildNorthSchemeParsePrompt', () => {
         expect(slanderPrompt).toContain('generic suspicion or mood should not score high')
         expect(alienatePrompt).toContain('relationship crack must reach command, logistics, or coordination')
         expect(proxyPrompt).toContain('actor motive, means, and public consequence')
+    })
+})
+
+describe('buildFengDaozhiDraftPrompt', () => {
+    const baseContext: FengDaozhiDraftContext = {
+        round: 8,
+        eventName: '西线兵权再议',
+        eventBriefing: '朝中正在争论谁来统筹西线兵权与后续接管。',
+        schemeLabel: '献策',
+        targetNpcName: '祖廷',
+        targetNpcTitle: '尚书左仆射',
+        targetPersona: '性急而善理政，记怨极深。',
+        visibleSecrets: ['他最恨旁人借战事夺中枢节制。'],
+        previousDealings: '上一回合你曾以试探探他的口风。',
+        relationshipTemperature: '近两回合你多以稳字开口，他对你仍在衡量。',
+        recentCourtFortune: '帝后两党都想借西线再扩口子。',
+        factionPressure: '后党担心兵权旁落，帝党则想借机再压中枢。',
+        playerDangerStage: 'under_watch',
+    }
+
+    it('keeps Feng Daozhi limited to player-visible information', () => {
+        const prompt = buildFengDaozhiDraftPrompt({
+            context: baseContext,
+            schemeType: 'advise',
+            relatedNpcName: '宗艾',
+        })
+
+        expect(prompt[0].content).toContain('只能使用输入中明确给出的时局、人物公开信息、已解锁暗线与近况')
+        expect(prompt[1].content).toContain('已解锁暗线：他最恨旁人借战事夺中枢节制。')
+        expect(prompt[1].content).toContain('萧宝颖当前危险：under_watch')
+    })
+
+    it('requires dual-step omen drafting', () => {
+        const prompt = buildFengDaozhiDraftPrompt({
+            context: { ...baseContext, schemeLabel: '谶纬' },
+            schemeType: 'omen',
+        })[1].content
+
+        expect(prompt).toContain('primaryText 必须像一句征兆、谶辞或灾异异象')
+        expect(prompt).toContain('secondaryText 必须解释这句征兆意味着怎样的名分裂缝')
+        expect(prompt).toContain('"secondaryText": "string，可省略"')
     })
 })

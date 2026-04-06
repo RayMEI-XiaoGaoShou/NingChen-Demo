@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useGameStore } from './gameStore'
 import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_FACTIONS } from '../data/factions'
@@ -6,6 +6,7 @@ import { INITIAL_RELATIONSHIP_EDGES } from '../data/npcRelationships'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { calculateCompositePower } from '../game/types'
 import type { PersistedGameSnapshot } from '../game/saveEngine'
+import * as aiService from '../ai/aiService'
 
 const initialFirstRoundGuideSeen = {
     round_start: false,
@@ -14,6 +15,11 @@ const initialFirstRoundGuideSeen = {
     empress_letter: false,
     scheme_feedback: false,
     settlement: false,
+}
+
+const initialSchemeOnboardingSeen = {
+    scheme_master_guide: false,
+    first_omen_teaching: false,
 }
 
 function resetStore() {
@@ -71,9 +77,11 @@ function resetStore() {
         helpOverlayOpen: false,
         helpOverlaySource: null,
         firstRoundGuideSeen: initialFirstRoundGuideSeen,
+        schemeOnboardingSeen: initialSchemeOnboardingSeen,
         omenGuideSeen: {
             first_omen_modal: false,
         },
+        fengDaozhiAssistsRemaining: 2,
     })
 }
 
@@ -241,6 +249,37 @@ describe('gameStore addScheme', () => {
     })
 })
 
+describe('gameStore Feng Daozhi drafting', () => {
+    beforeEach(() => {
+        vi.restoreAllMocks()
+        resetStore()
+    })
+
+    it('consumes one assist and returns omen dual-step draft text', async () => {
+        vi.spyOn(aiService, 'chatCompletionJson').mockResolvedValueOnce({
+            primaryText: '石人一只眼，挑动黄河天下反。',
+            secondaryText: '此非独天灾，恐是朝中名分失序之兆。',
+        })
+
+        const draft = await useGameStore.getState().requestFengDaozhiDraft({
+            round: 13,
+            difficulty: 'normal',
+            targetNpcId: 'zongai',
+            schemeType: 'omen',
+            playerDangerStage: 'safe',
+            omenSpeechInput: {
+                omenText: '',
+                interpretationText: '',
+            },
+        })
+
+        expect(draft?.primaryText).toBe('石人一只眼，挑动黄河天下反。')
+        expect(draft?.secondaryText).toBe('此非独天灾，恐是朝中名分失序之兆。')
+        expect(draft?.source).toBe('ai')
+        expect(useGameStore.getState().fengDaozhiAssistsRemaining).toBe(1)
+    })
+})
+
 describe('gameStore guide and prologue state', () => {
     beforeEach(() => {
         resetStore()
@@ -334,6 +373,31 @@ describe('gameStore guide and prologue state', () => {
 
         useGameStore.getState().resetGame()
         expect(useGameStore.getState().omenGuideSeen.first_omen_modal).toBe(false)
+    })
+
+    it('marks scheme onboarding guides as seen and clears them on reset', () => {
+        useGameStore.getState().markSchemeOnboardingSeen('scheme_master_guide')
+        expect(useGameStore.getState().schemeOnboardingSeen.scheme_master_guide).toBe(true)
+
+        useGameStore.getState().resetGame()
+        expect(useGameStore.getState().schemeOnboardingSeen).toEqual(initialSchemeOnboardingSeen)
+    })
+
+    it('updates Feng Daozhi assist quota by difficulty and refreshes it next round', () => {
+        useGameStore.getState().setDifficulty('hard')
+        expect(useGameStore.getState().fengDaozhiAssistsRemaining).toBe(1)
+
+        useGameStore.setState({
+            currentRound: 2,
+            currentPhase: 'ROUND_END',
+            fengDaozhiAssistsRemaining: 0,
+        })
+
+        useGameStore.getState().nextPhase()
+
+        const state = useGameStore.getState()
+        expect(state.currentRound).toBe(3)
+        expect(state.fengDaozhiAssistsRemaining).toBe(1)
     })
 
     it('hydrates old snapshots without prologueStep using the current phase as fallback', () => {
@@ -472,9 +536,14 @@ describe('gameStore guide and prologue state', () => {
                 scheme_feedback: true,
                 settlement: false,
             },
+            schemeOnboardingSeen: {
+                scheme_master_guide: true,
+                first_omen_teaching: false,
+            },
             omenGuideSeen: {
                 first_omen_modal: false,
             },
+            fengDaozhiAssistsRemaining: 3,
         } as PersistedGameSnapshot & {
             prologueStep: 'GAMEPLAY_GUIDE'
             helpOverlayOpen: boolean
@@ -508,6 +577,11 @@ describe('gameStore guide and prologue state', () => {
             scheme_feedback: true,
             settlement: false,
         })
+        expect(state.schemeOnboardingSeen).toEqual({
+            scheme_master_guide: true,
+            first_omen_teaching: false,
+        })
+        expect(state.fengDaozhiAssistsRemaining).toBe(3)
     })
 
     it('can save and restore the current round start snapshot after a failed round', () => {

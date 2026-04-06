@@ -6,7 +6,7 @@
 
 import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
-import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
+import { FIRST_OMEN_TEACHING_CONTENT, SCHEME_MASTER_GUIDE_CONTENT } from '../../data/prologueContent'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
@@ -17,9 +17,11 @@ import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/sche
 import { getHighlightedNpcIds } from '../../game/roundIntelEngine'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt } from '../../ai/prompts'
-import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { FengDaozhiAssistPanel } from './FengDaozhiAssistPanel'
+import { OmenTeachingModal } from './OmenTeachingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
-import type { OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
+import { SchemeOnboardingModal } from './SchemeOnboardingModal'
+import type { FengDaozhiDraftResult, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
 
 export interface SchemeSpeechFields {
@@ -89,10 +91,15 @@ export function SchemePanel() {
         markSchemeParsePending,
         updateSchemeParse,
         firstRoundGuideSeen,
+        schemeOnboardingSeen,
         markFirstRoundGuideSeen,
+        markSchemeOnboardingSeen,
         omenGuideSeen,
         markOmenGuideSeen,
         openGameplayGuide,
+        fengDaozhiAssistsRemaining,
+        playerDangerStage,
+        requestFengDaozhiDraft,
     } = useGameStore()
 
     const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
@@ -102,6 +109,9 @@ export function SchemePanel() {
     const [omenText, setOmenText] = useState('')
     const [interpretationText, setInterpretationText] = useState('')
     const [justSubmitted, setJustSubmitted] = useState(false)
+    const [showSchemeGuide, setShowSchemeGuide] = useState(false)
+    const [fengDraftPreview, setFengDraftPreview] = useState<FengDaozhiDraftResult | null>(null)
+    const [fengDraftLoading, setFengDraftLoading] = useState(false)
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId)
@@ -117,10 +127,14 @@ export function SchemePanel() {
         round: currentRound,
         difficulty,
         firstRoundGuideSeen,
+        schemeOnboardingSeen,
         omenGuideSeen,
     })
     const shouldShowOmenGuide = omenGuidePresentation === 'modal'
     const shouldShowOmenInlineHint = omenGuidePresentation === 'inline'
+    const shouldShowSchemeGuide =
+        !shouldShowOmenGuide &&
+        (((!schemeOnboardingSeen.scheme_master_guide && currentRound === 1) || showSchemeGuide))
     const speechFields = getSchemeSpeechFields(selectedScheme)
 
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
@@ -141,6 +155,38 @@ export function SchemePanel() {
     }
 
     const createActionId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+    const handleFengDaozhiDraft = async () => {
+        if (!selectedNpcId || !selectedScheme || fengDaozhiAssistsRemaining <= 0 || fengDraftLoading) return
+
+        setFengDraftLoading(true)
+        try {
+            const draft = await requestFengDaozhiDraft({
+                round: currentRound,
+                difficulty,
+                targetNpcId: selectedNpcId,
+                schemeType: selectedScheme,
+                playerDangerStage,
+                relatedNpcId: relatedNpcId ?? undefined,
+                omenSpeechInput: selectedScheme === 'omen'
+                    ? { omenText, interpretationText }
+                    : undefined,
+            })
+
+            if (!draft) return
+
+            setFengDraftPreview(draft)
+            if (selectedScheme === 'omen') {
+                setOmenText(draft.primaryText)
+                setInterpretationText(draft.secondaryText ?? '')
+                setSpeech([draft.primaryText, draft.secondaryText].filter(Boolean).join('\n\n'))
+            } else {
+                setSpeech(draft.primaryText)
+            }
+        } finally {
+            setFengDraftLoading(false)
+        }
+    }
 
     const handleExecute = async () => {
         if (!selectedNpcId || !selectedScheme || !selectedNpc) return
@@ -242,6 +288,9 @@ export function SchemePanel() {
             setSelectedScheme(null)
             setRelatedNpcId(null)
             setSpeech('')
+            setOmenText('')
+            setInterpretationText('')
+            setFengDraftPreview(null)
             setJustSubmitted(false)
 
             if (schemeCount + 1 >= maxSchemes) {
@@ -252,24 +301,35 @@ export function SchemePanel() {
 
     return (
         <div className="page-container scheme-panel animate-fade-in">
-            {currentRound === 1 && !firstRoundGuideSeen.scheme_phase && (
-                <FirstRoundGuideModal
-                    title={FIRST_ROUND_GUIDE_CONTENT.scheme_phase.title}
-                    body={FIRST_ROUND_GUIDE_CONTENT.scheme_phase.body}
-                    onClose={() => markFirstRoundGuideSeen('scheme_phase')}
+            {shouldShowSchemeGuide && (
+                <SchemeOnboardingModal
+                    open
+                    title={SCHEME_MASTER_GUIDE_CONTENT.title}
+                    pages={SCHEME_MASTER_GUIDE_CONTENT.pages}
+                    onClose={() => {
+                        markFirstRoundGuideSeen('scheme_phase')
+                        markSchemeOnboardingSeen('scheme_master_guide')
+                        setShowSchemeGuide(false)
+                    }}
                 />
             )}
 
             {shouldShowOmenGuide && (
-                <FirstRoundGuideModal
-                    title={FIRST_ROUND_GUIDE_CONTENT.first_omen_modal.title}
-                    body={FIRST_ROUND_GUIDE_CONTENT.first_omen_modal.body}
-                    onClose={markOmenGuideSeen}
+                <OmenTeachingModal
+                    open
+                    content={FIRST_OMEN_TEACHING_CONTENT}
+                    onClose={() => {
+                        markOmenGuideSeen()
+                        markSchemeOnboardingSeen('first_omen_teaching')
+                    }}
                 />
             )}
 
             <div className="page-utility-row utility-split animate-slide-up">
                 <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
+                <button className="btn-help" onClick={() => setShowSchemeGuide(true)}>
+                    计谋指南
+                </button>
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
                     玩法说明
                 </button>
@@ -316,6 +376,7 @@ export function SchemePanel() {
                                                         setSpeech('')
                                                         setOmenText('')
                                                         setInterpretationText('')
+                                                        setFengDraftPreview(null)
                                                     }}
                                                 >
                                                     <div className="npc-select-main">
@@ -354,6 +415,7 @@ export function SchemePanel() {
                                                             setSpeech('')
                                                             setOmenText('')
                                                             setInterpretationText('')
+                                                            setFengDraftPreview(null)
                                                         }}
                                                     >
                                                         <div className="scheme-info">
@@ -376,7 +438,10 @@ export function SchemePanel() {
                                                 <button
                                                     key={npc.id}
                                                     className={`npc-select-btn ${relatedNpcId === npc.id ? 'selected' : ''}`}
-                                                    onClick={() => setRelatedNpcId(npc.id)}
+                                                    onClick={() => {
+                                                        setRelatedNpcId(npc.id)
+                                                        setFengDraftPreview(null)
+                                                    }}
                                                 >
                                                     <div className="npc-select-main">
                                                         <NpcPortrait
@@ -440,7 +505,7 @@ export function SchemePanel() {
                                                         <textarea
                                                             className="speech-input omen-speech-input"
                                                             value={omenText}
-                                                            onChange={e => setOmenText(e.target.value)}
+                                                        onChange={e => setOmenText(e.target.value)}
                                                             placeholder="先写一句谶辞、征兆或灾异异象……"
                                                             maxLength={60}
                                                         />
@@ -451,7 +516,7 @@ export function SchemePanel() {
                                                         <textarea
                                                             className="speech-input omen-speech-input"
                                                             value={interpretationText}
-                                                            onChange={e => setInterpretationText(e.target.value)}
+                                                        onChange={e => setInterpretationText(e.target.value)}
                                                             placeholder="再解释它意味着什么，以及谁最该警惕……"
                                                             maxLength={100}
                                                         />
@@ -471,6 +536,15 @@ export function SchemePanel() {
                                                 </>
                                             )}
                                             <p className="speech-tip">{speechFields.helperText}</p>
+                                            {selectedNpc && (
+                                                <FengDaozhiAssistPanel
+                                                    schemeType={selectedScheme}
+                                                    remaining={fengDaozhiAssistsRemaining}
+                                                    isLoading={fengDraftLoading}
+                                                    draftPreview={fengDraftPreview}
+                                                    onDraft={handleFengDaozhiDraft}
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 )}

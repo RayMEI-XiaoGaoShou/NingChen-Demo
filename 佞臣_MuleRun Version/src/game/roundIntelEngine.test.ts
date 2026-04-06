@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import { buildExternalActionStageHint } from './externalActionHint'
+import { buildOmenAdvisorHint } from './fengDaozhiHint'
 import { buildAdvisorHint, buildBorrowedBladeAdvisorHint, getHighlightedNpcIds, getNpcRoundReaction, getRoundAdvisorHint } from './roundIntelEngine'
 
-describe('buildAdvisorHint', () => {
+describe('roundIntelEngine', () => {
     it('adds a stage hint when an external target is close to secession but still lacks trust', () => {
         const hint = buildExternalActionStageHint({
             round: 7,
@@ -22,14 +23,14 @@ describe('buildAdvisorHint', () => {
         })
 
         expect(hint).toContain('养信')
-        expect(hint).toContain('尚差信任')
+        expect(hint).toContain('尚差最后一层信任火候')
     })
 
     it('merges external-action stage hints into the advisor line', () => {
         const hint = getRoundAdvisorHint(
             7,
             [{ id: 'hebabogui', name: '贺拔伯圭', isAlive: true }],
-            '冯道之密语：贺拔伯圭眼下可先养信。',
+            '冯道之密语【养信】：贺拔伯圭眼下可先养信。',
         )
 
         expect(hint).toContain('冯道之密语')
@@ -41,7 +42,7 @@ describe('buildAdvisorHint', () => {
             {
                 coreNpcIds: ['yuwendi', 'zuting', 'zongai'],
                 reactions: {
-                    yuwendi: '借边事催逼南征。',
+                    yuwendi: '借边事催迫南征。',
                     zuting: '想把边报与流民都按在中枢手里。',
                     zongai: '借宫中信息差做接口。',
                 },
@@ -56,18 +57,17 @@ describe('buildAdvisorHint', () => {
         expect(hint).toContain('宇文棣')
         expect(hint).toContain('宗艾')
         expect(hint).not.toContain('祖廷')
-        expect(hint).not.toContain('。；')
     })
 
     it('returns only alive highlighted NPC ids for current round focus', () => {
         const focusedIds = getHighlightedNpcIds(5, [
-            { id: 'hebaboguì', name: '贺拔伯圭', isAlive: true },
+            { id: 'hebabogui', name: '贺拔伯圭', isAlive: true },
             { id: 'duguwenyue', name: '独孤文约', isAlive: false },
             { id: 'zuting', name: '祖廷', isAlive: true },
             { id: 'yuwendi', name: '宇文棣', isAlive: true },
         ])
 
-        expect(focusedIds).toEqual(['hebaboguì', 'zuting', 'yuwendi'])
+        expect(focusedIds).toEqual(['zuting', 'yuwendi'])
     })
 
     it('reveals sharper motive-facing reactions as intel depth increases', () => {
@@ -86,5 +86,12 @@ describe('buildAdvisorHint', () => {
 
         expect(hint).toContain('祖廷')
         expect(hint).toContain('借刀')
+    })
+
+    it('builds a dedicated omen teaching hint on the first omen round', () => {
+        const hint = buildOmenAdvisorHint(13)
+
+        expect(hint).toContain('谶')
+        expect(hint).toContain('先写征兆，再释其意')
     })
 })

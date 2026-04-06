@@ -6,6 +6,8 @@ import { getRoundStartCampaignDisplay } from '../../game/campaignDisplayEngine'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRoundAdvisorHint } from '../../game/roundIntelEngine'
+import { buildDominantExternalStageHint } from '../../game/externalActionHint'
+import { buildOmenAdvisorHint } from '../../game/fengDaozhiHint'
 import './RoundStart.css'
 
 export function RoundStart() {
@@ -14,7 +16,9 @@ export function RoundStart() {
         nextPhase,
         northStats,
         southStats,
+        difficulty,
         npcs,
+        intelProgress,
         lastPolicyAftereffect,
         recentBacklash,
         firstRoundGuideSeen,
@@ -26,7 +30,16 @@ export function RoundStart() {
 
     const event = ROUND_EVENTS[currentRound - 1]
     const contextNotes = ROUND_CONTEXT_NOTES[currentRound] ?? []
-    const advisorHint = getRoundAdvisorHint(currentRound, npcs)
+    const externalStageHint = buildDominantExternalStageHint({
+        round: currentRound,
+        npcs,
+        intelProgress,
+        difficulty,
+    })
+    const omenAdvisorHint = buildOmenAdvisorHint(currentRound)
+    const advisorHint = [getRoundAdvisorHint(currentRound, npcs, externalStageHint), omenAdvisorHint]
+        .filter(Boolean)
+        .join(' ')
     const previousPolicyAftereffect =
         lastPolicyAftereffect && lastPolicyAftereffect.sourceRound === currentRound - 1
             ? lastPolicyAftereffect

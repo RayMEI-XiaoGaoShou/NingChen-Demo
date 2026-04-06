@@ -6,6 +6,7 @@
     SchemeType,
 } from '../game/types'
 import { getTrustLabel } from '../game/types'
+import type { FengDaozhiDraftContext } from '../game/fengDaozhiAdvisor'
 
 export interface ChatMessage {
     role: 'system' | 'user' | 'assistant'
@@ -449,6 +450,65 @@ export function buildPolicyReasonParsePrompt(params: {
   "legitimacyAlignment": 0-1,
   "policyStance": "neutral|balanced|aggressive|conservative|expedient",
   "evidence": ["不超过 3 条短句"]
+}`,
+        },
+    ]
+}
+
+const FENG_DAOZHI_DRAFT_SYSTEM = `${STRUCTURED_PARSE_SYSTEM}
+你是《佞臣》中的冯道之，只能依据玩家当前已知信息，为萧宝颖代拟一手计谋文字。
+要求：
+- 只能使用输入中明确给出的时局、人物公开信息、已解锁暗线与近况，不得开天眼，不得补充玩家未知秘密
+- 行文用古典白话，短而能用，像谋士递密札，不要写解释
+- 普通计谋只输出一段 primaryText
+- 谶纬必须输出两段：primaryText 为“谶辞/征兆”，secondaryText 为“解释/指向”
+- 不得输出列表、标题、括号说明或额外文字`
+
+export function buildFengDaozhiDraftPrompt(params: {
+    context: FengDaozhiDraftContext
+    schemeType: SchemeType
+    relatedNpcName?: string
+}): ChatMessage[] {
+    const { context, schemeType, relatedNpcName } = params
+    const isOmen = schemeType === 'omen'
+    const relatedNpcLine = relatedNpcName ? `关联人物：${relatedNpcName}` : '关联人物：无'
+    const visibleSecrets = context.visibleSecrets.length > 0
+        ? context.visibleSecrets.join('；')
+        : '暂无已解锁暗线'
+    const formatRules = isOmen
+        ? `谶纬格式要求：
+- primaryText 必须像一句征兆、谶辞或灾异异象，长度 8 到 30 字
+- secondaryText 必须解释这句征兆意味着怎样的名分裂缝、法统不安或谁最该警惕
+- secondaryText 不要直接写成定罪书，应更像借征兆点醒对方`
+        : `普通计谋格式要求：
+- primaryText 只写 1 到 2 句可直接拿去用的说辞
+- 要顺着目标人物当前最在意的权柄、体面、退路或局势压力来写
+- 若是稳计，应更像顺势点拨；若是高压计，应更像顺着裂缝推一把`
+
+    return [
+        { role: 'system', content: FENG_DAOZHI_DRAFT_SYSTEM },
+        {
+            role: 'user',
+            content: `请代冯道之为萧宝颖拟一手“${SCHEME_NAMES[schemeType]}”。
+回合：第${context.round}回合
+时局：${context.eventName}
+局势摘要：${context.eventBriefing}
+目标人物：${context.targetNpcName}（${context.targetNpcTitle}）
+目标公开人设：${context.targetPersona}
+${relatedNpcLine}
+已解锁暗线：${visibleSecrets}
+上回往来：${context.previousDealings}
+近两回合关系温度：${context.relationshipTemperature}
+近来得失：${context.recentCourtFortune}
+派系压力：${context.factionPressure}
+萧宝颖当前危险：${context.playerDangerStage}
+
+${formatRules}
+
+只输出 JSON：
+{
+  "primaryText": "string",
+  "secondaryText": "string，可省略"
 }`,
         },
     ]

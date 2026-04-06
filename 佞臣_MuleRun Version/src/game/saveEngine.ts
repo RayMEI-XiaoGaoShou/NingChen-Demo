@@ -18,6 +18,7 @@ import type {
     RelationshipEdge,
     RoundHistoryEntry,
     RoundPhase,
+    SchemeOnboardingSeenMap,
     SchemeAction,
 } from './types'
 import type { NpcFeedback } from '../stores/gameStore'
@@ -35,7 +36,9 @@ export interface GameSnapshotCore {
     helpOverlayOpen: boolean
     helpOverlaySource: HelpOverlaySource | null
     firstRoundGuideSeen: FirstRoundGuideSeenMap
+    schemeOnboardingSeen: SchemeOnboardingSeenMap
     omenGuideSeen: OmenGuideSeenMap
+    fengDaozhiAssistsRemaining: number
     playerDangerStage: PlayerDangerStage
     isGameOver: boolean
     gameResult: GameResult
@@ -85,7 +88,9 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         helpOverlayOpen: state.helpOverlayOpen,
         helpOverlaySource: state.helpOverlaySource,
         firstRoundGuideSeen: state.firstRoundGuideSeen,
+        schemeOnboardingSeen: state.schemeOnboardingSeen,
         omenGuideSeen: state.omenGuideSeen,
+        fengDaozhiAssistsRemaining: state.fengDaozhiAssistsRemaining,
         playerDangerStage: state.playerDangerStage,
         isGameOver: state.isGameOver,
         gameResult: state.gameResult,
@@ -154,7 +159,9 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
     try {
         const parsed = JSON.parse(raw) as PersistedGameSnapshot & {
             difficulty?: GameDifficulty
+            schemeOnboardingSeen?: SchemeOnboardingSeenMap
             omenGuideSeen?: OmenGuideSeenMap
+            fengDaozhiAssistsRemaining?: number
             shuMomentum?: number
             huainanMomentum?: number
         }
@@ -162,7 +169,12 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
         return {
             ...parsed,
             difficulty: parsed.difficulty ?? 'normal',
+            schemeOnboardingSeen: parsed.schemeOnboardingSeen ?? {
+                scheme_master_guide: false,
+                first_omen_teaching: false,
+            },
             omenGuideSeen: parsed.omenGuideSeen ?? { first_omen_modal: false },
+            fengDaozhiAssistsRemaining: parsed.fengDaozhiAssistsRemaining ?? 0,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
         }

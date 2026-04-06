@@ -28,6 +28,10 @@ describe('SchemePanel layout labels', () => {
                 scheme_feedback: true,
                 settlement: true,
             },
+            schemeOnboardingSeen: {
+                scheme_master_guide: true,
+                first_omen_teaching: false,
+            },
             omenGuideSeen: {
                 first_omen_modal: false,
             },
