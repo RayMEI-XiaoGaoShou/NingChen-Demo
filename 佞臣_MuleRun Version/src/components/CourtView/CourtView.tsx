@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
-import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
+import { EXTERNAL_LINE_TEACHING_CONTENT, FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
+import { buildExternalLineProgress, shouldShowExternalLineTeaching } from '../../game/externalLineProgress'
+import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './CourtView.css'
 
@@ -24,8 +28,10 @@ function getExternalPostureLabel(npc: NPC): string {
 }
 
 export function CourtView() {
+    const [showExternalGuide, setShowExternalGuide] = useState(false)
     const {
         currentRound,
+        difficulty,
         nextPhase,
         northPower,
         schemeCount,
@@ -35,7 +41,9 @@ export function CourtView() {
         intelProgress,
         prevPhase,
         firstRoundGuideSeen,
+        schemeOnboardingSeen,
         markFirstRoundGuideSeen,
+        markSchemeOnboardingSeen,
         openGameplayGuide,
     } = useGameStore()
     const { openNpcDetail } = useUiStore()
@@ -44,6 +52,25 @@ export function CourtView() {
     const courtFactions = factions
     const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
     const externalNpcs = npcs.filter(npc => npc.powerBase === 'external' && npc.isAlive)
+    const externalProgressEntries = externalNpcs
+        .map(npc => ({
+            npc,
+            progress: buildExternalLineProgress({
+                npc,
+                unlockedSecrets: intelProgress[npc.id] ?? 0,
+                difficulty,
+                round: currentRound,
+                externalActionEnabled: roundSupportsExternalAction(
+                    currentRound,
+                    npc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
+                ),
+            }),
+        }))
+        .filter((item): item is typeof item & { progress: NonNullable<typeof item.progress> } => Boolean(item.progress))
+    const externalTeachingCandidate = externalProgressEntries.find(item => shouldShowExternalLineTeaching(item.progress))
+    const shouldShowExternalGuide =
+        Boolean(externalTeachingCandidate) &&
+        (!schemeOnboardingSeen.first_external_line_teaching || showExternalGuide)
     const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(courtFactions, npcs, currentRound)
 
     const invasionRisk =
@@ -76,8 +103,23 @@ export function CourtView() {
                 />
             )}
 
+            {shouldShowExternalGuide && (
+                <SchemeOnboardingModal
+                    open
+                    title={EXTERNAL_LINE_TEACHING_CONTENT.title}
+                    pages={EXTERNAL_LINE_TEACHING_CONTENT.pages}
+                    onClose={() => {
+                        markSchemeOnboardingSeen('first_external_line_teaching')
+                        setShowExternalGuide(false)
+                    }}
+                />
+            )}
+
             <div className="page-utility-row utility-split animate-slide-up">
                 <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
+                <button className="btn-help" onClick={() => setShowExternalGuide(true)}>
+                    外部线指南
+                </button>
                 <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
                     玩法说明
                 </button>
@@ -136,7 +178,9 @@ export function CourtView() {
                     他们不属于后党或帝党，于中枢朝局影响有限，却手握地方兵权，是北周不可忽视的外镇力量。
                 </p>
                 <div className="external-grid">
-                    {externalNpcs.map((npc, index) => (
+                    {externalNpcs.map((npc, index) => {
+                        const progress = externalProgressEntries.find(item => item.npc.id === npc.id)?.progress
+                        return (
                         <button
                             key={npc.id}
                             className="glass-panel external-card animate-slide-up"
@@ -161,12 +205,24 @@ export function CourtView() {
                                     <span>{getExternalTiltLabel(npc)}</span>
                                     <span>{getExternalPostureLabel(npc)}</span>
                                 </div>
+                                {progress && (
+                                    <div className="external-stats">
+                                        <span>{progress.phase}</span>
+                                        <span>{progress.nextMoveLabel}</span>
+                                    </div>
+                                )}
                                 <span className="npc-reaction external-reaction">
                                     {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0)}
                                 </span>
+                                {progress && (
+                                    <span className="npc-reaction external-reaction">
+                                        {progress.gapText}
+                                    </span>
+                                )}
                             </div>
                         </button>
-                    ))}
+                        )
+                    })}
                 </div>
             </div>
 

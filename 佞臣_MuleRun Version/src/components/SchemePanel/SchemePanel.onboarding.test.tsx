@@ -30,6 +30,7 @@ describe('SchemePanel onboarding flows', () => {
             schemeOnboardingSeen: {
                 scheme_master_guide: true,
                 first_omen_teaching: false,
+                first_external_line_teaching: false,
             },
             firstRoundGuideSeen: {
                 round_start: true,

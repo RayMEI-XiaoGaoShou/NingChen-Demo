@@ -21,6 +21,7 @@ describe('saveEngine', () => {
     const initialSchemeOnboardingSeen = {
         scheme_master_guide: false,
         first_omen_teaching: false,
+        first_external_line_teaching: false,
     }
 
     const createBaseState = () => ({

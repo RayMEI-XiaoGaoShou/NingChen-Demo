@@ -4,6 +4,8 @@ import { getTrustLabel, getTrustLevel } from '../../game/types'
 import type { NPC } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
+import { buildExternalLineProgress } from '../../game/externalLineProgress'
+import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
 
@@ -23,7 +25,7 @@ function getExternalPostureLabel(npc: NPC): string {
 }
 
 export function NPCDetail() {
-    const { npcs, intelProgress, currentRound } = useGameStore()
+    const { npcs, intelProgress, currentRound, difficulty } = useGameStore()
     const { showNpcDetail, detailNpcId, closeNpcDetail } = useUiStore()
 
     if (!showNpcDetail || !detailNpcId) return null
@@ -39,6 +41,18 @@ export function NPCDetail() {
     })
     const knownIntelCount = intelProgress[npc.id] ?? 0
     const knownIntel = npc.secretThreads.slice(0, knownIntelCount)
+    const externalProgress = npc.powerBase === 'external'
+        ? buildExternalLineProgress({
+            npc,
+            unlockedSecrets: knownIntelCount,
+            difficulty,
+            round: currentRound,
+            externalActionEnabled: roundSupportsExternalAction(
+                currentRound,
+                npc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
+            ),
+        })
+        : null
 
     const factionNames: Record<string, string> = {
         emperor: '帝党',
@@ -50,7 +64,7 @@ export function NPCDetail() {
     return (
         <div className="npc-detail-overlay" onClick={closeNpcDetail}>
             <div className="npc-detail-modal" onClick={event => event.stopPropagation()}>
-                <button className="close-btn" onClick={closeNpcDetail}>✕</button>
+                <button className="close-btn" onClick={closeNpcDetail}>×</button>
 
                 <div className="npc-detail-header">
                     <h2 className="npc-detail-name">{npc.name}</h2>
@@ -101,6 +115,17 @@ export function NPCDetail() {
                             <span className="metric-chip">倾向：{getExternalTiltLabel(npc)}</span>
                             <span className="metric-chip">态势：{getExternalPostureLabel(npc)}</span>
                         </div>
+                        {externalProgress && (
+                            <>
+                                <p>{externalProgress.summary}</p>
+                                <div className="detail-metrics">
+                                    <span className="metric-chip">阶段：{externalProgress.phase}</span>
+                                    <span className="metric-chip">目标：{externalProgress.targetLabel}</span>
+                                    <span className="metric-chip">下一手：{externalProgress.nextMoveLabel}</span>
+                                </div>
+                                <p className="dim">{externalProgress.gapText}</p>
+                            </>
+                        )}
                     </div>
                 )}
 

@@ -23,14 +23,14 @@ describe('roundIntelEngine', () => {
         })
 
         expect(hint).toContain('养信')
-        expect(hint).toContain('尚差最后一层信任火候')
+        expect(hint).toContain('下一手宜')
     })
 
     it('merges external-action stage hints into the advisor line', () => {
         const hint = getRoundAdvisorHint(
             7,
             [{ id: 'hebabogui', name: '贺拔伯圭', isAlive: true }],
-            '冯道之密语【养信】：贺拔伯圭眼下可先养信。',
+            '冯道之密语·【养信】：贺拔伯圭眼下还不会为你摊牌。下一手宜 先献策。',
         )
 
         expect(hint).toContain('冯道之密语')
@@ -42,7 +42,7 @@ describe('roundIntelEngine', () => {
             {
                 coreNpcIds: ['yuwendi', 'zuting', 'zongai'],
                 reactions: {
-                    yuwendi: '借边事催迫南征。',
+                    yuwendi: '借边事催逼南征。',
                     zuting: '想把边报与流民都按在中枢手里。',
                     zongai: '借宫中信息差做接口。',
                 },
@@ -92,6 +92,6 @@ describe('roundIntelEngine', () => {
         const hint = buildOmenAdvisorHint(13)
 
         expect(hint).toContain('谶')
-        expect(hint).toContain('先写征兆，再释其意')
+        expect(hint).toContain('先写征兆')
     })
 })

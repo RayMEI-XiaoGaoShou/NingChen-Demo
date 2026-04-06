@@ -31,6 +31,7 @@ describe('SchemePanel layout labels', () => {
             schemeOnboardingSeen: {
                 scheme_master_guide: true,
                 first_omen_teaching: false,
+                first_external_line_teaching: false,
             },
             omenGuideSeen: {
                 first_omen_modal: false,

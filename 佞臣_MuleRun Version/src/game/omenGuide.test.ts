@@ -13,6 +13,7 @@ const seenSchemeGuide = {
 const schemeOnboardingSeen = {
     scheme_master_guide: true,
     first_omen_teaching: false,
+    first_external_line_teaching: false,
 }
 
 describe('getOmenGuidePresentation', () => {

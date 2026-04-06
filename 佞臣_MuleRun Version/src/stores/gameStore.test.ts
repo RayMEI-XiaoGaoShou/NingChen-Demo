@@ -20,6 +20,7 @@ const initialFirstRoundGuideSeen = {
 const initialSchemeOnboardingSeen = {
     scheme_master_guide: false,
     first_omen_teaching: false,
+    first_external_line_teaching: false,
 }
 
 function resetStore() {
@@ -539,6 +540,7 @@ describe('gameStore guide and prologue state', () => {
             schemeOnboardingSeen: {
                 scheme_master_guide: true,
                 first_omen_teaching: false,
+                first_external_line_teaching: false,
             },
             omenGuideSeen: {
                 first_omen_modal: false,
@@ -580,6 +582,7 @@ describe('gameStore guide and prologue state', () => {
         expect(state.schemeOnboardingSeen).toEqual({
             scheme_master_guide: true,
             first_omen_teaching: false,
+            first_external_line_teaching: false,
         })
         expect(state.fengDaozhiAssistsRemaining).toBe(3)
     })

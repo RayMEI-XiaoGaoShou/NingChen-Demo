@@ -29,7 +29,10 @@ export type FirstRoundGuideKey =
     | 'scheme_feedback'
     | 'settlement'
 export type FirstRoundGuideSeenMap = Record<FirstRoundGuideKey, boolean>
-export type SchemeOnboardingGuideKey = 'scheme_master_guide' | 'first_omen_teaching'
+export type SchemeOnboardingGuideKey =
+    | 'scheme_master_guide'
+    | 'first_omen_teaching'
+    | 'first_external_line_teaching'
 export type SchemeOnboardingSeenMap = Record<SchemeOnboardingGuideKey, boolean>
 export interface OmenGuideSeenMap {
     first_omen_modal: boolean

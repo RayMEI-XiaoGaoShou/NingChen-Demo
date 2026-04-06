@@ -172,6 +172,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             schemeOnboardingSeen: parsed.schemeOnboardingSeen ?? {
                 scheme_master_guide: false,
                 first_omen_teaching: false,
+                first_external_line_teaching: false,
             },
             omenGuideSeen: parsed.omenGuideSeen ?? { first_omen_modal: false },
             fengDaozhiAssistsRemaining: parsed.fengDaozhiAssistsRemaining ?? 0,
