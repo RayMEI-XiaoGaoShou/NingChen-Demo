@@ -43,6 +43,9 @@ export function FengDaozhiAssistPanel(props: FengDaozhiAssistPanelProps) {
                     <div className="feng-assist-preview-body">
                         <p>{props.draftPreview.primaryText}</p>
                         {isOmen && props.draftPreview.secondaryText && <p>{props.draftPreview.secondaryText}</p>}
+                        {props.draftPreview.reasoning && (
+                            <p className="feng-assist-reasoning">{props.draftPreview.reasoning}</p>
+                        )}
                     </div>
                 </div>
             )}

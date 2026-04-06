@@ -73,6 +73,7 @@ describe('fengDaozhiAdvisor', () => {
 
         expect(fallback.primaryText.length).toBeGreaterThan(0)
         expect(fallback.secondaryText?.length).toBeGreaterThan(0)
+    expect(fallback.reasoning).toContain('名分与法统压力')
         expect(fallback.source).toBe('fallback')
     })
 })

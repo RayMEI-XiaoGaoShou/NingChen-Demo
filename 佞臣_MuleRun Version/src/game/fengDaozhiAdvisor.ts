@@ -62,17 +62,19 @@ export function buildFengDaozhiDraftContext(params: {
 }
 
 export function normalizeFengDaozhiDraft(
-    raw: { primaryText?: string; secondaryText?: string } | null,
+    raw: { primaryText?: string; secondaryText?: string; reasoning?: string } | null,
     schemeType: FengDaozhiDraftRequest['schemeType'],
 ): FengDaozhiDraftResult | null {
     if (!raw?.primaryText?.trim()) return null
 
     const primaryText = raw.primaryText.trim()
     const secondaryText = raw.secondaryText?.trim()
+    const reasoning = raw.reasoning?.trim()
 
     return {
         primaryText,
         secondaryText: schemeType === 'omen' ? secondaryText ?? '' : undefined,
+        reasoning,
         source: 'ai',
     }
 }
@@ -82,11 +84,15 @@ export function buildFallbackFengDaozhiDraft(
     context: FengDaozhiDraftContext,
 ): FengDaozhiDraftResult {
     if (request.schemeType === 'omen') {
+        const positionLabel = /诏令|中枢|宫中|法统|名分/.test(context.targetNpcTitle + context.targetPersona)
+            ? '中枢'
+            : '朝局边缘'
         return {
             primaryText: context.visibleSecrets[0]
                 ? '异象既起，朝野自会把它与人事相连。'
                 : '异象既现，人心未必还能照旧安稳。',
             secondaryText: '可顺着名分、法统与谁最该警惕去解释，不必急着把话挑明。',
+            reasoning: `${context.targetNpcName}身在${positionLabel}，更容易被名分与法统压力牵动。`,
             source: 'fallback',
         }
     }

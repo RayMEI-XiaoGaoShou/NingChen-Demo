@@ -10,6 +10,7 @@ import { FIRST_OMEN_TEACHING_CONTENT, SCHEME_MASTER_GUIDE_CONTENT } from '../../
 import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
+import { buildOmenTargetHint } from '../../game/omenTargetHint'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
@@ -136,6 +137,10 @@ export function SchemePanel() {
         !shouldShowOmenGuide &&
         (((!schemeOnboardingSeen.scheme_master_guide && currentRound === 1) || showSchemeGuide))
     const speechFields = getSchemeSpeechFields(selectedScheme)
+    const omenTargetHint =
+        selectedScheme === 'omen' && selectedNpc
+            ? buildOmenTargetHint({ npc: selectedNpc })
+            : null
 
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
     const aliveNpcs = npcs.filter(n => n.isAlive)
@@ -511,6 +516,10 @@ export function SchemePanel() {
                                                         />
                                                         <div className="char-count">{omenText.length}/60</div>
                                                     </label>
+                                                    <div className="omen-helper-card">
+                                                        <div className="omen-helper-title">征兆可以这样写</div>
+                                                        <p>可写：天灾异象、民间谶语、星变河象、礼制失常、龙气外泄。</p>
+                                                    </div>
                                                     <label className="omen-input-group">
                                                         <span className="omen-input-label">{speechFields.secondaryLabel}</span>
                                                         <textarea
@@ -522,6 +531,16 @@ export function SchemePanel() {
                                                         />
                                                         <div className="char-count">{interpretationText.length}/100</div>
                                                     </label>
+                                                    <div className="omen-helper-card">
+                                                        <div className="omen-helper-title">解释时要做两件事</div>
+                                                        <p>解释裂缝，再暗示谁最该警惕；不要直接写成普通挑拨或普通献策。</p>
+                                                    </div>
+                                                    {omenTargetHint && (
+                                                        <div className="omen-helper-card omen-target-fit">
+                                                            <div className="omen-helper-title">此人是否适合吃谶纬</div>
+                                                            <p>{omenTargetHint}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <>

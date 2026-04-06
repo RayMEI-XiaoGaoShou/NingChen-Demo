@@ -124,6 +124,11 @@
     line-height: 1.8;
 }
 
+.feng-assist-reasoning {
+    color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+}
+
 .scheme-body {
     flex: 1;
     width: 100%;
@@ -388,6 +393,28 @@
 .omen-inputs {
     display: grid;
     gap: var(--spacing-md);
+}
+
+.omen-helper-card {
+    border: 1px solid rgba(212, 180, 94, 0.24);
+    background: rgba(255, 245, 220, 0.06);
+    border-radius: 12px;
+    padding: 10px 12px;
+    color: var(--color-text-secondary);
+    line-height: 1.7;
+}
+
+.omen-helper-title {
+    margin-bottom: 4px;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #d4b45e;
+}
+
+.omen-target-fit {
+    border-color: rgba(111, 181, 137, 0.24);
+    background: rgba(111, 181, 137, 0.06);
 }
 
 .omen-input-group {

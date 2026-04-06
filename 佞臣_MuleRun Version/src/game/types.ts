@@ -201,6 +201,7 @@ export interface FengDaozhiDraftRequest {
 export interface FengDaozhiDraftResult {
     primaryText: string
     secondaryText?: string
+    reasoning?: string
     source: 'ai' | 'fallback'
 }
 
