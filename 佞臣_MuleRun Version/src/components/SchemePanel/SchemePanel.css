@@ -129,6 +129,10 @@
     font-size: var(--font-size-sm);
 }
 
+.scheme-mission-strip {
+    margin-top: 2px;
+}
+
 .scheme-body {
     flex: 1;
     width: 100%;

@@ -83,4 +83,19 @@
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
   --shadow-gold: 0 0 12px rgba(201, 168, 76, 0.3);
+
+  /* === 氛围层 === */
+  --texture-paper: radial-gradient(circle at 20% 20%, rgba(255, 248, 220, 0.035), transparent 30%),
+    radial-gradient(circle at 80% 0%, rgba(201, 168, 76, 0.1), transparent 32%),
+    linear-gradient(180deg, rgba(8, 8, 12, 0.94), rgba(15, 16, 24, 0.98));
+  --texture-panel: linear-gradient(180deg, rgba(23, 24, 34, 0.92), rgba(15, 16, 24, 0.96));
+  --texture-ink: radial-gradient(circle at top, rgba(201, 176, 101, 0.12), transparent 48%),
+    radial-gradient(circle at bottom right, rgba(76, 86, 148, 0.08), transparent 36%);
+  --color-accent-ember: #d99a5b;
+  --color-guide-bg: rgba(201, 176, 101, 0.08);
+  --color-guide-border: rgba(201, 176, 101, 0.24);
+  --color-guide-text: #e5d8b3;
+  --color-panel-muted: rgba(255, 255, 255, 0.025);
+  --color-panel-strong: rgba(201, 176, 101, 0.12);
+  --ease-decree: cubic-bezier(0.16, 1, 0.3, 1);
 }

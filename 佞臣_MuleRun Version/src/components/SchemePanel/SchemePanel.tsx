@@ -348,6 +348,21 @@ export function SchemePanel() {
                     </div>
                 </div>
 
+                <div className="page-mission-strip scheme-mission-strip">
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">选谁</span>
+                        <p className="page-mission-text">先锁定本回合真正会带出连锁反应的人，而不是最顺眼的人。</p>
+                    </div>
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">怎么动</span>
+                        <p className="page-mission-text">再选计谋。是探底、挑拨、借势还是逼他表态，决定结果的方向。</p>
+                    </div>
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">如何落子</span>
+                        <p className="page-mission-text">最后补一句说辞。切中人心时，计谋成败和影响幅度都会明显不同。</p>
+                    </div>
+                </div>
+
                 {shouldShowOmenInlineHint && (
                     <div className="scheme-inline-hint omen-hint">
                         谶纬偏灾异、法统、天命与人心，不宜写成兵粮调度。

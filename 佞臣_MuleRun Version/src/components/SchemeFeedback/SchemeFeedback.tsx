@@ -204,11 +204,29 @@ export function SchemeFeedback() {
                 </button>
             </div>
 
-            <h2 className="page-title animate-slide-up">暗线回报</h2>
+            <div className="scheme-feedback-header animate-slide-up">
+                <span className="page-eyebrow">暗线揭卷</span>
+                <h2 className="page-title">暗线回报</h2>
+            </div>
+
+            <div className="page-mission-strip animate-slide-up animate-delay-1">
+                <div className="page-mission-item">
+                    <span className="page-mission-label">先看什么</span>
+                    <p className="page-mission-text">先看谁回得最快、谁口气最硬，这比单看成败更能说明人心。</p>
+                </div>
+                <div className="page-mission-item">
+                    <span className="page-mission-label">怎么看</span>
+                    <p className="page-mission-text">把每封回报当成揭卷，不只看他说了什么，更看他回避了什么。</p>
+                </div>
+                <div className="page-mission-item">
+                    <span className="page-mission-label">下一步做什么</span>
+                    <p className="page-mission-text">等结构化解析完成后，再进结算页看这些波纹如何传到了朝局与国势上。</p>
+                </div>
+            </div>
 
             <div className="feedback-list">
                 {npcFeedbacks.length === 0 && (
-                    <div className="feedback-item glass-panel done">
+                    <div className="feedback-item glass-panel decree-panel done">
                         <div className="feedback-body">
                             <div className="feedback-text-area">
                                 <p className="feedback-text">本回合暂未收到暗线回报。若再次出现，请记录回合与目标，我会继续追查。</p>
@@ -220,18 +238,22 @@ export function SchemeFeedback() {
                 {npcFeedbacks.map((fb, index) => (
                     <div
                         key={fb.id}
-                        className={`feedback-item glass-panel animate-slide-up ${fb.isLoading ? 'loading' : 'done'}`}
+                        className={`feedback-item glass-panel decree-panel animate-slide-up ${fb.isLoading ? 'loading' : 'done'}`}
                         style={{ animationDelay: `${0.1 + index * 0.15}s` }}
                     >
                         <div className="feedback-header">
                             <NpcPortrait name={fb.npcName} className="feedback-avatar" />
                             <div className="feedback-meta">
+                                <span className="feedback-order">第 {index + 1} 封回报</span>
                                 <span className="feedback-npc-name">{fb.npcName}</span>
                                 <span className="feedback-scheme-label">
                                     计谋：{fb.schemeName}
                                     {fb.playerSpeech && <span className="feedback-speech"> · “{fb.playerSpeech}”</span>}
                                 </span>
                             </div>
+                            <span className={`feedback-status ${fb.isLoading ? 'loading' : 'done'}`}>
+                                {fb.isLoading ? '未揭卷' : '已揭卷'}
+                            </span>
                         </div>
 
                         <div className="feedback-body">

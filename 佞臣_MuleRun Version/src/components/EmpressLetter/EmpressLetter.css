@@ -18,6 +18,16 @@
     gap: 18px;
 }
 
+.letter-heading-block {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.letter-mission-strip {
+    width: 100%;
+}
+
 .letter-header {
     display: flex;
     flex-direction: column;

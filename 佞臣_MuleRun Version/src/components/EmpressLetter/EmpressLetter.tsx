@@ -63,12 +63,30 @@ export function EmpressLetter() {
             </div>
 
             <div className="letter-wrapper animate-slide-up">
-                <div className="letter-header">
-                    <span className="letter-from">南陈女帝 · 陈倩</span>
-                    <span className="letter-label">对信</span>
+                <div className="letter-heading-block">
+                    <span className="page-eyebrow">女帝来札</span>
+                    <div className="page-mission-strip letter-mission-strip">
+                        <div className="page-mission-item">
+                            <span className="page-mission-label">先读什么</span>
+                            <p className="page-mission-text">先读清背景和真正的问题，不要把它当成普通三选一。</p>
+                        </div>
+                        <div className="page-mission-item">
+                            <span className="page-mission-label">如何判断</span>
+                            <p className="page-mission-text">这一页比的不是辞藻，而是你是否说清轻重、代价和当下为何该这样做。</p>
+                        </div>
+                        <div className="page-mission-item">
+                            <span className="page-mission-label">如何落笔</span>
+                            <p className="page-mission-text">先定立场，再补附言。附言越切题，问政收益和后续余波越稳。</p>
+                        </div>
+                    </div>
                 </div>
 
-                <div className="letter-content glass-panel animate-slide-up animate-delay-2">
+                <div className="letter-header">
+                    <span className="letter-from">南陈女帝 · 陈倩</span>
+                    <span className="letter-label">密札</span>
+                </div>
+
+                <div className="letter-content glass-panel decree-panel animate-slide-up animate-delay-2">
                     {policyQ ? (
                         <>
                             <div className="letter-intro">
@@ -113,7 +131,7 @@ export function EmpressLetter() {
                                         <span className="char-count">{reason.length}/100</span>
                                     </div>
                                     <p className="reason-helper">
-                                        用一段短评补清你的判断依据。若未选定策目，也可以先在此打腹稿。
+                                        用一段短评补清你的判断依据。好的附言通常会交代三件事：眼下最急的是什么、代价该由谁承担、为什么现在就得这样做。
                                     </p>
                                     <textarea
                                         className="reason-input"
@@ -129,7 +147,7 @@ export function EmpressLetter() {
                                             onClick={handleSubmit}
                                             disabled={selected === null || isSubmitting}
                                         >
-                                            {isSubmitting ? '解析附言中…' : '奏呈女帝'}
+                                            {isSubmitting ? '落笔成批…' : '朱批回奏'}
                                         </button>
                                     </div>
                                 </div>

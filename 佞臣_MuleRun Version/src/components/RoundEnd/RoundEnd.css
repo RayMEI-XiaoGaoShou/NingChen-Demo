@@ -102,6 +102,13 @@
     line-height: 1.6;
 }
 
+.round-end-note {
+    width: min(420px, 100%);
+    margin-bottom: var(--spacing-lg);
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+}
+
 .btn-next-round {
     width: 200px;
     font-size: var(--font-size-lg);
