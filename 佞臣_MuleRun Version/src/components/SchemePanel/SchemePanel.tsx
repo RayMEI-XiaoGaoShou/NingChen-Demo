@@ -1,9 +1,3 @@
-// ========================================
-// 施计操作页
-// 非阻塞模式：施计后立刻进入下一次
-// AI 在后台异步生成 NPC 反馈
-// ========================================
-
 import { useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
@@ -18,8 +12,34 @@ import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt } from '../../ai/prompts'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
-import type { SchemeType, SchemeAction } from '../../game/types'
+import type { SchemeType, SchemeAction, NPC } from '../../game/types'
 import './SchemePanel.css'
+
+function getFengNpcHint(npc: NPC, highlighted: boolean): string {
+    if (highlighted) {
+        return `此人正踩在本回合的风口上。若能借势落子，最容易把个人动摇放大成朝局波纹。`
+    }
+
+    if (npc.powerBase === 'external') {
+        return npc.loyaltyToCourt <= 35
+            ? '此人离心已显，若再推上一把，容易把边镇姿态从观望逼到自立。'
+            : '此人更看重价码与体面，动他之前先想清楚你是要拉拢、试探，还是借他去压别人。'
+    }
+
+    if (npc.trust <= 25) {
+        return '此人对你戒意甚深，出手太重容易反噬；若真要动，务必让说辞像替他着想，而不是逼他表态。'
+    }
+
+    return '此人不是今天最急的人，却可能是最好借势的人。若你需要稳一手，这是能下的一子。'
+}
+
+function getSchemeLockReason(npc: NPC | undefined, available: boolean, scheme: typeof SCHEMES[number]): string | null {
+    if (available) return null
+    if (!npc) return '先定目标人物'
+    if (scheme.targetScope === 'externalOnly' && npc.powerBase !== 'external') return '此计只可用于地方军头'
+    if (npc.trust < scheme.trustThreshold) return `至少需要 ${scheme.trustThreshold} 点信任`
+    return '需更深暗线或当前局势不合'
+}
 
 export function SchemePanel() {
     const {
@@ -197,31 +217,59 @@ export function SchemePanel() {
 
             <div className="scheme-modal glass-panel animate-slide-up">
                 <div className="scheme-header">
-                    <h2 className="modal-title">施计</h2>
+                    <div className="scheme-title-wrap">
+                        <span className="page-eyebrow">施计案台</span>
+                        <h2 className="modal-title">先定人，再落子</h2>
+                    </div>
                     <div className="scheme-counter">
                         今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
+                    </div>
+                </div>
+
+                <div className="page-mission-strip scheme-mission-strip">
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">选谁</span>
+                        <p className="page-mission-text">先锁定本回合真正会带出连锁反应的人，而不是最顺眼的人。</p>
+                    </div>
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">怎么动</span>
+                        <p className="page-mission-text">再选计谋。是探底、挑拨、借势还是逼他表态，决定结果的方向。</p>
+                    </div>
+                    <div className="page-mission-item">
+                        <span className="page-mission-label">如何落子</span>
+                        <p className="page-mission-text">最后补一句说辞。切中人心时，计谋成败和影响幅度都会明显不同。</p>
                     </div>
                 </div>
 
                 <div className="scheme-body">
                     {justSubmitted ? (
                         <div className="feedback-card submitted animate-fade-in">
-                            <p className="submitted-text">计谋已发，暗线运作中……</p>
+                            <p className="submitted-text">棋子已落，暗线已起……</p>
                             <div className="ai-ripple"></div>
                         </div>
                     ) : (
                         <div className="scheme-workbench">
                             <div className="scheme-steps">
+                                <div className="advisor-panel scheme-advisor-panel">
+                                    <div className="advisor-title">冯道之旁批</div>
+                                    <p className="advisor-copy">
+                                        {selectedNpc
+                                            ? getFengNpcHint(selectedNpc, highlightedNpcIds.has(selectedNpc.id))
+                                            : '先在名册里找“今日动他会有波纹”的人。暗金边框是我点名的人物，鼠标停上去还能看细注。'}
+                                    </p>
+                                </div>
+
                                 <div className="step animate-slide-up animate-delay-1">
                                     <h3 className="step-title"><span className="step-num">壹</span> 选择目标</h3>
-                                    <p className="focus-legend">暗金边框：冯道之锦囊点名的关键人物</p>
+                                    <p className="focus-legend">暗金边框是冯道之点名的人。把鼠标停在人物上，可看旁批细注。</p>
                                     <div className="npc-select-grid">
                                         {aliveNpcs.map(npc => {
                                             const alreadyUsed = usedNpcIds.has(npc.id)
+                                            const highlighted = highlightedNpcIds.has(npc.id)
                                             return (
                                                 <button
                                                     key={npc.id}
-                                                    className={`npc-select-btn ${selectedNpcId === npc.id ? 'selected' : ''} ${highlightedNpcIds.has(npc.id) ? 'focus-npc' : ''} ${alreadyUsed ? 'disabled' : ''}`}
+                                                    className={`npc-select-btn ${selectedNpcId === npc.id ? 'selected' : ''} ${highlighted ? 'focus-npc' : ''} ${alreadyUsed ? 'disabled' : ''}`}
                                                     disabled={alreadyUsed}
                                                     onClick={() => {
                                                         setSelectedNpcId(npc.id)
@@ -237,11 +285,18 @@ export function SchemePanel() {
                                                             positionY="18%"
                                                             zoom={1.28}
                                                         />
-                                                        <span className="npc-name">{npc.name}</span>
+                                                        <div className="npc-select-copy">
+                                                            <span className="npc-name">{npc.name}</span>
+                                                            <span className="npc-select-meta">{npc.title}</span>
+                                                        </div>
                                                     </div>
                                                     <span className={`trust-tag trust-${getTrustLevel(npc.trust)}`}>
                                                         {getTrustLabel(npc.trust)}
                                                     </span>
+                                                    <div className="npc-hover-note">
+                                                        <span className="npc-hover-note-label">旁批细注</span>
+                                                        <p>{getFengNpcHint(npc, highlighted)}</p>
+                                                    </div>
                                                 </button>
                                             )
                                         })}
@@ -255,6 +310,7 @@ export function SchemePanel() {
                                             {SCHEMES.map(scheme => {
                                                 if (scheme.targetScope === 'externalOnly' && selectedNpc.powerBase !== 'external') return null
                                                 const available = availableSchemeTypes.includes(scheme.type)
+                                                const lockReason = getSchemeLockReason(selectedNpc, available, scheme)
                                                 return (
                                                     <button
                                                         key={scheme.type}
@@ -265,8 +321,8 @@ export function SchemePanel() {
                                                         <div className="scheme-info">
                                                             <span className="scheme-name">{scheme.name}</span>
                                                             <span className="scheme-desc">{scheme.description}</span>
+                                                            {lockReason && <span className="scheme-reason">{lockReason}</span>}
                                                         </div>
-                                                        {!available && <span className="scheme-lock">未满足条件</span>}
                                                     </button>
                                                 )
                                             })}
@@ -292,7 +348,10 @@ export function SchemePanel() {
                                                             positionY="18%"
                                                             zoom={1.28}
                                                         />
-                                                        <span className="npc-name">{npc.name}</span>
+                                                        <div className="npc-select-copy">
+                                                            <span className="npc-name">{npc.name}</span>
+                                                            <span className="npc-select-meta">{npc.title}</span>
+                                                        </div>
                                                     </div>
                                                 </button>
                                             ))}
@@ -317,7 +376,7 @@ export function SchemePanel() {
                                                 <div className="scheme-preview-meta">{selectedNpc.title}</div>
                                                 <div className="scheme-preview-meta">
                                                     {getTrustLabel(selectedNpc.trust)}
-                                                    {selectedScheme ? ` · ${schemeNames[selectedScheme]}` : ''}
+                                                    {selectedScheme ? ` · ${schemeNames[selectedScheme]}` : ' · 尚未定计'}
                                                 </div>
                                                 {relatedNpc && (
                                                     <div className="scheme-preview-meta">关联人物：{relatedNpc.name}</div>
@@ -328,7 +387,7 @@ export function SchemePanel() {
                                 ) : (
                                     <div className="step animate-slide-up animate-delay-1 scheme-empty-state">
                                         <h3 className="step-title"><span className="step-num">叁</span> 当前布局</h3>
-                                        <p>先选定目标人物，再决定说辞和计谋方向。</p>
+                                        <p>先选定目标人物，再决定说辞和计谋方向。真正的“落子”从看人开始。</p>
                                     </div>
                                 )}
 
@@ -343,10 +402,10 @@ export function SchemePanel() {
                                                 className="speech-input"
                                                 value={speech}
                                                 onChange={e => setSpeech(e.target.value)}
-                                                placeholder="写一句话作为你的说辞（选填）……"
+                                                placeholder="写一句话，让对方觉得你是替他着想，而不是逼他站队……"
                                                 maxLength={100}
                                             />
-                                            <p className="speech-tip">说辞若切中此人的立场与心结，将实际影响计谋成败与效果幅度。</p>
+                                            <p className="speech-tip">好说辞一般只做一件事：替他找一个更愿意顺着你走的理由。</p>
                                             <div className="char-count">{speech.length}/100</div>
                                         </div>
                                     </div>
@@ -363,7 +422,7 @@ export function SchemePanel() {
                             onClick={handleExecute}
                             disabled={currentSchemeData?.needsSecondTarget ? !relatedNpcId : false}
                         >
-                            行事
+                            落子
                         </button>
                     )}
                 </div>

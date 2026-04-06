@@ -203,11 +203,29 @@ export function Settlement() {
                 </button>
             </div>
 
-            <h2 className="page-title animate-slide-up">本 回 合 结 算</h2>
+            <div className="settlement-header animate-slide-up">
+                <span className="page-eyebrow">天道判卷</span>
+                <h2 className="page-title">本 回 合 结 算</h2>
+            </div>
+
+            <div className="page-mission-strip animate-slide-up animate-delay-1">
+                <div className="page-mission-item">
+                    <span className="page-mission-label">先看什么</span>
+                    <p className="page-mission-text">先看天道判词，确认这一回合真正赢在哪、坏在哪。</p>
+                </div>
+                <div className="page-mission-item">
+                    <span className="page-mission-label">再看什么</span>
+                    <p className="page-mission-text">再看施计结果、女帝回信与大局推演，别一上来就钻细项。</p>
+                </div>
+                <div className="page-mission-item">
+                    <span className="page-mission-label">最后做什么</span>
+                    <p className="page-mission-text">确认南征窗口、自身风险与南陈余势，再决定如何迎接下一回合。</p>
+                </div>
+            </div>
 
             <div className="settlement-content">
                 <div className="scroll-container animate-slide-up animate-delay-1">
-                    <div className="judge-narration gold-panel">
+                    <div className="judge-narration gold-panel decree-panel">
                         <div className="scroll-decorator top"></div>
                         <h3 className="judge-title">天道判官卷</h3>
                         <div className="narration-content">

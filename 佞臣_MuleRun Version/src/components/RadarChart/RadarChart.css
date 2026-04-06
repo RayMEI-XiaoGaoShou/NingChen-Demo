@@ -11,5 +11,94 @@
     color: var(--color-accent-gold);
     letter-spacing: 4px;
     text-indent: 4px;
-    opacity: 0.8;
+    opacity: 0.88;
+}
+
+.radar-shell {
+    position: relative;
+    width: var(--radar-size);
+    height: var(--radar-size);
+}
+
+.radar-svg {
+    display: block;
+    filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.28));
+}
+
+.radar-center-ring {
+    fill: rgba(13, 14, 23, 0.92);
+    stroke: rgba(201, 176, 101, 0.28);
+    stroke-width: 1.2;
+}
+
+.radar-center-score,
+.radar-center-label {
+    fill: var(--color-text-primary);
+    font-family: var(--font-heading);
+}
+
+.radar-center-score {
+    font-size: 18px;
+    letter-spacing: 1px;
+}
+
+.radar-center-label {
+    font-size: 9px;
+    fill: var(--color-text-secondary);
+    letter-spacing: 2px;
+}
+
+.radar-chip {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transform: translate(-50%, -50%);
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(13, 14, 23, 0.92);
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+    pointer-events: none;
+}
+
+.radar-chip-label {
+    color: var(--color-text-secondary);
+    font-size: 10px;
+    letter-spacing: 1px;
+}
+
+.radar-chip-value {
+    color: var(--color-accent-gold-light);
+    font-family: var(--font-heading);
+    font-size: 11px;
+}
+
+.radar-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.radar-tone,
+.radar-average {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: var(--font-size-xs);
+}
+
+.radar-tone {
+    background: rgba(201, 176, 101, 0.1);
+    color: var(--color-accent-gold-light);
+    border: 1px solid rgba(201, 176, 101, 0.22);
+}
+
+.radar-average {
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
 }
