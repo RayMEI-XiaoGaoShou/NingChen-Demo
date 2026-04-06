@@ -18,6 +18,7 @@ export function applyRelationshipShock(input: {
     delta: number
     source: string
 }): RelationshipShockResult {
+    const previousEdge = input.edges.find(edge => edge.id === input.edgeId)
     const edges = input.edges.map(edge =>
         edge.id === input.edgeId
             ? { ...edge, strength: round(clamp(edge.strength + input.delta, -2, 2)) }
@@ -31,6 +32,7 @@ export function applyRelationshipShock(input: {
 
     const triggeredStructures = input.structures.filter(structure =>
         structure.criticalEdgeIds.includes(updatedEdge.id) &&
+        (previousEdge?.strength ?? 0) > structure.breakThreshold &&
         updatedEdge.strength <= structure.breakThreshold,
     )
 

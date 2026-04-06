@@ -362,7 +362,7 @@ describe('gameStore guide and prologue state', () => {
 
         const state = useGameStore.getState()
         expect(state.currentPhase).toBe('PROLOGUE')
-        expect(state.prologueStep).toBe('PROLOGUE')
+        expect(state.prologueStep).toBe('COVER')
         expect(state.helpOverlayOpen).toBe(false)
         expect(state.helpOverlaySource).toBeNull()
         expect(state.firstRoundGuideSeen).toEqual(initialFirstRoundGuideSeen)

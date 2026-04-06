@@ -96,7 +96,7 @@ export function buildExternalLineProgress(input: {
             phase: '养信',
             phaseLabel: `养信：先让${npc.name}认定你真会替他留后路`,
             summary: `${npc.name}眼下还不会为你摊牌，先把信任推到足以谈${targetLabel}的火候。`,
-            gapText: `还差 ${trustGap} 点信任，暗线已明 ${unlockedSecrets}/${thresholds.secrets}。`,
+            gapText: `还差 ${trustGap} 点信任，才能试图${targetLabel}；暗线已明 ${unlockedSecrets}/${thresholds.secrets}。`,
             nextMove,
             nextMoveLabel: getNextMoveLabel(nextMove),
             trustGap,
@@ -116,7 +116,7 @@ export function buildExternalLineProgress(input: {
             phase: '探暗线',
             phaseLabel: `探暗线：摸透${npc.name}真正不肯明说的底牌`,
             summary: `${npc.name}已经肯听你，但你还没摸透他最深的算盘，现在摊牌太早。`,
-            gapText: `还差 ${secretsGap} 条暗线，当前已明 ${unlockedSecrets}/${thresholds.secrets}。`,
+            gapText: `还差 ${secretsGap} 条暗线，才能试图${targetLabel}；当前已明 ${unlockedSecrets}/${thresholds.secrets}。`,
             nextMove: 'probe',
             nextMoveLabel: getNextMoveLabel('probe'),
             trustGap,
@@ -137,7 +137,7 @@ export function buildExternalLineProgress(input: {
             phase: '离心',
             phaseLabel: `离心：把${npc.name}从北周秩序里一点点撬出来`,
             summary: `${npc.name}已可信、底牌也已摸清，但他对朝廷还没恨到敢走${targetLabel}。`,
-            gapText: `忠诚还高出 ${loyaltyGap} 点，得继续放大他与朝廷的裂缝。`,
+            gapText: `忠诚还高出 ${loyaltyGap} 点，需继续压低到可试${targetLabel}的线下。`,
             nextMove,
             nextMoveLabel: getNextMoveLabel(nextMove),
             trustGap,
@@ -157,7 +157,7 @@ export function buildExternalLineProgress(input: {
             phase: '等窗口',
             phaseLabel: `等窗口：${npc.name}已近可用，只欠一场乱局或一纸时机`,
             summary: `${npc.name}已具备走向${targetLabel}的条件，现在更像是在等一个能摊牌的回合。`,
-            gapText: `信任、暗线、离心都已够，只等外部线窗口回合。`,
+            gapText: `信任、暗线与离心都已到位，只差外部线窗口回合，才能正式试${targetLabel}。`,
             nextMove: 'wait',
             nextMoveLabel: getNextMoveLabel('wait'),
             trustGap,
@@ -176,7 +176,7 @@ export function buildExternalLineProgress(input: {
         phase: '等窗口',
         phaseLabel: `等窗口：${npc.name}已经能被你推向${targetLabel}`,
         summary: `${npc.name}现在就是一枚可动的外部筹码，若这一回合局势适合，就能逼他明牌。`,
-        gapText: `条件已齐备：信任足、暗线明、离心深，且当前正逢外部线窗口。`,
+        gapText: `条件已齐：信任已够、暗线已明、离心已成，当前正可试${targetLabel}。`,
         nextMove: ambition === 'rebellion' ? 'rebellion' : 'secession',
         nextMoveLabel: ambition === 'rebellion' ? '可试造反' : '可试割据',
         trustGap,
@@ -195,5 +195,5 @@ export function shouldShowExternalLineTeaching(progress: ExternalLineProgress | 
 
 export function getExternalLineStatusSummary(progress: ExternalLineProgress | null): string | null {
     if (!progress) return null
-    return `${progress.phaseLabel}；${progress.gapText}`
+    return `${progress.phaseLabel}：${progress.gapText}`
 }

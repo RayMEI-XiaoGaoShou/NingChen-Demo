@@ -111,6 +111,13 @@
     gap: var(--spacing-md);
 }
 
+.external-block-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+}
+
 .faction-card-header {
     display: flex;
     justify-content: space-between;
@@ -239,6 +246,13 @@
     color: var(--color-accent-gold);
     opacity: 0.8;
     line-height: 1.5;
+}
+
+.npc-location {
+    margin-top: 4px;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-dim);
+    letter-spacing: 1px;
 }
 
 .npc-faction {

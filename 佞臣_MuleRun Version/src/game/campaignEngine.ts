@@ -8,6 +8,7 @@ export interface CampaignEvaluationInput {
     northStats: NationDimensions
     northPressurePenalty: number
     policyBoost: number
+    preparednessBonus?: number
     momentumBonus?: number
 }
 
@@ -23,7 +24,8 @@ export function evaluateShuCampaignOutcome(input: CampaignEvaluationInput): Camp
             input.southStats.military * 0.34 +
             input.southStats.grain * 0.31 +
             input.southStats.governance * 0.25 +
-            input.policyBoost * 2.1
+            input.policyBoost * 2.1 +
+            (input.preparednessBonus ?? 0)
         ) * profile.campaign.southPrepMultiplier
     const northCommitmentBase =
         input.northStats.military * 0.24 +

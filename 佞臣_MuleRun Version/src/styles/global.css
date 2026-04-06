@@ -384,6 +384,13 @@ body {
     justify-content: space-between;
 }
 
+.page-utility-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 .btn-help {
     padding: 8px 14px;
     border: 1px solid rgba(201, 176, 101, 0.32);

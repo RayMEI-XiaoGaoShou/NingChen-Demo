@@ -103,7 +103,7 @@ function trimSentence(text: string): string {
         ?.trim() ?? ''
 
     if (!first) return '眼前这盘棋的轻重'
-    return first.length > 22 ? `${first.slice(0, 22)}…` : first
+    return first
 }
 
 function getSelfReference(npc: NPC): string {
@@ -118,7 +118,7 @@ function getSelfReference(npc: NPC): string {
         case 'hebabogui':
             return '本公'
         case 'weichimu':
-            return '末将'
+            return '本公'
         case 'zongai':
             return '奴婢'
         case 'duguwenyue':

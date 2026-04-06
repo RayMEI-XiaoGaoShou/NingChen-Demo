@@ -87,12 +87,13 @@ ${schemeSummary}
 
 const NPC_SYSTEM = `你是《佞臣》中的 NPC 角色扮演引擎。你要代入指定人物，对萧宝颖刚刚施加的计谋作出回应。
 要求：
-- 回答 2 到 3 句，古典白话风
+- 回答 4 到 6 句，古典白话风，尽量在 120 到 220 字之间，不要太短
 - 必须严格贴合该人物的官职、公开人设、公开立场、性格、软肋与逆鳞
 - 要明显体现当前态度档位给出的语气要求
 - 可以结合“本回合局势”“上回往来”“近两回合关系温度”“近来得失”“派系压力”与“已解锁暗线”决定说话轻重，但不得跳出人设
 - 不得称主角为“计相”“计编修”或任何你自造的官称
 - 称呼主角时只可称“你”“翰林编修”或“萧编修”
+- 不要只回一句态度表态，要给出一层判断、一层情绪、再带一点试探、提醒或留扣
 - 不用现代口语、网络语、括号说明或角色名前缀
 - 直接输出对话正文`
 
@@ -138,6 +139,21 @@ function getTrustTone(trust: number): { label: string; description: string } {
     }
 }
 
+function getNpcSelfReference(npc: NPC): string | null {
+    switch (npc.name) {
+        case '尔朱烈':
+            return '本节度'
+        case '贺拔伯圭':
+            return '本公'
+        case '贺拔琪':
+            return '哀家'
+        case '尉迟暮':
+            return '本公'
+        default:
+            return null
+    }
+}
+
 export function buildNpcPrompt(params: {
     npc: NPC
     schemeType: SchemeType
@@ -176,6 +192,10 @@ export function buildNpcPrompt(params: {
     const relationshipTemperatureLine = `近两回合关系温度：${relationshipTemperature ?? '近两回合你对他尚未形成稳定手法，他还在重新掂量你的来意。'}`
     const recentCourtFortuneLine = `近来得失：${recentCourtFortune ?? '近来朝局并无足以改写他心气的新波折。'}`
     const factionPressureLine = `派系压力：${factionPressure ?? '他眼下仍处在彼此掣肘的朝局里，不会轻易把真心亮出来。'}`
+    const selfReference = getNpcSelfReference(npc)
+    const selfReferenceLine = selfReference
+        ? `自称口吻：提及自身权势、判断或行止时，应自称“${selfReference}”。`
+        : '自称口吻：依人物身份自然行文，不必额外抬高自称。'
 
     return [
         { role: 'system', content: NPC_SYSTEM },
@@ -196,6 +216,7 @@ ${previousDealingsLine}
 ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
 ${factionPressureLine}
+${selfReferenceLine}
 当前态度：${tone.label}
 语气要求：${tone.description}
 所属势力：${factionLabel}

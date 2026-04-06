@@ -3,7 +3,8 @@
 // 数据来源：数值初值与阈值表.md §1-3
 // ========================================
 
-import type { NationDimensions } from '../game/types'
+import { getDifficultyProfile } from '../game/difficulty'
+import type { GameDifficulty, NationDimensions } from '../game/types'
 
 /** 北周五维初值 */
 export const NORTH_INITIAL: NationDimensions = {
@@ -34,11 +35,23 @@ export const NORTH_GROWTH: NationDimensions = {
 
 /** 南陈每回合自然增长（基线） */
 export const SOUTH_GROWTH: NationDimensions = {
-    finance: 0.65,
-    grain: 0.55,
-    military: 0.5,
-    socialOrder: 0.55,
-    governance: 0.48,
+    finance: 0.54,
+    grain: 0.46,
+    military: 0.42,
+    socialOrder: 0.46,
+    governance: 0.4,
+}
+
+export function getSouthGrowthForDifficulty(difficulty: GameDifficulty): NationDimensions {
+    const profile = getDifficultyProfile(difficulty)
+
+    return {
+        finance: roundTwoDecimals(SOUTH_GROWTH.finance * profile.southGrowthMultiplier),
+        grain: roundTwoDecimals(SOUTH_GROWTH.grain * profile.southGrowthMultiplier),
+        military: roundTwoDecimals(SOUTH_GROWTH.military * profile.southGrowthMultiplier),
+        socialOrder: roundTwoDecimals(SOUTH_GROWTH.socialOrder * profile.southGrowthMultiplier),
+        governance: roundTwoDecimals(SOUTH_GROWTH.governance * profile.southGrowthMultiplier),
+    }
 }
 
 /**
@@ -56,4 +69,8 @@ export function applyGrowthCap(
         }
     }
     return result
+}
+
+function roundTwoDecimals(value: number): number {
+    return Math.round(value * 100) / 100
 }

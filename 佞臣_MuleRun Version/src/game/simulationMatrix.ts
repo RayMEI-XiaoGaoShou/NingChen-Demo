@@ -1,4 +1,4 @@
-import { INITIAL_NPCS } from '../data/npcs'
+﻿import { INITIAL_NPCS } from '../data/npcs'
 import type { ExternalStatus } from './types'
 import { simulateGame, type SimulateGameOptions } from './simulationRunner'
 
@@ -124,10 +124,17 @@ const CAMPAIGN_SCENARIOS: CampaignScenarioDefinition[] = [
             initialState: {
                 currentRound: 10,
                 northStats: { finance: 60, grain: 63, military: 74, socialOrder: 50, governance: 58 },
-                southStats: { finance: 60, grain: 63, military: 61, socialOrder: 58, governance: 60 },
+                southStats: { finance: 68, grain: 74, military: 72, socialOrder: 62, governance: 72 },
                 npcs: createControlledCampaignNpcs(),
             },
-            resolveRound: () => ({}),
+            resolveRound: ({ round }) => (
+                round === 10
+                    ? {
+                        policyOptionLabel: 'B',
+                        policyReason: '先稳住军粮、转运与接管次序，不让眼前战果变成后续包袱。',
+                    }
+                    : {}
+            ),
         },
     },
     {
@@ -144,7 +151,14 @@ const CAMPAIGN_SCENARIOS: CampaignScenarioDefinition[] = [
                 southStats: { finance: 45, grain: 48, military: 50, socialOrder: 46, governance: 50 },
                 npcs: createControlledCampaignNpcs(),
             },
-            resolveRound: () => ({}),
+            resolveRound: ({ round }) => (
+                round === 16
+                    ? {
+                        policyOptionLabel: 'D',
+                        policyReason: '先稳住渡口、粮道与接管秩序，别把推进打成虚耗。',
+                    }
+                    : {}
+            ),
         },
     },
     {
@@ -190,7 +204,7 @@ const CAMPAIGN_SCENARIOS: CampaignScenarioDefinition[] = [
             initialState: {
                 currentRound: 16,
                 northStats: { finance: 60, grain: 64, military: 70, socialOrder: 50, governance: 58 },
-                southStats: { finance: 64, grain: 66, military: 67, socialOrder: 60, governance: 60 },
+                southStats: { finance: 70, grain: 84, military: 92, socialOrder: 66, governance: 64 },
                 npcs: createControlledCampaignNpcs(),
                 shuCampaign: {
                     state: 'idle',
@@ -202,7 +216,14 @@ const CAMPAIGN_SCENARIOS: CampaignScenarioDefinition[] = [
                     remainingRounds: 0,
                 },
             },
-            resolveRound: () => ({}),
+            resolveRound: ({ round }) => (
+                round === 16
+                    ? {
+                        policyOptionLabel: 'D',
+                        policyReason: '先稳住渡口、粮道与接管秩序，别把推进打成虚耗。',
+                    }
+                    : {}
+            ),
         },
     },
     {

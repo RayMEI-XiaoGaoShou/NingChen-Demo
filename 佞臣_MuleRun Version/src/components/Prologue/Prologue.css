@@ -141,8 +141,79 @@
 
 .prologue-actions {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-lg);
     justify-content: center;
     padding-top: var(--spacing-sm);
+}
+
+.prologue-difficulty-panel {
+    width: min(760px, 100%);
+    padding: var(--spacing-lg);
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    border-radius: var(--radius-lg);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01)),
+        rgba(8, 8, 12, 0.76);
+    box-shadow: 0 18px 44px rgba(0, 0, 0, 0.22);
+}
+
+.prologue-difficulty-header {
+    text-align: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.prologue-difficulty-kicker {
+    display: inline-block;
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-sm);
+    letter-spacing: 6px;
+    margin-bottom: var(--spacing-xs);
+}
+
+.prologue-difficulty-description {
+    color: var(--color-text-secondary);
+    line-height: 1.8;
+}
+
+.prologue-difficulty-options {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-sm);
+}
+
+.prologue-difficulty-chip {
+    min-width: 112px;
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 176, 101, 0.24);
+    background: rgba(201, 176, 101, 0.06);
+    color: var(--color-text-secondary);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-sm);
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition:
+        background var(--transition-fast),
+        color var(--transition-fast),
+        border-color var(--transition-fast),
+        transform var(--transition-fast);
+}
+
+.prologue-difficulty-chip:hover {
+    transform: translateY(-1px);
+    color: var(--color-text-primary);
+    border-color: rgba(201, 176, 101, 0.4);
+}
+
+.prologue-difficulty-chip.active {
+    background: rgba(201, 176, 101, 0.18);
+    color: var(--color-accent-gold-light);
+    border-color: rgba(201, 176, 101, 0.56);
+    box-shadow: 0 0 18px rgba(201, 176, 101, 0.18);
 }
 
 .prologue-button {
@@ -171,6 +242,15 @@
     .prologue-section-title {
         font-size: var(--font-size-lg);
         letter-spacing: 4px;
+    }
+
+    .prologue-difficulty-panel {
+        padding: var(--spacing-md);
+    }
+
+    .prologue-difficulty-chip {
+        width: calc(50% - var(--spacing-sm));
+        min-width: 0;
     }
 
     .prologue-map-header {

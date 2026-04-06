@@ -18,7 +18,14 @@ import type { NPC, Faction } from '../game/types'
 import { getAvailableSchemesForNpc } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
-import { buildRoundStartSnapshot, type PersistedGameSnapshot, type RoundStartSnapshot } from '../game/saveEngine'
+import {
+    buildPersistedSnapshot,
+    buildRoundStartSnapshot,
+    loadGameSnapshot,
+    saveGameSnapshot,
+    type PersistedGameSnapshot,
+    type RoundStartSnapshot,
+} from '../game/saveEngine'
 import { getDifficultyProfile } from '../game/difficulty'
 import { chatCompletionJson } from '../ai/aiService'
 import { buildFengDaozhiDraftPrompt } from '../ai/prompts'
@@ -99,6 +106,10 @@ interface GameState {
     prevPhase: () => void
     advancePrologue: () => void
     setDifficulty: (difficulty: GameDifficulty) => void
+    startNewGame: (difficulty: GameDifficulty) => void
+    saveToSlot: () => boolean
+    loadLatestSave: () => boolean
+    returnToCover: () => void
     openGameplayGuide: (source?: HelpOverlaySource) => void
     closeGameplayGuide: () => void
     markFirstRoundGuideSeen: (key: FirstRoundGuideKey) => void
@@ -195,7 +206,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     difficulty: initialDifficulty,
     schemeCount: 0,
     maxSchemes: 3,
-    prologueStep: 'PROLOGUE',
+    prologueStep: 'COVER',
     helpOverlayOpen: false,
     helpOverlaySource: null,
     firstRoundGuideSeen: initialFirstRoundGuideSeen,
@@ -479,7 +490,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         const state = get()
         set({
             prologueStep:
-                state.prologueStep === 'PROLOGUE'
+                state.prologueStep === 'COVER'
+                    ? 'PROLOGUE'
+                    : state.prologueStep === 'PROLOGUE'
                     ? 'GAMEPLAY_GUIDE'
                     : state.prologueStep === 'GAMEPLAY_GUIDE'
                         ? 'INGAME'
@@ -491,6 +504,45 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({
             difficulty,
             fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(difficulty),
+        })
+    },
+
+    startNewGame: (difficulty: GameDifficulty) => {
+        get().resetGame()
+        set({
+            currentPhase: 'PROLOGUE',
+            difficulty,
+            prologueStep: 'PROLOGUE',
+            fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(difficulty),
+        })
+    },
+
+    saveToSlot: () => {
+        const state = get()
+        const snapshot = buildPersistedSnapshot({
+            ...state,
+            helpOverlayOpen: false,
+            helpOverlaySource: null,
+        })
+        if (!snapshot) return false
+        saveGameSnapshot(snapshot)
+        return true
+    },
+
+    loadLatestSave: () => {
+        const snapshot = loadGameSnapshot()
+        if (!snapshot) return false
+        get().hydrateSnapshot(snapshot)
+        return true
+    },
+
+    returnToCover: () => {
+        get().saveToSlot()
+        set({
+            currentPhase: 'PROLOGUE',
+            prologueStep: 'COVER',
+            helpOverlayOpen: false,
+            helpOverlaySource: null,
         })
     },
 
@@ -705,7 +757,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             schemeCount: 0,
             isGameOver: false,
             gameResult: 'NONE',
-            prologueStep: 'PROLOGUE',
+            prologueStep: 'COVER',
             helpOverlayOpen: false,
             helpOverlaySource: null,
             firstRoundGuideSeen: initialFirstRoundGuideSeen,

@@ -8,7 +8,12 @@ function resolveTrack(
     helpOverlayOpen: boolean,
     currentPhase: string,
 ): BgmTrackKey {
-    if (helpOverlayOpen || prologueStep === 'PROLOGUE' || prologueStep === 'GAMEPLAY_GUIDE') {
+    if (
+        helpOverlayOpen ||
+        prologueStep === 'COVER' ||
+        prologueStep === 'PROLOGUE' ||
+        prologueStep === 'GAMEPLAY_GUIDE'
+    ) {
         return 'bgm4'
     }
 

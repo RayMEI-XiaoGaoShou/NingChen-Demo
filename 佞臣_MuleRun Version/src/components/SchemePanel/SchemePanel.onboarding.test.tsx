@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { FIRST_OMEN_TEACHING_CONTENT } from '../../data/prologueContent'
+import { EXTERNAL_LINE_TEACHING_CONTENT, FIRST_OMEN_TEACHING_CONTENT } from '../../data/prologueContent'
 import { OmenTeachingModal } from './OmenTeachingModal'
 import { SchemePanel } from './SchemePanel'
 import { useGameStore } from '../../stores/gameStore'
+import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 
 describe('SchemePanel onboarding flows', () => {
     beforeEach(() => {
@@ -23,7 +24,7 @@ describe('SchemePanel onboarding flows', () => {
         expect(markup).toContain('设局嫁祸')
     })
 
-    it('renders a top-right button for reopening the scheme guide', () => {
+    it('renders top-right buttons for reopening the scheme guide and gameplay guide', () => {
         useGameStore.setState({
             currentPhase: 'SCHEME_PHASE',
             currentRound: 2,
@@ -45,6 +46,25 @@ describe('SchemePanel onboarding flows', () => {
         const markup = renderToStaticMarkup(<SchemePanel />)
 
         expect(markup).toContain('计谋指南')
+        expect(markup).toContain('玩法说明')
+    })
+
+    it('uses the renamed external-line teaching content', () => {
+        const markup = renderToStaticMarkup(
+            <SchemeOnboardingModal
+                open
+                title={EXTERNAL_LINE_TEACHING_CONTENT.title}
+                pages={EXTERNAL_LINE_TEACHING_CONTENT.pages}
+                onClose={() => undefined}
+            />,
+        )
+
+        expect(markup).toContain('地方军头计谋玩法')
+        expect(EXTERNAL_LINE_TEACHING_CONTENT.pages[0]?.bullets).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('养信'),
+            ]),
+        )
     })
 
     it('renders the detailed omen teaching modal copy', () => {

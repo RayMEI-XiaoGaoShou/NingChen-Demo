@@ -131,7 +131,7 @@ export function buildPersistedSnapshot(
     state: GameSnapshotCore & { roundStartSnapshot: RoundStartSnapshot | null },
 ): PersistedGameSnapshot | null {
     const hasProgress =
-        state.prologueStep !== 'PROLOGUE' ||
+        (state.prologueStep !== 'COVER' && state.prologueStep !== 'PROLOGUE') ||
         state.currentRound > 1 ||
         state.currentPhase !== 'PROLOGUE' ||
         state.roundHistory.length > 0 ||
@@ -149,10 +149,12 @@ export function buildPersistedSnapshot(
 }
 
 export function saveGameSnapshot(snapshot: PersistedGameSnapshot) {
+    if (typeof localStorage === 'undefined') return
     localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot))
 }
 
 export function loadGameSnapshot(): PersistedGameSnapshot | null {
+    if (typeof localStorage === 'undefined') return null
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
 
@@ -185,5 +187,10 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
 }
 
 export function clearGameSnapshot() {
+    if (typeof localStorage === 'undefined') return
     localStorage.removeItem(STORAGE_KEY)
+}
+
+export function hasSavedGameSnapshot(): boolean {
+    return loadGameSnapshot() !== null
 }

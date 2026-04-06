@@ -4,9 +4,13 @@
 // AI 在后台异步生成 NPC 反馈
 // ========================================
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
-import { FIRST_OMEN_TEACHING_CONTENT, SCHEME_MASTER_GUIDE_CONTENT } from '../../data/prologueContent'
+import {
+    EXTERNAL_LINE_TEACHING_CONTENT,
+    FIRST_OMEN_TEACHING_CONTENT,
+    SCHEME_MASTER_GUIDE_CONTENT,
+} from '../../data/prologueContent'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
@@ -16,12 +20,15 @@ import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
 import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/schemeEngine'
 import { getHighlightedNpcIds } from '../../game/roundIntelEngine'
+import { buildExternalLineProgress } from '../../game/externalLineProgress'
+import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt } from '../../ai/prompts'
 import { FengDaozhiAssistPanel } from './FengDaozhiAssistPanel'
 import { OmenTeachingModal } from './OmenTeachingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
+import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import type { FengDaozhiDraftResult, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
 
@@ -47,6 +54,21 @@ export function getSchemeSpeechFields(selectedScheme: SchemeType | null): Scheme
         primaryLabel: '补一句说辞',
         helperText: '说辞若切中此人的立场与心结，将实际影响计谋成败与效果幅度。',
     }
+}
+
+function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string {
+    if (alignmentBias === 'emperor') return '偏帝党'
+    if (alignmentBias === 'empress') return '偏后党'
+    if (alignmentBias === 'self') return '自立'
+    return '摇摆'
+}
+
+function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string {
+    if (externalStatus === 'rebellion') return '反叛'
+    if (externalStatus === 'secession') return '割据'
+    if (loyaltyToCourt <= 35 || alignmentBias === 'self') return '离心'
+    if (externalStatus === 'watchful') return '观望'
+    return '忠顺'
 }
 
 export function buildSchemeSpeechPayload(params: {
@@ -116,6 +138,9 @@ export function SchemePanel() {
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId)
+    const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
+    const aliveNpcs = npcs.filter(n => n.isAlive)
+    const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const availableSchemeTypes = selectedNpc
         ? getAvailableSchemesForNpc(selectedNpc, {
             round: currentRound,
@@ -136,15 +161,39 @@ export function SchemePanel() {
     const shouldShowSchemeGuide =
         !shouldShowOmenGuide &&
         (((!schemeOnboardingSeen.scheme_master_guide && currentRound === 1) || showSchemeGuide))
+    const shouldShowExternalLineGuide =
+        !shouldShowSchemeGuide &&
+        !shouldShowOmenGuide &&
+        aliveNpcs.some(npc => npc.powerBase === 'external') &&
+        !schemeOnboardingSeen.first_external_line_teaching
     const speechFields = getSchemeSpeechFields(selectedScheme)
     const omenTargetHint =
         selectedScheme === 'omen' && selectedNpc
             ? buildOmenTargetHint({ npc: selectedNpc })
             : null
-
-    const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
-    const aliveNpcs = npcs.filter(n => n.isAlive)
-    const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
+    const selectedKnownIntel = selectedNpc
+        ? selectedNpc.secretThreads.slice(0, intelProgress[selectedNpc.id] ?? 0)
+        : []
+    const selectedExternalProgress = useMemo(() => {
+        if (!selectedNpc || selectedNpc.powerBase !== 'external') return null
+        return buildExternalLineProgress({
+            npc: selectedNpc,
+            unlockedSecrets: intelProgress[selectedNpc.id] ?? 0,
+            difficulty,
+            round: currentRound,
+            externalActionEnabled: roundSupportsExternalAction(
+                currentRound,
+                selectedNpc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
+            ),
+        })
+    }, [currentRound, difficulty, intelProgress, selectedNpc])
+    const leverageChips = selectedNpc
+        ? [
+            `打动：${selectedNpc.softSpot}`,
+            `激怒：${selectedNpc.triggerPoint}`,
+            `可撬动：${selectedNpc.schemeHooks}`,
+        ]
+        : []
 
     const schemeNames: Record<string, string> = {
         probe: '试探',
@@ -278,7 +327,7 @@ export function SchemePanel() {
                     recentCourtFortune: dynamicContext.recentCourtFortune,
                     factionPressure: dynamicContext.factionPressure,
                 }),
-                { temperature: 0.75, maxTokens: 200, tag: `npc_${selectedScheme}_${success ? 'success' : 'failure'}` },
+                { temperature: 0.75, maxTokens: 320, tag: `npc_${selectedScheme}_${success ? 'success' : 'failure'}` },
             )
         }).then(reply => {
             const source = getAiMode() === 'fallback' ? '本地兜底' : getAiModeLabel()
@@ -330,14 +379,25 @@ export function SchemePanel() {
                 />
             )}
 
+            {shouldShowExternalLineGuide && (
+                <SchemeOnboardingModal
+                    open
+                    title={EXTERNAL_LINE_TEACHING_CONTENT.title}
+                    pages={EXTERNAL_LINE_TEACHING_CONTENT.pages}
+                    onClose={() => {
+                        markSchemeOnboardingSeen('first_external_line_teaching')
+                    }}
+                />
+            )}
+
             <div className="page-utility-row utility-split animate-slide-up">
                 <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
-                <button className="btn-help" onClick={() => setShowSchemeGuide(true)}>
-                    计谋指南
-                </button>
-                <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
-                    玩法说明
-                </button>
+                <div className="scheme-toolbar-actions">
+                    <button className="btn-help" onClick={() => setShowSchemeGuide(true)}>
+                        计谋指南
+                    </button>
+                    <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
+                </div>
             </div>
 
             <div className="scheme-modal glass-panel animate-slide-up">
@@ -501,6 +561,55 @@ export function SchemePanel() {
                                                 {relatedNpc && (
                                                     <div className="scheme-preview-meta">关联人物：{relatedNpc.name}</div>
                                                 )}
+                                                <div className="scheme-preview-sections">
+                                                    <section className="scheme-preview-section">
+                                                        <div className="scheme-preview-section-title">公开人设</div>
+                                                        <p>{selectedNpc.publicPersona}</p>
+                                                    </section>
+                                                    <section className="scheme-preview-section">
+                                                        <div className="scheme-preview-section-title">公开政治立场</div>
+                                                        <p>{selectedNpc.publicStance}</p>
+                                                    </section>
+                                                    <section className="scheme-preview-section">
+                                                        <div className="scheme-preview-section-title">可撬动点</div>
+                                                        <div className="scheme-preview-chip-list">
+                                                            {leverageChips.map(chip => (
+                                                                <span key={chip} className="scheme-preview-chip">{chip}</span>
+                                                            ))}
+                                                        </div>
+                                                    </section>
+                                                    {selectedNpc.powerBase === 'external' && selectedExternalProgress && (
+                                                        <section className="scheme-preview-section">
+                                                            <div className="scheme-preview-section-title">外部筹码</div>
+                                                            <div className="scheme-preview-chip-list">
+                                                                <span className="scheme-preview-chip">军力 {selectedNpc.militaryPower}</span>
+                                                                <span className="scheme-preview-chip">忠诚 {selectedNpc.loyaltyToCourt}</span>
+                                                                <span className="scheme-preview-chip">倾向：{getExternalTiltLabel(selectedNpc.alignmentBias)}</span>
+                                                                <span className="scheme-preview-chip">态势：{getExternalPostureLabel(selectedNpc.externalStatus, selectedNpc.loyaltyToCourt, selectedNpc.alignmentBias)}</span>
+                                                                <span className="scheme-preview-chip">阶段：{selectedExternalProgress.phase}</span>
+                                                                <span className="scheme-preview-chip">目标：{selectedExternalProgress.targetLabel}</span>
+                                                            </div>
+                                                            <p>{selectedExternalProgress.gapText}</p>
+                                                        </section>
+                                                    )}
+                                                    <section className="scheme-preview-section">
+                                                        <div className="scheme-preview-section-title">已知情报</div>
+                                                        {selectedKnownIntel.length > 0 ? (
+                                                            <div className="scheme-preview-chip-list">
+                                                                {selectedKnownIntel.map((intel, index) => (
+                                                                    <span
+                                                                        key={`${selectedNpc.id}-intel-${index}`}
+                                                                        className="scheme-preview-chip"
+                                                                    >
+                                                                        {intel}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <p>暂无。可先用“试探”逐步摸清暗线。</p>
+                                                        )}
+                                                    </section>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

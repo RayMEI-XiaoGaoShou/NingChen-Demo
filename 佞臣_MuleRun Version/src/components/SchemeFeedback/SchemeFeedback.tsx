@@ -9,6 +9,7 @@ import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
+import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './SchemeFeedback.css'
 
 const SCHEME_NAMES: Record<string, string> = {
@@ -22,7 +23,7 @@ const SCHEME_NAMES: Record<string, string> = {
     omen: '谶纬',
 }
 
-const LOCAL_REPLY_FALLBACK = '似有反应，却未置可否……'
+const LOCAL_REPLY_FALLBACK = '似有反应，却一时听不分明。'
 
 export function SchemeFeedback() {
     const {
@@ -89,13 +90,13 @@ export function SchemeFeedback() {
                 : (
                     markSchemeParsePending(feedbackId),
                     parseNorthSchemeInput({
-                    round: currentRound,
-                    npc: targetNpc,
-                    schemeType: action.schemeType,
-                    speech: action.playerSpeech,
-                    relatedNpc,
-                    omenSpeechInput: action.omenSpeechInput,
-                }).then(parsed => {
+                        round: currentRound,
+                        npc: targetNpc,
+                        schemeType: action.schemeType,
+                        speech: action.playerSpeech,
+                        relatedNpc,
+                        omenSpeechInput: action.omenSpeechInput,
+                    }).then(parsed => {
                         updateSchemeParse(feedbackId, parsed)
                         return parsed
                     })
@@ -132,7 +133,7 @@ export function SchemeFeedback() {
                         }),
                         {
                             temperature: 0.75,
-                            maxTokens: 200,
+                            maxTokens: 420,
                             tag: `npc_${action.schemeType}_${success ? 'success' : 'failure'}`,
                         },
                     )
@@ -176,13 +177,13 @@ export function SchemeFeedback() {
 
             markSchemeParsePending(action.id)
             parseNorthSchemeInput({
-              round: currentRound,
-              npc: targetNpc,
-              schemeType: action.schemeType,
-              speech: action.playerSpeech,
-              relatedNpc,
-              omenSpeechInput: action.omenSpeechInput,
-          }).then(parsed => {
+                round: currentRound,
+                npc: targetNpc,
+                schemeType: action.schemeType,
+                speech: action.playerSpeech,
+                relatedNpc,
+                omenSpeechInput: action.omenSpeechInput,
+            }).then(parsed => {
                 updateSchemeParse(action.id!, parsed)
             })
         })
@@ -199,29 +200,12 @@ export function SchemeFeedback() {
             )}
 
             <div className="page-utility-row animate-slide-up">
-                <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
-                    玩法说明
-                </button>
+                <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
             </div>
 
             <div className="scheme-feedback-header animate-slide-up">
-                <span className="page-eyebrow">暗线揭卷</span>
-                <h2 className="page-title">暗线回报</h2>
-            </div>
-
-            <div className="page-mission-strip animate-slide-up animate-delay-1">
-                <div className="page-mission-item">
-                    <span className="page-mission-label">先看什么</span>
-                    <p className="page-mission-text">先看谁回得最快、谁口气最硬，这比单看成败更能说明人心。</p>
-                </div>
-                <div className="page-mission-item">
-                    <span className="page-mission-label">怎么看</span>
-                    <p className="page-mission-text">把每封回报当成揭卷，不只看他说了什么，更看他回避了什么。</p>
-                </div>
-                <div className="page-mission-item">
-                    <span className="page-mission-label">下一步做什么</span>
-                    <p className="page-mission-text">等结构化解析完成后，再进结算页看这些波纹如何传到了朝局与国势上。</p>
-                </div>
+                <span className="page-eyebrow">计谋回报</span>
+                <h2 className="page-title">计谋回报</h2>
             </div>
 
             <div className="feedback-list">
@@ -229,7 +213,7 @@ export function SchemeFeedback() {
                     <div className="feedback-item glass-panel decree-panel done">
                         <div className="feedback-body">
                             <div className="feedback-text-area">
-                                <p className="feedback-text">本回合暂未收到暗线回报。若再次出现，请记录回合与目标，我会继续追查。</p>
+                                <p className="feedback-text">本回合暂未收到计谋回报。若再次出现，请记下回合与目标，我会继续追查。</p>
                             </div>
                         </div>
                     </div>
@@ -260,7 +244,7 @@ export function SchemeFeedback() {
                             {fb.isLoading ? (
                                 <div className="loading-state">
                                     <div className="ai-ripple" />
-                                    <p className="loading-hint">{fb.npcName}正在思忖……</p>
+                                    <p className="loading-hint">{fb.npcName}正在思量你的这一步棋……</p>
                                 </div>
                             ) : (
                                 <div className="feedback-text-area animate-fade-in">
@@ -280,7 +264,7 @@ export function SchemeFeedback() {
                     onClick={nextPhase}
                     disabled={!allDone || !allParsed}
                 >
-                    {allDone ? (allParsed ? '查看结算' : '等待结构化解析…') : '等待暗线回报…'}
+                    {allDone ? (allParsed ? '查看结算' : '等待天道归拢结构化结果…') : '等待计谋回报…'}
                 </button>
             </div>
         </div>

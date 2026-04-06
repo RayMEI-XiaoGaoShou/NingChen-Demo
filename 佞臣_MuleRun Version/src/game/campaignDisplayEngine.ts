@@ -85,16 +85,16 @@ function getCampaignRoundStartSummary(
 function getShuRoundStartSummary(round: number, state: CampaignOutcomeState): string | null {
     if (state === 'gained') {
         return round === 11
-            ? '蜀地方向已见胜机，巴蜀归属开始倾斜，北周西线被迫继续加注。'
+            ? '蜀地方向已现胜机，南陈已在巴蜀抢下先手；北周朝堂争的已不只是如何反攻，更是谁来替西线残局收权、收兵、收人心。'
             : '南陈已稳住蜀地，北周西线不得不转入补缀。'
     }
 
     if (state === 'stalemate') {
-        return '蜀地战局一时僵持，双方都被迫继续投入。'
+        return '蜀地战局仍在僵持，双方都被迫继续增兵加粮，谁也不敢先说自己撑得更久。'
     }
 
     if (state === 'failed') {
-        return '征蜀受挫，南陈只得先收束战线。'
+        return '南陈征蜀受挫，前锋被迫收束，北周西线得以暂时喘息，朝堂随即转向追问如何乘胜稳住巴蜀。'
     }
 
     return null
@@ -103,16 +103,16 @@ function getShuRoundStartSummary(round: number, state: CampaignOutcomeState): st
 function getHuainanRoundStartSummary(round: number, state: CampaignOutcomeState): string | null {
     if (state === 'gained') {
         return round === 17
-            ? '淮南防线已被撕开缺口，南陈正乘势稳住渡口与粮道。'
+            ? '淮南防线已被撕开缺口，南陈正乘势稳住渡口与粮道；北周前线后方同时失衡，谁来担责已成满朝心病。'
             : '南陈已据淮南，北周前线与漕运持续受压。'
     }
 
     if (state === 'stalemate') {
-        return '淮南战局胶着，双方都被拖入久战。'
+        return '淮南战局仍在胶着，双方都被拖入久战，前线未见定局，后方却已先显疲态。'
     }
 
     if (state === 'failed') {
-        return '淮南受挫，南陈被迫转入守线与收束。'
+        return '南陈淮南受挫，攻势被迫回收，北周得以暂稳守线，但长期征发留下的疲色并未因此消去。'
     }
 
     return null

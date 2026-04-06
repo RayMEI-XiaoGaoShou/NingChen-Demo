@@ -15,11 +15,11 @@ describe('App prologue flow', () => {
         })
     })
 
-    it('shows the prologue before the round loop when no resume snapshot exists', () => {
+    it('shows the cover page before the prologue when no save snapshot exists', () => {
         const markup = renderToStaticMarkup(<App />)
 
-        expect(markup).toContain('纷乱之世')
-        expect(markup).toContain('继续')
+        expect(markup).toContain('开始游戏')
+        expect(markup).toContain('加载存档')
     })
 
     it('shows the audio control as mute when the game starts unmuted', () => {

@@ -12,8 +12,8 @@ export function Prologue() {
                 <span className="prologue-kicker">背景序章</span>
                 <h1 className="prologue-title">纷乱之世</h1>
                 <p className="prologue-summary">
-                    你将以萧宝颖之身潜入北周，表面身份是邺城朝中的翰林编修，在朝局与刀锋之间替南陈争取时间。
-                    十年之局被拆作二十回合，每一步都可能决定旧约能否兑现。
+                    你将以萧宝颖之身潜入北周，表面身份是邺城朝中的翰林编修。
+                    如今北周太后已垂帘听政五年，帝党、后党与地方军头互相牵制，正是你为南陈争时间的缝隙。
                 </p>
                 <div className="prologue-meta">
                     <span className="prologue-chip">十年拆作二十回合</span>

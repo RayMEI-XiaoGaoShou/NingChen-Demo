@@ -31,14 +31,17 @@ export function SchemeOnboardingModal({ open, title, pages, onClose }: SchemeOnb
                 </div>
                 <div className="first-round-guide-actions">
                     <button
-                        className="btn-utility-secondary"
+                        className="btn-primary first-round-guide-button"
                         disabled={index === 0}
                         onClick={() => setIndex(current => Math.max(0, current - 1))}
                     >
                         上一页
                     </button>
                     {index < pages.length - 1 ? (
-                        <button className="btn-primary first-round-guide-button" onClick={() => setIndex(current => current + 1)}>
+                        <button
+                            className="btn-primary first-round-guide-button"
+                            onClick={() => setIndex(current => current + 1)}
+                        >
                             下一页
                         </button>
                     ) : (

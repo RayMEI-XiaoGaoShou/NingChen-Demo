@@ -7,6 +7,7 @@ import { buildEmpressFeedbackPrompt, buildJudgePrompt } from '../../ai/prompts'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import './Settlement.css'
@@ -23,12 +24,12 @@ export function getSafeSettlementJudgeFacts(
     const judgeFacts = settlement?.judgeFacts
 
     return {
-        eventImpactSummary: judgeFacts?.eventImpactSummary ?? '本回合局势尚在调整，暂未显现新的波动。',
+        eventImpactSummary: judgeFacts?.eventImpactSummary ?? '本回合局势尚在调整，暂未显出新的波动。',
         factionSummary: judgeFacts?.factionSummary ?? '朝局暂稳，各方都还在等风向。',
         relationshipSummary: judgeFacts?.relationshipSummary ?? '',
         externalSummary: judgeFacts?.externalSummary ?? '边镇与外部势力仍在观望。',
         northSummary: judgeFacts?.northSummary ?? '北周国势暂无明显变化。',
-        southSummary: judgeFacts?.southSummary ?? '南陈新政的后效尚在逐步显形。',
+        southSummary: judgeFacts?.southSummary ?? '南陈新政的后效仍在缓缓显形。',
         invasionSummary: judgeFacts?.invasionSummary ?? '南征窗口仍待后续观察。',
         survivalSummary: judgeFacts?.survivalSummary ?? '风声暂稳。',
         aiNativeSummary: {
@@ -81,7 +82,7 @@ export function Settlement() {
     const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
     const schemeHints = judgeFacts.aiNativeSummary.schemeHints
     const backlashHints = judgeFacts.aiNativeSummary.backlashHints
-    const invasionWindowLabel = lastSettlement?.judgeFacts?.invasionSummary?.split?.('；')?.[0] ?? '待判'
+    const invasionWindowLabel = lastSettlement?.judgeFacts?.invasionSummary?.split?.('：')?.[0] ?? '待判'
     const settlementPolicyFollowup =
         lastSettlement?.policyAftereffect && lastSettlement.policyReport
             ? getSettlementPolicyFollowupText(lastSettlement.policyReport.focusMatched)
@@ -150,7 +151,7 @@ export function Settlement() {
                     lastSettlement.policyReport
                         ? chatCompletion(buildEmpressFeedbackPrompt(lastSettlement.policyReport), {
                             temperature: 0.75,
-                            maxTokens: 180,
+                            maxTokens: 220,
                             tag: 'empress_feedback_settlement',
                         })
                         : Promise.resolve(''),
@@ -182,6 +183,7 @@ export function Settlement() {
             )
             setIsLoading(false)
         })
+
         return () => {
             cancelled = true
         }
@@ -198,41 +200,24 @@ export function Settlement() {
             )}
 
             <div className="page-utility-row animate-slide-up">
-                <button className="btn-help" onClick={() => openGameplayGuide('gameplay')}>
-                    玩法说明
-                </button>
+                <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
             </div>
 
             <div className="settlement-header animate-slide-up">
-                <span className="page-eyebrow">天道判卷</span>
-                <h2 className="page-title">本 回 合 结 算</h2>
-            </div>
-
-            <div className="page-mission-strip animate-slide-up animate-delay-1">
-                <div className="page-mission-item">
-                    <span className="page-mission-label">先看什么</span>
-                    <p className="page-mission-text">先看天道判词，确认这一回合真正赢在哪、坏在哪。</p>
-                </div>
-                <div className="page-mission-item">
-                    <span className="page-mission-label">再看什么</span>
-                    <p className="page-mission-text">再看施计结果、女帝回信与大局推演，别一上来就钻细项。</p>
-                </div>
-                <div className="page-mission-item">
-                    <span className="page-mission-label">最后做什么</span>
-                    <p className="page-mission-text">确认南征窗口、自身风险与南陈余势，再决定如何迎接下一回合。</p>
-                </div>
+                <span className="page-eyebrow">天道结算</span>
+                <h2 className="page-title">本回合结算</h2>
             </div>
 
             <div className="settlement-content">
                 <div className="scroll-container animate-slide-up animate-delay-1">
                     <div className="judge-narration gold-panel decree-panel">
                         <div className="scroll-decorator top"></div>
-                        <h3 className="judge-title">天道判官卷</h3>
+                        <h3 className="judge-title">天道结算</h3>
                         <div className="narration-content">
                             {isLoading ? (
                                 <div className="loading-state">
                                     <div className="ai-ripple"></div>
-                                    <p className="narration-loading">天道判官正在审视本回合的得失</p>
+                                    <p className="narration-loading">天道正在结算本回合的得失</p>
                                 </div>
                             ) : (
                                 <p className="narration-text typewriter">{judgeNarration}</p>
@@ -244,13 +229,13 @@ export function Settlement() {
 
                 <div className="results-section animate-slide-up animate-delay-2">
                     <h3 className="section-title">计谋筹算结果</h3>
-                    {schemeHints.length ? (
+                    {schemeHints.length > 0 && (
                         <div className="glass-panel subtle-hints">
                             {schemeHints.map(hint => (
                                 <p key={hint} className="result-text">{hint}</p>
                             ))}
                         </div>
-                    ) : null}
+                    )}
                     <div className="results-list">
                         {lastSettlement?.schemeResults.map((result, i) => {
                             const action = currentSchemes[i]
@@ -285,11 +270,11 @@ export function Settlement() {
                                                 grain: '粮赋',
                                                 military: '军事',
                                                 socialOrder: '社会秩序',
-                                                governance: '统治穿透力',
+                                                governance: '治理穿透力',
                                             }
                                             return (
                                                 <span key={dim} className={`effect-tag ${Number(val) > 0 ? 'positive' : 'negative'}`}>
-                                                    北周{dimNames[dim]} {(val as number) > 0 ? '+' : ''}{(val as number).toFixed(1)}
+                                                    北周{dimNames[dim]} {formattedDelta}
                                                 </span>
                                             )
                                         })}
@@ -312,7 +297,7 @@ export function Settlement() {
                                     </span>
                                 </div>
                             </div>
-                            <p className="result-text">{isLoading ? '女帝密批正在送达……' : empressReply}</p>
+                            <p className="result-text">{isLoading ? '女帝密批正在送达…' : empressReply}</p>
                             <div className="result-effects">
                                 {Object.entries(sanitizeDeltaRecord(lastSettlement.policyReport.effects)).map(([dim, val]) => {
                                     if (!val) return null
@@ -321,7 +306,7 @@ export function Settlement() {
                                         grain: '粮赋',
                                         military: '军事',
                                         socialOrder: '民生秩序',
-                                        governance: '统治穿透力',
+                                        governance: '治理穿透力',
                                     }
                                     return (
                                         <span key={`south-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
@@ -331,13 +316,6 @@ export function Settlement() {
                                 })}
                                 <span className={`effect-tag ${lastSettlement.policyReport.focusMatched ? 'positive' : 'negative'}`}>
                                     {lastSettlement.policyReport.focusMatched ? '论证切题' : '论证偏泛'}
-                                </span>
-                                <span className={`effect-tag ${lastSettlement.policyReport.legitimacyTone === 'down' ? 'negative' : 'positive'}`}>
-                                    {lastSettlement.policyReport.legitimacyTone === 'up'
-                                        ? '法统余势向上'
-                                        : lastSettlement.policyReport.legitimacyTone === 'down'
-                                            ? '法统余势受损'
-                                            : '法统影响平稳'}
                                 </span>
                             </div>
                             {lastSettlement.policyAftereffect && (
@@ -351,7 +329,7 @@ export function Settlement() {
                                                 grain: '粮赋',
                                                 military: '军事',
                                                 socialOrder: '民生秩序',
-                                                governance: '统治穿透力',
+                                                governance: '治理穿透力',
                                             }
                                             return (
                                                 <span key={`south-after-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
@@ -396,7 +374,7 @@ export function Settlement() {
                             <span className="summary-label">南征风险评估</span>
                             <span className={`summary-value ${(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.0 ? 'danger' : 'safe'}`}>
                                 {(lastSettlement?.invasionPoliticalRatio ?? 0) >= 1.2
-                                    ? '危急'
+                                    ? '危险'
                                     : (lastSettlement?.invasionPoliticalRatio ?? 0) >= 0.8
                                         ? '警戒'
                                         : '暂缓'}
@@ -457,7 +435,7 @@ export function Settlement() {
                                     <div className="result-header">
                                         <div className="result-info">
                                             <span className="result-scheme">{report.factionName}</span>
-                                            <span className="result-index">{report.severity === 'collapse' ? '崩盘' : '崩口'}</span>
+                                            <span className="result-index">{report.severity === 'collapse' ? '崩盘' : '裂口'}</span>
                                         </div>
                                     </div>
                                     <p className="result-text">{report.summary}</p>
@@ -467,7 +445,7 @@ export function Settlement() {
                     </div>
                 )}
 
-                {backlashHints.length ? (
+                {backlashHints.length > 0 && (
                     <div className="results-section animate-slide-up animate-delay-4">
                         <h3 className="section-title">余波暗动</h3>
                         <div className="results-list">
@@ -478,7 +456,7 @@ export function Settlement() {
                             ))}
                         </div>
                     </div>
-                ) : null}
+                )}
 
                 <div className="action-footer animate-slide-up animate-delay-4">
                     <button className="btn-primary btn-next" onClick={nextPhase}>

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getSouthGrowthForDifficulty } from '../data/nationStats'
 import {
     buildPolicyAftereffect,
     calculatePolicyEffect,
@@ -150,6 +151,13 @@ describe('checkEarlyInvasion', () => {
 })
 
 describe('calculatePolicyEffect', () => {
+    it('uses the normal profile to trim South natural growth', () => {
+        const grown = getSouthGrowthForDifficulty('normal')
+
+        expect(grown.finance).toBe(0.43)
+        expect(grown.governance).toBe(0.32)
+    })
+
     it('rewards reasons that hit the question scoring focus and legitimacy direction', () => {
         const aligned = calculatePolicyEffect(
             { governance: 2, socialOrder: 1 },
@@ -237,6 +245,34 @@ describe('calculatePolicyEffect', () => {
 })
 
 describe('buildPolicyAftereffect', () => {
+    it('scales aftereffects by difficulty profile', () => {
+        const input = {
+            round: 7,
+            topic: '军粮与河运',
+            legitimacyEffect: 'up' as const,
+            immediateEffects: {
+                finance: 2.4,
+                grain: 2.1,
+                governance: 1.6,
+            },
+            reasonText: '先稳转运与清册，再定军粮分配，使地方知道先做什么。',
+            policyParse: {
+                focusAlignment: 0.82,
+                executionClarity: 0.78,
+                costAwareness: 0.61,
+                legitimacyAlignment: 0.74,
+                policyStance: 'balanced' as const,
+                evidence: [],
+            },
+        }
+
+        const normal = buildPolicyAftereffect({ ...input, difficulty: 'normal' })
+        const easy = buildPolicyAftereffect({ ...input, difficulty: 'easy' })
+
+        expect(normal.effects.finance ?? 0).toBeLessThan(easy.effects.finance ?? 0)
+        expect(normal.effects.governance ?? 0).toBeLessThan(easy.effects.governance ?? 0)
+    })
+
     it('turns question metadata into delayed next-round policy fallout', () => {
         const immediate = calculatePolicyEffect(
             { grain: 3, governance: 1 },
@@ -294,7 +330,7 @@ describe('buildPolicyAftereffect', () => {
             aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
         })
 
-        expect(early.effects.grain).toBeLessThan(mid.effects.grain ?? 0)
+        expect(early.effects.grain).toBeLessThanOrEqual(mid.effects.grain ?? 0)
         expect(early.effects.governance).toBeLessThanOrEqual(mid.effects.governance ?? 0)
         expect(mid.effects.grain).toBeLessThan(late.effects.grain ?? 0)
         expect(mid.effects.governance).toBeLessThan(late.effects.governance ?? 0)

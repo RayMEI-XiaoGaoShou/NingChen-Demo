@@ -6,6 +6,7 @@
 import type {
     CourtFactionId,
     FactionCollapseReport,
+    GameDifficulty,
     NationDimensions,
     NPC,
     PlayerDangerStage,
@@ -13,9 +14,10 @@ import type {
     PolicyReasonParseResult,
     PolicyResolutionMeta,
 } from './types'
-import { NORTH_GROWTH, SOUTH_GROWTH, applyGrowthCap } from '../data/nationStats'
+import { NORTH_GROWTH, applyGrowthCap, getSouthGrowthForDifficulty } from '../data/nationStats'
 import { getRoundRuleContext } from '../data/roundRuleConfig'
 import { fallbackPolicyParseFromReason } from './aiNativeEngine'
+import { getDifficultyProfile } from './difficulty'
 
 /**
  * 应用自然增长（每回合结束时调用）
@@ -26,8 +28,9 @@ import { fallbackPolicyParseFromReason } from './aiNativeEngine'
 export function applyNaturalGrowth(
     current: NationDimensions,
     isNorth: boolean,
+    difficulty: GameDifficulty = 'normal',
 ): NationDimensions {
-    const baseGrowth = isNorth ? NORTH_GROWTH : SOUTH_GROWTH
+    const baseGrowth = isNorth ? NORTH_GROWTH : getSouthGrowthForDifficulty(difficulty)
     const adjustedGrowth = applyGrowthCap(current, baseGrowth)
 
     return {
@@ -64,14 +67,16 @@ export function calculatePolicyEffect(
     optionEffects: Partial<NationDimensions>,
     reasonText: string,
     meta: PolicyResolutionMeta = {},
+    difficulty: GameDifficulty = 'normal',
 ): Partial<NationDimensions> {
     const parse = meta.policyParse ?? fallbackPolicyParseFromReason(reasonText, meta)
     const reasonModifier = calculateReasonModifier(parse, meta.round ?? 1)
+    const profile = getDifficultyProfile(difficulty)
 
     const result: Partial<NationDimensions> = {}
     for (const [key, value] of Object.entries(optionEffects)) {
         if (value !== undefined) {
-            result[key as keyof NationDimensions] = Math.round(value * reasonModifier * 10) / 10
+            result[key as keyof NationDimensions] = Math.round(value * reasonModifier * profile.policyImmediateMultiplier * 10) / 10
         }
     }
     return result
@@ -95,6 +100,7 @@ function calculateReasonModifier(parse: PolicyReasonParseResult, round: number):
 
 export function buildPolicyAftereffect(params: {
     round: number
+    difficulty?: GameDifficulty
     topic: string
     nextRoundFeedback?: string
     legitimacyEffect?: 'up' | 'down' | 'steady'
@@ -109,7 +115,13 @@ export function buildPolicyAftereffect(params: {
         aiScoringFocus: params.aiScoringFocus,
     })
     const focusMatched = parse.focusAlignment >= 0.48
-    const effects = buildAftereffectDimensions(params.immediateEffects, legitimacyTone, parse, params.round)
+    const effects = buildAftereffectDimensions(
+        params.immediateEffects,
+        legitimacyTone,
+        parse,
+        params.round,
+        params.difficulty ?? 'normal',
+    )
 
     return {
         sourceRound: params.round,
@@ -126,9 +138,12 @@ function buildAftereffectDimensions(
     legitimacyTone: 'up' | 'down' | 'steady',
     parse: PolicyReasonParseResult,
     round: number,
+    difficulty: GameDifficulty,
 ): Partial<NationDimensions> {
+    const profile = getDifficultyProfile(difficulty)
+    const legitimacyBonusScale = 0.5 + getPolicyAftereffectScale(round) * 0.7
     const followUpFactor = Math.max(
-        0.18,
+        0.12,
         Math.min(
             0.52,
             (
@@ -136,22 +151,34 @@ function buildAftereffectDimensions(
             + parse.costAwareness * 0.16
             + parse.legitimacyAlignment * 0.12
             + parse.focusAlignment * 0.1
-            ) * getPolicyAftereffectScale(round),
+            ) * getPolicyAftereffectScale(round) * profile.policyAftereffectMultiplier,
         ),
     )
     const effects: Partial<NationDimensions> = {}
 
     for (const [key, value] of Object.entries(immediateEffects) as Array<[keyof NationDimensions, number | undefined]>) {
         if (!value || value <= 0) continue
-        effects[key] = roundOneDecimal(Math.max(0.4, value * followUpFactor))
+        const governanceTailwind =
+            key === 'governance'
+                ? 0.9 + getPolicyAftereffectScale(round) * 0.22 + profile.policyAftereffectMultiplier * 0.18
+                : 1
+        effects[key] = roundOneDecimal(Math.max(0.2, value * followUpFactor * governanceTailwind))
     }
 
     if (legitimacyTone === 'up') {
-        effects.governance = roundOneDecimal((effects.governance ?? 0) + 0.6)
-        effects.socialOrder = roundOneDecimal((effects.socialOrder ?? 0) + 0.6)
+        effects.governance = roundOneDecimal(
+            (effects.governance ?? 0) + 0.6 * profile.policyAftereffectMultiplier * legitimacyBonusScale,
+        )
+        effects.socialOrder = roundOneDecimal(
+            (effects.socialOrder ?? 0) + 0.6 * profile.policyAftereffectMultiplier * legitimacyBonusScale,
+        )
     } else if (legitimacyTone === 'down') {
-        effects.socialOrder = roundOneDecimal((effects.socialOrder ?? 0) - 0.8)
-        effects.governance = roundOneDecimal((effects.governance ?? 0) - 0.4)
+        effects.socialOrder = roundOneDecimal(
+            (effects.socialOrder ?? 0) - 0.8 * profile.policyAftereffectMultiplier * legitimacyBonusScale,
+        )
+        effects.governance = roundOneDecimal(
+            (effects.governance ?? 0) - 0.4 * profile.policyAftereffectMultiplier * legitimacyBonusScale,
+        )
     }
 
     return effects
