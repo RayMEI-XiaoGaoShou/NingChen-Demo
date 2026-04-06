@@ -21,12 +21,29 @@ export function OmenTeachingModal({ open, content, onClose }: OmenTeachingModalP
                             <li key={step}>{step}</li>
                         ))}
                     </ol>
-                    <p>正例：</p>
-                    <p>{content.goodExample.omen}</p>
-                    <p>{content.goodExample.interpretation}</p>
-                    <p>反例：</p>
-                    <p>{content.badExample.omen}</p>
-                    <p>{content.badExample.interpretation}</p>
+
+                    <div className="omen-teaching-section">
+                        <h4>更适合谁</h4>
+                        <ul>
+                            {content.audienceHints.map(hint => (
+                                <li key={hint}>{hint}</li>
+                            ))}
+                        </ul>
+                    </div>
+
+                    <div className="omen-teaching-section">
+                        <h4>正例</h4>
+                        <p>{content.goodExample.omen}</p>
+                        <p>{content.goodExample.interpretation}</p>
+                    </div>
+
+                    <div className="omen-teaching-section">
+                        <h4>反例</h4>
+                        <p>{content.badExample.omen}</p>
+                        <p>{content.badExample.interpretation}</p>
+                        <p>{content.badExampleWhy}</p>
+                    </div>
+
                     <ul>
                         {content.impactNotes.map(note => (
                             <li key={note}>{note}</li>

@@ -57,6 +57,18 @@ describe('SchemePanel onboarding flows', () => {
         )
 
         expect(markup).toContain('谶（chen）纬')
-        expect(markup).toContain('先写一段谶辞或征兆')
+        expect(FIRST_OMEN_TEACHING_CONTENT.steps).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('先写'),
+                expect.stringContaining('解释'),
+                expect.stringContaining('暗示'),
+            ]),
+        )
+        expect(FIRST_OMEN_TEACHING_CONTENT.impactNotes).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('北周治理'),
+                expect.stringContaining('稳局'),
+            ]),
+        )
     })
 })
