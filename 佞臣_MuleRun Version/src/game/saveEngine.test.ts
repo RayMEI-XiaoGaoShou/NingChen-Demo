@@ -90,12 +90,12 @@ describe('saveEngine', () => {
     it('persists front-door progress after leaving the opening prologue', () => {
         const snapshot = buildPersistedSnapshot({
             ...createBaseState(),
-            prologueStep: 'GAMEPLAY_GUIDE',
+            prologueStep: 'CHARACTER_BIOS',
         })
 
         expect(snapshot).toBeTruthy()
         expect(snapshot?.difficulty).toBe('normal')
-        expect(snapshot?.prologueStep).toBe('GAMEPLAY_GUIDE')
+        expect(snapshot?.prologueStep).toBe('CHARACTER_BIOS')
     })
 
     it('persists campaign state in snapshots', () => {

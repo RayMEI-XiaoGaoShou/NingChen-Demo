@@ -146,7 +146,7 @@ function getNpcSelfReference(npc: NPC): string | null {
         case '贺拔伯圭':
             return '本公'
         case '贺拔琪':
-            return '哀家'
+            return '本宫'
         case '尉迟暮':
             return '本公'
         default:

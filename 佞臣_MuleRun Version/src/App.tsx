@@ -11,6 +11,7 @@ import { Ending } from './components/Ending/Ending'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
 import { Prologue } from './components/Prologue/Prologue'
 import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
+import { CharacterBios } from './components/CharacterBios/CharacterBios'
 import { Cover } from './components/Cover/Cover'
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
 import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundary'
@@ -70,6 +71,10 @@ function App() {
 
         if (prologueStep === 'GAMEPLAY_GUIDE') {
             return <GameplayGuide mode="entry" />
+        }
+
+        if (prologueStep === 'CHARACTER_BIOS') {
+            return <CharacterBios />
         }
 
         return renderPhase()

@@ -308,6 +308,9 @@ describe('gameStore guide and prologue state', () => {
         expect(useGameStore.getState().prologueStep).toBe('GAMEPLAY_GUIDE')
 
         useGameStore.getState().advancePrologue()
+        expect(useGameStore.getState().prologueStep).toBe('CHARACTER_BIOS')
+
+        useGameStore.getState().advancePrologue()
         expect(useGameStore.getState().prologueStep).toBe('INGAME')
     })
 
@@ -526,7 +529,7 @@ describe('gameStore guide and prologue state', () => {
             shuMomentum: 0,
             huainanMomentum: 0,
             roundStartSnapshot: null,
-            prologueStep: 'GAMEPLAY_GUIDE',
+            prologueStep: 'CHARACTER_BIOS',
             helpOverlayOpen: true,
             helpOverlaySource: 'prologue',
             firstRoundGuideSeen: {
@@ -547,7 +550,7 @@ describe('gameStore guide and prologue state', () => {
             },
             fengDaozhiAssistsRemaining: 3,
         } as PersistedGameSnapshot & {
-            prologueStep: 'GAMEPLAY_GUIDE'
+            prologueStep: 'CHARACTER_BIOS'
             helpOverlayOpen: boolean
             helpOverlaySource: 'prologue' | null
             firstRoundGuideSeen: {
@@ -568,7 +571,7 @@ describe('gameStore guide and prologue state', () => {
         const state = useGameStore.getState()
         expect(state.currentPhase).toBe('ROUND_START')
         expect(state.difficulty).toBe('easy')
-        expect(state.prologueStep).toBe('GAMEPLAY_GUIDE')
+        expect(state.prologueStep).toBe('CHARACTER_BIOS')
         expect(state.helpOverlayOpen).toBe(true)
         expect(state.helpOverlaySource).toBe('prologue')
         expect(state.firstRoundGuideSeen).toEqual({

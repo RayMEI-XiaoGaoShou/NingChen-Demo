@@ -495,6 +495,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     : state.prologueStep === 'PROLOGUE'
                     ? 'GAMEPLAY_GUIDE'
                     : state.prologueStep === 'GAMEPLAY_GUIDE'
+                        ? 'CHARACTER_BIOS'
+                        : state.prologueStep === 'CHARACTER_BIOS'
                         ? 'INGAME'
                         : 'INGAME',
         })

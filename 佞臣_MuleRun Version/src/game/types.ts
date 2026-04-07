@@ -9,7 +9,7 @@
     | 'ROUND_END'
     | 'ENDING'
 
-export type PrologueStep = 'COVER' | 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'INGAME'
+export type PrologueStep = 'COVER' | 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'CHARACTER_BIOS' | 'INGAME'
 export type HelpOverlaySource = 'gameplay' | 'prologue'
 export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'hell'
 export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' | 'empathize' | 'strategize'

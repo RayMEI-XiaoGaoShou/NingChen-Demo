@@ -53,11 +53,10 @@ export function GameplayGuide({ mode, onClose }: GameplayGuideProps) {
                         </button>
                     ) : (
                         <button className="btn-primary guide-button" onClick={advancePrologue}>
-                            开始入局
+                            查看北周群像
                         </button>
                     )}
                 </div>
-
             </div>
         </div>
     )

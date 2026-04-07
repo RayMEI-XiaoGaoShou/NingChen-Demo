@@ -25,8 +25,9 @@ describe('CourtView external line grouping', () => {
 
         expect(markup).toContain('帝党：力主南征')
         expect(markup).toContain('后党：优先安内')
-        expect(markup).toContain('朝堂势力')
         expect(markup).toContain('地方军头')
+        expect(markup).toContain('贺拔伯圭')
+        expect(markup).toContain('尔朱烈')
     })
 
     it('renders concrete next-step cues on external cards', () => {
@@ -35,20 +36,20 @@ describe('CourtView external line grouping', () => {
             currentPhase: 'COURT_OBSERVE',
             difficulty: 'normal',
             npcs: INITIAL_NPCS.map(npc =>
-                npc.id === 'hebabogui'
+                npc.id === 'hebaboguì'
                     ? { ...npc, trust: 75, loyaltyToCourt: 34, externalStatus: 'watchful' }
                     : { ...npc },
             ),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
             intelProgress: {
                 ...Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
-                hebabogui: 1,
+                'hebaboguì': 1,
             },
         })
 
         const markup = renderToStaticMarkup(<CourtView />)
 
         expect(markup).toContain('先试探')
-        expect(markup).toContain('还差 22 点信任，才能试图割据')
+        expect(markup).toContain('还差 22 点信任，才能煽动割据；暗线已明 0/2。')
     })
 })

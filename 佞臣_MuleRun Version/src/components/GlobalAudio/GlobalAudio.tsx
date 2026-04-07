@@ -12,7 +12,8 @@ function resolveTrack(
         helpOverlayOpen ||
         prologueStep === 'COVER' ||
         prologueStep === 'PROLOGUE' ||
-        prologueStep === 'GAMEPLAY_GUIDE'
+        prologueStep === 'GAMEPLAY_GUIDE' ||
+        prologueStep === 'CHARACTER_BIOS'
     ) {
         return 'bgm4'
     }
