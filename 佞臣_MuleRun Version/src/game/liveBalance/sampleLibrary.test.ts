@@ -1,0 +1,82 @@
+import { describe, expect, it } from 'vitest'
+import { LIVE_BALANCE_SAMPLE_SET, SAMPLE_SET_VERSION } from './sampleLibrary'
+
+describe('live balance sample library', () => {
+    it('uses the normalized strategy-aligned sample ids', () => {
+        expect(LIVE_BALANCE_SAMPLE_SET.map(sample => sample.id)).toEqual([
+            'expert-mainline',
+            'expert-omen',
+            'expert-external',
+            'average-mainline',
+            'average-omen',
+            'average-external',
+            'rookie-mainline',
+            'rookie-omen-misuse',
+            'rookie-aggressive',
+        ])
+    })
+
+    it('covers the minimum first-wave sample matrix', () => {
+        expect(SAMPLE_SET_VERSION).toBeTruthy()
+        expect(LIVE_BALANCE_SAMPLE_SET).toHaveLength(9)
+        expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'expert' && sample.strategy === 'mainline')).toBe(true)
+        expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'expert' && sample.strategy === 'omen')).toBe(true)
+        expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'average' && sample.strategy === 'omen')).toBe(true)
+        expect(LIVE_BALANCE_SAMPLE_SET.some(sample => sample.level === 'rookie' && sample.strategy === 'mainline')).toBe(true)
+    })
+
+    it('gives every sample a full 20-round plan with three schemes per round', () => {
+        for (const sample of LIVE_BALANCE_SAMPLE_SET) {
+            expect(sample.rounds).toHaveLength(20)
+            for (const round of sample.rounds) {
+                expect(round.schemes).toHaveLength(3)
+            }
+        }
+    })
+
+    it('keeps rookie aggressive speeches visibly less tailored than expert routes', () => {
+        const rookieAggressive = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'rookie-aggressive')
+        const expertMainline = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'expert-mainline')
+
+        expect(rookieAggressive).toBeTruthy()
+        expect(expertMainline).toBeTruthy()
+
+        const rookieRoundTwoSpeech = rookieAggressive!.rounds[1].schemes[1].speech
+        const expertRoundTwoSpeech = expertMainline!.rounds[1].schemes[0].speech
+
+        expect(rookieRoundTwoSpeech).not.toMatch(/仓储|诏令|节次|接管|法统|灾异/)
+        expect(expertRoundTwoSpeech).toMatch(/仓储|诏令|节次|接管|法统|灾异/)
+    })
+
+    it('keeps average mainline battle-aware through shu resolution without turning expert-like', () => {
+        const averageMainline = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'average-mainline')
+
+        expect(averageMainline).toBeTruthy()
+
+        const roundOne = averageMainline!.rounds[0]
+        const roundSix = averageMainline!.rounds[5]
+
+        expect(roundOne.schemes[0].targetNpcId).toBe('zuting')
+        expect(roundOne.schemes[0].speech).toMatch(/仓储|转运|诏令|接应/)
+        expect(roundOne.schemes[1].targetNpcId).toBe('linghuelvguang')
+        expect(roundOne.schemes[1].speech).toMatch(/军令|调度|粮道/)
+        expect(roundSix.schemes[2].targetNpcId).toBe('zongai')
+        expect(roundSix.schemes[2].schemeType).toBe('probe')
+        expect(roundSix.schemes[0].speech).not.toMatch(/莫让灾年把中枢拖散|别让后党借乱继续卡住中枢/)
+    })
+    it('can derive structured omen inputs from omen sample speeches', () => {
+        const expertOmen = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'expert-omen')
+        const averageOmen = LIVE_BALANCE_SAMPLE_SET.find(sample => sample.id === 'average-omen')
+
+        expect(expertOmen).toBeTruthy()
+        expect(averageOmen).toBeTruthy()
+
+        const expertRoundThirteen = expertOmen!.rounds[12].schemes[0]
+        const averageRoundThirteen = averageOmen!.rounds[12].schemes[0]
+
+        expect(expertRoundThirteen.schemeType).toBe('omen')
+        expect(expertRoundThirteen.speech.length).toBeGreaterThan(12)
+        expect(averageRoundThirteen.schemeType).toBe('omen')
+        expect(averageRoundThirteen.speech.length).toBeGreaterThan(10)
+    })
+})
