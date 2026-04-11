@@ -71,6 +71,23 @@
     color: var(--color-text-primary);
     text-shadow: 0 0 24px rgba(201, 176, 101, 0.18);
     line-height: 0.98;
+    animation: endingTitleFocus 1.4s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+@keyframes endingTitleFocus {
+    from {
+        opacity: 0;
+        transform: scale(1.08);
+        filter: blur(6px);
+        letter-spacing: 20px;
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+        filter: blur(0);
+        letter-spacing: 12px;
+    }
 }
 
 .ending-tier,
@@ -117,6 +134,7 @@
     font-size: 30px;
     transform: rotate(-8deg);
     opacity: 0.82;
+    animation: sealDrop 0.7s 0.6s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 
 .ending-seal--victory {
@@ -190,6 +208,19 @@
     background: rgba(8, 10, 13, 0.7);
     border: 1px solid rgba(201, 176, 101, 0.16);
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24);
+    animation: cardReveal var(--duration-card, 300ms) var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+}
+
+.ending-afterglow-card:nth-child(1) {
+    animation-delay: 100ms;
+}
+
+.ending-afterglow-card:nth-child(2) {
+    animation-delay: 200ms;
+}
+
+.ending-afterglow-card:nth-child(3) {
+    animation-delay: 300ms;
 }
 
 .ending-afterglow-label {
@@ -331,7 +362,7 @@
     padding-inline: 28px;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1200px) {
     .ending-shell {
         width: min(100vw - 32px, 980px);
         padding-top: 32px;
@@ -346,7 +377,7 @@
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
     .ending-shell {
         width: min(100vw - 20px, 680px);
         gap: 18px;

@@ -190,7 +190,7 @@ export function Settlement() {
     }, [currentRound, currentSchemes, lastSettlement, northPower, npcs])
 
     return (
-        <div className="page-container settlement animate-fade-in">
+        <div className="page-container settlement page-enter">
             {currentRound === 1 && !firstRoundGuideSeen.settlement && (
                 <FirstRoundGuideModal
                     title={settlementGuide.title}

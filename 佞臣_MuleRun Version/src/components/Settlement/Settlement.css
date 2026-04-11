@@ -43,8 +43,10 @@
     right: 0;
     height: 12px;
     background: linear-gradient(90deg, #1a1a1c, var(--color-accent-gold), #1a1a1c);
+    background-size: 200% 100%;
     z-index: 2;
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.8), inset 0 0 4px rgba(255, 255, 255, 0.2);
+    animation: scrollSweep 8s linear infinite;
 }
 
 .scroll-decorator.top {
@@ -95,6 +97,7 @@
     margin-left: 4px;
     vertical-align: middle;
     animation: blink 1s step-end infinite;
+    box-shadow: 0 0 6px rgba(201, 168, 76, 0.5);
 }
 
 @keyframes blink {
@@ -357,7 +360,8 @@
     gap: var(--spacing-lg);
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1200px) {
+
     .results-list,
     .power-dashboard,
     .summary-grid {

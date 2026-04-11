@@ -63,7 +63,7 @@ export function RoundStart() {
     const externalHintText = stripAdvisorPrefix(externalStageHint)
 
     return (
-        <div className="page-container round-start animate-fade-in">
+        <div className="page-container round-start page-enter">
             {currentRound === 1 && !firstRoundGuideSeen.round_start && (
                 <FirstRoundGuideModal
                     title={FIRST_ROUND_GUIDE_CONTENT.round_start.title}

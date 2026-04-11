@@ -40,12 +40,14 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    animation: pageEnter 0.8s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 
 .cover-kicker {
     color: rgba(255, 240, 201, 0.82);
     letter-spacing: 4px;
     font-size: 13px;
+    animation: fadeIn 1s 0.2s both;
 }
 
 .cover-title {
@@ -61,6 +63,7 @@
     line-height: 1.85;
     font-size: 15px;
     max-width: 460px;
+    animation: cardReveal 0.6s 0.3s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 
 .cover-actions {
@@ -68,6 +71,7 @@
     flex-direction: column;
     gap: 14px;
     align-items: flex-start;
+    animation: cardReveal 0.6s 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 
 .cover-action {
@@ -88,6 +92,7 @@
     display: flex;
     flex-direction: column;
     gap: 18px;
+    animation: cardReveal 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
 }
 
 .cover-difficulty-header p {

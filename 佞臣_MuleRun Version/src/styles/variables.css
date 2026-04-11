@@ -98,4 +98,26 @@
   --color-panel-muted: rgba(255, 255, 255, 0.025);
   --color-panel-strong: rgba(201, 176, 101, 0.12);
   --ease-decree: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* === 语义化透明度 === */
+  --alpha-card-bg: rgba(10, 10, 14, 0.9);
+  --alpha-card-bg-hover: rgba(201, 176, 101, 0.1);
+  --alpha-card-border: rgba(201, 176, 101, 0.16);
+  --alpha-card-border-hover: rgba(201, 176, 101, 0.55);
+  --alpha-card-glow: rgba(201, 176, 101, 0.15);
+  --alpha-overlay: rgba(3, 3, 5, 0.84);
+
+  /* === 过渡曲线 === */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-quart: cubic-bezier(0.76, 0, 0.24, 1);
+
+  /* === 动画时长 === */
+  --duration-page: 600ms;
+  --duration-card: 300ms;
+  --duration-micro: 150ms;
+
+  /* === 断点（文档化）=== */
+  /* breakpoint-sm: 640px  — 手机竖屏 */
+  /* breakpoint-md: 900px  — 平板/小笔记本 */
+  /* breakpoint-lg: 1200px — 桌面标准 */
 }

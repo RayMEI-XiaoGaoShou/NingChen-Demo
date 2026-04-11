@@ -155,6 +155,18 @@
     height: 100%;
     border-radius: 999px;
     transition: width 1s ease-out;
+    animation: factionGrow 1.2s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) both;
+    transform-origin: left;
+}
+
+@keyframes factionGrow {
+    from {
+        transform: scaleX(0);
+    }
+
+    to {
+        transform: scaleX(1);
+    }
 }
 
 .faction-metrics {
@@ -199,7 +211,8 @@
 .npc-card:hover:not(:disabled) {
     transform: translateY(-2px);
     border-color: var(--color-accent-gold);
-    box-shadow: 0 4px 20px rgba(201, 176, 101, 0.15);
+    box-shadow: 0 4px 20px rgba(201, 176, 101, 0.15), inset 0 0 16px rgba(201, 176, 101, 0.06);
+    background: rgba(201, 176, 101, 0.04);
 }
 
 .npc-card.dead {
@@ -446,14 +459,16 @@
     font-weight: bold;
 }
 
-@media (max-width: 1080px) {
+@media (max-width: 1200px) {
+
     .court-main-grid,
     .status-bar {
         grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 640px) {
+
     .faction-card-header,
     .external-kpi-row {
         grid-template-columns: 1fr;

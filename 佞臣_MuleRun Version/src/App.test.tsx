@@ -8,7 +8,7 @@ describe('App prologue flow', () => {
     beforeEach(() => {
         useGameStore.getState().resetGame()
         useMediaStore.setState({
-            isMuted: false,
+            isMuted: true,
             audioReady: false,
             currentTrack: null,
             playbackRequestToken: 0,
@@ -22,9 +22,9 @@ describe('App prologue flow', () => {
         expect(markup).toContain('加载存档')
     })
 
-    it('shows the audio control as mute when the game starts unmuted', () => {
+    it('shows the audio control as unmute when the game starts muted', () => {
         const markup = renderToStaticMarkup(<App />)
 
-        expect(markup).toContain('静音')
+        expect(markup).toContain('开声')
     })
 })

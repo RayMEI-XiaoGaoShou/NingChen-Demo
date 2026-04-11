@@ -252,6 +252,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             case 'PROLOGUE':
                 set({ currentPhase: 'ROUND_START' })
                 get().saveRoundStartSnapshot()
+                set({ currentPhase: 'COURT_OBSERVE' })
                 break
 
             case 'ROUND_START':
@@ -493,12 +494,12 @@ export const useGameStore = create<GameState>((set, get) => ({
                 state.prologueStep === 'COVER'
                     ? 'PROLOGUE'
                     : state.prologueStep === 'PROLOGUE'
-                    ? 'GAMEPLAY_GUIDE'
-                    : state.prologueStep === 'GAMEPLAY_GUIDE'
-                        ? 'CHARACTER_BIOS'
-                        : state.prologueStep === 'CHARACTER_BIOS'
-                        ? 'INGAME'
-                        : 'INGAME',
+                        ? 'GAMEPLAY_GUIDE'
+                        : state.prologueStep === 'GAMEPLAY_GUIDE'
+                            ? 'CHARACTER_BIOS'
+                            : state.prologueStep === 'CHARACTER_BIOS'
+                                ? 'INGAME'
+                                : 'INGAME',
         })
     },
 

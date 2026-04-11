@@ -45,7 +45,7 @@ export function Ending() {
     const endingMemo = getEndingMemo(gameResult, report)
 
     return (
-        <div className={`page-container ending ending--${variant} animate-fade-in`}>
+        <div className={`page-container ending ending--${variant} page-enter`}>
             <div className="ending-backdrop" />
 
             <div className="ending-shell">

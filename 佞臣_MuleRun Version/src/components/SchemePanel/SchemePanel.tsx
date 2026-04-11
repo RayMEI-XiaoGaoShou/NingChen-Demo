@@ -354,7 +354,7 @@ export function SchemePanel() {
     }
 
     return (
-        <div className="page-container scheme-panel animate-fade-in">
+        <div className="page-container scheme-panel page-enter">
             {shouldShowSchemeGuide && (
                 <SchemeOnboardingModal
                     open
@@ -634,7 +634,7 @@ export function SchemePanel() {
                                                         <textarea
                                                             className="speech-input omen-speech-input"
                                                             value={omenText}
-                                                        onChange={e => setOmenText(e.target.value)}
+                                                            onChange={e => setOmenText(e.target.value)}
                                                             placeholder="先写一句谶辞、征兆或灾异异象……"
                                                             maxLength={60}
                                                         />
@@ -649,7 +649,7 @@ export function SchemePanel() {
                                                         <textarea
                                                             className="speech-input omen-speech-input"
                                                             value={interpretationText}
-                                                        onChange={e => setInterpretationText(e.target.value)}
+                                                            onChange={e => setInterpretationText(e.target.value)}
                                                             placeholder="再解释它意味着什么，以及谁最该警惕……"
                                                             maxLength={100}
                                                         />

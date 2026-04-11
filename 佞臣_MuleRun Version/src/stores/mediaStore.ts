@@ -13,7 +13,7 @@ interface MediaState {
 }
 
 export const useMediaStore = create<MediaState>((set) => ({
-    isMuted: false,
+    isMuted: true,
     audioReady: false,
     currentTrack: null,
     playbackRequestToken: 0,

@@ -131,7 +131,7 @@ export function CourtView() {
     const adviserAside = getAdvisorAside(dangerNpcs, maxSchemes - schemeCount)
 
     return (
-        <div className="page-container court-view animate-fade-in">
+        <div className="page-container court-view page-enter">
             {currentRound === 1 && !firstRoundGuideSeen.court_observe && (
                 <FirstRoundGuideModal
                     title={FIRST_ROUND_GUIDE_CONTENT.court_observe.title}
