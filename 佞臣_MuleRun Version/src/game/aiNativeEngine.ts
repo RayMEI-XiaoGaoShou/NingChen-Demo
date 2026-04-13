@@ -297,6 +297,9 @@ export function fallbackNorthParseFromSpeech(params: {
     schemeType?: SchemeType
     relatedNpc?: NPC | null
     omenSpeechInput?: OmenSpeechInput
+    eventName?: string
+    eventBriefing?: string
+    eventNorthDescription?: string
 }): NorthSchemeParseResult {
     const speech = params.speech.trim()
     if (!speech) {
@@ -312,13 +315,11 @@ export function fallbackNorthParseFromSpeech(params: {
         ...extractKeywords(params.npc.secretThreads.join(' ')),
     ]
     const triggerWords = extractKeywords(params.npc.triggerPoint)
-    const eventWords = roundEvent
-        ? [
-            ...extractKeywords(roundEvent.eventName),
-            ...extractKeywords(roundEvent.briefing),
-            ...extractKeywords(roundEvent.northDescription),
-        ]
-        : []
+    const eventWords = [
+        ...extractKeywords(params.eventName ?? roundEvent?.eventName ?? ''),
+        ...extractKeywords(params.eventBriefing ?? roundEvent?.briefing ?? ''),
+        ...extractKeywords(params.eventNorthDescription ?? roundEvent?.northDescription ?? ''),
+    ]
 
     const characterFit = clamp01(
         0.12
@@ -543,6 +544,8 @@ export async function parseNorthSchemeInput(params: {
     speech: string
     relatedNpc?: NPC | null
     omenSpeechInput?: OmenSpeechInput
+    eventName?: string
+    eventBriefing?: string
 }): Promise<NorthSchemeParseResult> {
     const roundEvent = ROUND_EVENTS[params.round - 1]
     const fallbackParsed = fallbackNorthParseFromSpeech({
@@ -552,6 +555,8 @@ export async function parseNorthSchemeInput(params: {
         schemeType: params.schemeType,
         relatedNpc: params.relatedNpc,
         omenSpeechInput: params.omenSpeechInput,
+        eventName: params.eventName,
+        eventBriefing: params.eventBriefing,
     })
     const aiParsed = await chatCompletionJson<NorthSchemeParseResult>(
         buildNorthSchemeParsePrompt({
@@ -560,8 +565,8 @@ export async function parseNorthSchemeInput(params: {
             schemeType: params.schemeType,
             speech: params.speech,
             omenSpeechInput: params.omenSpeechInput,
-            eventName: roundEvent?.eventName ?? `第${params.round}回合`,
-            eventBriefing: roundEvent?.briefing ?? '',
+            eventName: params.eventName ?? roundEvent?.eventName ?? `第${params.round}回合`,
+            eventBriefing: params.eventBriefing ?? roundEvent?.briefing ?? '',
         }),
         { temperature: 0.2, maxTokens: 220, tag: 'north_scheme_parse' },
     )

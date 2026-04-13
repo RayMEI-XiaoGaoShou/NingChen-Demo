@@ -12,13 +12,14 @@ export const BORROWED_BLADE_TARGET_IDS = [
     'zongai',
     'yuwendi',
     'linghuelvguang',
-    'weichimu',
+    'weichimù',
 ] as const
 
 const DISPOSAL_STAGE_ORDER: BorrowedBladeDisposalStage[] = ['safe', 'questioned', 'isolated', 'disposable']
 
 export function canUseBorrowedBladeDisposalStage(npcId: string): boolean {
-    return BORROWED_BLADE_TARGET_IDS.includes(npcId as (typeof BORROWED_BLADE_TARGET_IDS)[number])
+    const canonicalNpcId = npcId === 'weichimu' ? 'weichimù' : npcId
+    return BORROWED_BLADE_TARGET_IDS.includes(canonicalNpcId as (typeof BORROWED_BLADE_TARGET_IDS)[number])
 }
 
 export function initialBorrowedBladeStages(): Record<string, BorrowedBladeDisposalStage> {

@@ -1,25 +1,74 @@
 import { CHARACTER_BIO_PAGES } from '../../data/prologueContent'
+import { AUTO_PAGE_SCROLL_SPEEDS, useAutoPageScroll } from '../../hooks/useAutoPageScroll'
 import { useGameStore } from '../../stores/gameStore'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
+import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './CharacterBios.css'
+
+const SECOND_PANEL_INTRO = '地方军头并不只是边将。他们各自有地盘、有部曲、有算盘，也都在等朝堂给出一个更划算的未来。'
+
+function getDisplayPages() {
+    return CHARACTER_BIO_PAGES.map((page, pageIndex) => {
+        if (pageIndex === 0) {
+            return {
+                ...page,
+                title: '朝臣',
+                intro: undefined,
+            }
+        }
+
+        if (pageIndex === 1) {
+            return {
+                ...page,
+                title: '地方军头',
+                intro: SECOND_PANEL_INTRO,
+            }
+        }
+
+        if (pageIndex === 2) {
+            return {
+                ...page,
+                title: '你的辅弼',
+                groups: page.groups.map((group, groupIndex) =>
+                    groupIndex === 0
+                        ? {
+                            ...group,
+                            title: '南朝暗庄',
+                        }
+                        : group,
+                ),
+            }
+        }
+
+        return page
+    })
+}
 
 export function CharacterBios() {
     const advancePrologue = useGameStore(state => state.advancePrologue)
+    const displayPages = getDisplayPages()
+    useAutoPageScroll({ pixelsPerSecond: AUTO_PAGE_SCROLL_SPEEDS.characterBios })
 
     return (
-        <div className="page-container character-bios-page animate-fade-in">
+        <div
+            className="page-container character-bios-page animate-fade-in"
+            data-auto-scroll-speed={AUTO_PAGE_SCROLL_SPEEDS.characterBios}
+        >
+            <div className="page-utility-row narrative-utility-row animate-slide-up">
+                <PageUtilityActions />
+            </div>
+
             <div className="character-bios-hero animate-slide-up">
-                <span className="character-bios-kicker">北周群像</span>
-                <h1 className="character-bios-title">先认清这盘局里的人</h1>
+                <h1 className="character-bios-title">北周群像</h1>
                 <p className="character-bios-summary">
                     朝堂中枢争名分，地方军头算地盘，冯道之则替你看局。记住他们各自的欲望、恐惧与站位，往后每一手计谋才会真正落到痛处。
                 </p>
             </div>
 
             <div className="character-bios-pages">
-                {CHARACTER_BIO_PAGES.map((page, pageIndex) => (
+                {displayPages.map((page, pageIndex) => (
                     <section
-                        key={page.title}
+                        key={`${pageIndex}-${page.title}`}
                         className={`glass-panel character-bios-panel animate-slide-up animate-delay-${Math.min(pageIndex + 1, 4)}`}
                     >
                         <div className="character-bios-panel-head">

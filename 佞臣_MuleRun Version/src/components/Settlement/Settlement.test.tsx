@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { getSafeSettlementJudgeFacts, getSettlementPolicyFollowupText, Settlement } from './Settlement'
+import { getSafeSettlementJudgeFacts, getSettlementInvasionWindowLabel, getSettlementPolicyFollowupText, Settlement } from './Settlement'
 import { useGameStore } from '../../stores/gameStore'
+import settlementSource from './Settlement.tsx?raw'
 import { INITIAL_NPCS } from '../../data/npcs'
 import { INITIAL_FACTIONS } from '../../data/factions'
 import { INITIAL_RELATIONSHIP_EDGES } from '../../data/npcRelationships'
@@ -237,6 +238,18 @@ describe('Settlement rendering', () => {
         expect(() => renderToStaticMarkup(<Settlement />)).not.toThrow()
     })
 
+    it('renders low-opacity character side portraits for scheme and policy result cards', () => {
+        expect(settlementSource).toContain('settlement-scheme-target-portrait')
+        expect(settlementSource).toContain('alt={`${npc.name}画像`}')
+        expect(settlementSource).toContain('settlement-empress-portrait')
+        expect(settlementSource).toContain('陈倩画像')
+    })
+
+    it('uses each scheme target as the low-opacity side portrait on scheme result cards', () => {
+        expect(settlementSource).toContain('name={npc.name}')
+        expect(settlementSource).toContain('alt={`${npc.name}画像`}')
+    })
+
     it('returns concise policy follow-up wording for matched reasoning', () => {
         expect(getSettlementPolicyFollowupText(true)).toBe('你的附言切中此议的真正关节，新政的收益也会延续到下一回合。')
         expect(getSettlementPolicyFollowupText(false)).toBe('你的附言尚嫌宽泛，但新政的收益仍会延续到下一回合。')
@@ -248,5 +261,12 @@ describe('Settlement rendering', () => {
         expect(judgeFacts.invasionSummary).toBe('南征窗口仍待后续观察。')
         expect(judgeFacts.aiNativeSummary.schemeHints).toEqual([])
         expect(judgeFacts.aiNativeSummary.backlashHints).toEqual([])
+    })
+
+    it('derives settlement invasion window labels from the court balance ratio', () => {
+        expect(getSettlementInvasionWindowLabel(1.2)).toBe('南征箭在弦上')
+        expect(getSettlementInvasionWindowLabel(0.93)).toBe('南征议势升温')
+        expect(getSettlementInvasionWindowLabel(0.79)).toBe('朝廷仍偏安内')
+        expect(getSettlementInvasionWindowLabel(null)).toBe('南征窗口仍待观察')
     })
 })

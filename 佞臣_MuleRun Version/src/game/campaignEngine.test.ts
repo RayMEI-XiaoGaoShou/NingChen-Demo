@@ -25,6 +25,7 @@ describe('campaignEngine', () => {
 
         expect(cappedAtThree.state).toBe('failed')
         expect(expandedToFive.state).toBe('stalemate')
+        expect(expandedToFive.summary).toContain('巴蜀战局陷入僵持')
     })
 
     it('lets expanded huainan momentum rescue an otherwise failed edge case', () => {
@@ -50,6 +51,7 @@ describe('campaignEngine', () => {
 
         expect(cappedAtThree.state).toBe('failed')
         expect(expandedToFive.state).toBe('stalemate')
+        expect(expandedToFive.summary).toContain('淮南战事迁延日久')
     })
 
     it('marks shu campaign as gained when south prep beats north effective commitment', () => {

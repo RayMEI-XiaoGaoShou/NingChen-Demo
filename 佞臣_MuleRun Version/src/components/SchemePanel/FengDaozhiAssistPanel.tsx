@@ -1,4 +1,5 @@
 import type { FengDaozhiDraftResult, SchemeType } from '../../game/types'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 
 interface FengDaozhiAssistPanelProps {
     schemeType: SchemeType
@@ -14,6 +15,12 @@ export function FengDaozhiAssistPanel(props: FengDaozhiAssistPanelProps) {
 
     return (
         <div className="feng-assist-panel">
+            <NpcPortrait
+                name="冯道之"
+                alt="冯道之画像"
+                className="feng-assist-portrait"
+                positionY="18%"
+            />
             <div className="feng-assist-header">
                 <div>
                     <div className="feng-assist-title">让冯道之帮你谋划</div>

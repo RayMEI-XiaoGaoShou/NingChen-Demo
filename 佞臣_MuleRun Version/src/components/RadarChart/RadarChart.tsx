@@ -10,23 +10,16 @@ interface RadarChartProps {
 const DIM_LABELS: { key: keyof NationDimensions; label: string }[] = [
     { key: 'finance', label: '财政' },
     { key: 'military', label: '军事' },
-    { key: 'grain', label: '粮赋' },
+    { key: 'grain', label: '粮秣' },
     { key: 'socialOrder', label: '民生' },
     { key: 'governance', label: '统治' },
 ]
-
-function getRadarTone(score: number): string {
-    if (score >= 75) return '鼎盛'
-    if (score >= 60) return '可战'
-    if (score >= 45) return '持平'
-    return '吃紧'
-}
 
 export function RadarChart({ data, size = 200, label }: RadarChartProps) {
     const cx = size / 2
     const cy = size / 2
     const radius = size * 0.34
-    const angleStep = (2 * Math.PI) / 5
+    const angleStep = (2 * Math.PI) / DIM_LABELS.length
     const average = Math.round(
         (data.finance + data.military + data.grain + data.socialOrder + data.governance) / DIM_LABELS.length,
     )
@@ -41,27 +34,25 @@ export function RadarChart({ data, size = 200, label }: RadarChartProps) {
     }
 
     const gridLevels = [20, 40, 60, 80, 100]
-    const gridPolygons = gridLevels.map(level => {
-        const points = Array.from({ length: 5 }, (_, i) => {
-            const point = getPoint(i, level)
+    const gridPolygons = gridLevels.map(level =>
+        Array.from({ length: DIM_LABELS.length }, (_, index) => {
+            const point = getPoint(index, level)
             return `${point.x},${point.y}`
-        })
+        }).join(' '),
+    )
 
-        return points.join(' ')
-    })
-
-    const dataPoints = DIM_LABELS.map((dim, i) => {
-        const point = getPoint(i, data[dim.key])
+    const dataPoints = DIM_LABELS.map((dim, index) => {
+        const point = getPoint(index, data[dim.key])
         return `${point.x},${point.y}`
     }).join(' ')
 
-    const axisLines = DIM_LABELS.map((_, i) => {
-        const point = getPoint(i, 100)
+    const axisLines = DIM_LABELS.map((_, index) => {
+        const point = getPoint(index, 100)
         return { x1: cx, y1: cy, x2: point.x, y2: point.y }
     })
 
-    const labelPositions = DIM_LABELS.map((dim, i) => {
-        const point = getPoint(i, 118)
+    const labelPositions = DIM_LABELS.map((dim, index) => {
+        const point = getPoint(index, 118)
         return { ...point, label: dim.label, value: Math.round(data[dim.key]) }
     })
 
@@ -83,19 +74,19 @@ export function RadarChart({ data, size = 200, label }: RadarChartProps) {
 
                     <circle cx={cx} cy={cy} r={radius * 1.05} fill="url(#radarGlow)" />
 
-                    {gridPolygons.map((points, i) => (
+                    {gridPolygons.map((points, index) => (
                         <polygon
-                            key={i}
+                            key={index}
                             points={points}
-                            fill={i === 0 ? 'rgba(255,255,255,0.012)' : 'none'}
+                            fill={index === 0 ? 'rgba(255,255,255,0.012)' : 'none'}
                             stroke="rgba(201, 176, 101, 0.13)"
-                            strokeWidth={i === gridLevels.length - 1 ? 1 : 0.6}
+                            strokeWidth={index === gridLevels.length - 1 ? 1 : 0.6}
                         />
                     ))}
 
-                    {axisLines.map((line, i) => (
+                    {axisLines.map((line, index) => (
                         <line
-                            key={i}
+                            key={index}
                             x1={line.x1}
                             y1={line.y1}
                             x2={line.x2}
@@ -112,28 +103,33 @@ export function RadarChart({ data, size = 200, label }: RadarChartProps) {
                         strokeWidth={1.8}
                     />
 
-                    {DIM_LABELS.map((dim, i) => {
-                        const point = getPoint(i, data[dim.key])
+                    {DIM_LABELS.map((dim, index) => {
+                        const point = getPoint(index, data[dim.key])
                         return (
-                            <g key={i}>
-                                <circle cx={point.x} cy={point.y} r={5} fill="rgba(13,14,23,0.92)" stroke="rgba(245,221,149,0.95)" strokeWidth={1.2} />
+                            <g key={index}>
+                                <circle
+                                    cx={point.x}
+                                    cy={point.y}
+                                    r={5}
+                                    fill="rgba(13,14,23,0.92)"
+                                    stroke="rgba(245,221,149,0.95)"
+                                    strokeWidth={1.2}
+                                />
                                 <circle cx={point.x} cy={point.y} r={2.2} fill="rgba(245,221,149,0.95)" />
                             </g>
                         )
                     })}
 
-                    <circle className="radar-center-ring" cx={cx} cy={cy} r={radius * 0.18} />
-                    <text x={cx} y={cy - 4} textAnchor="middle" className="radar-center-score">
+                    <circle className="radar-center-ring" cx={cx} cy={cy} r={radius * 0.22} />
+                    <circle className="radar-center-core" cx={cx} cy={cy} r={radius * 0.16} />
+                    <text x={cx} y={cy + 6} textAnchor="middle" className="radar-center-score">
                         {average}
-                    </text>
-                    <text x={cx} y={cy + 14} textAnchor="middle" className="radar-center-label">
-                        国势
                     </text>
                 </svg>
 
-                {labelPositions.map((pos, i) => (
+                {labelPositions.map((pos, index) => (
                     <div
-                        key={i}
+                        key={index}
                         className="radar-chip"
                         style={{ left: `${pos.x}px`, top: `${pos.y}px` }}
                     >
@@ -141,11 +137,6 @@ export function RadarChart({ data, size = 200, label }: RadarChartProps) {
                         <strong className="radar-chip-value">{pos.value}</strong>
                     </div>
                 ))}
-            </div>
-
-            <div className="radar-footer">
-                <span className="radar-tone">{getRadarTone(average)}</span>
-                <span className="radar-average">五维均势 {average}</span>
             </div>
         </div>
     )

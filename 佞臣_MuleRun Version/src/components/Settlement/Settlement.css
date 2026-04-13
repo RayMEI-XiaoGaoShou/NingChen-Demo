@@ -147,6 +147,33 @@
     pointer-events: none;
 }
 
+.result-card > :not(.settlement-card-portrait) {
+    position: relative;
+    z-index: 1;
+}
+
+.settlement-card-portrait {
+    position: absolute;
+    right: -18px;
+    bottom: -34px;
+    z-index: 0;
+    width: min(28%, 150px);
+    height: min(92%, 230px);
+    object-fit: contain;
+    object-position: right bottom;
+    opacity: 0.16;
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.72));
+    pointer-events: none;
+}
+
+.settlement-empress-portrait {
+    right: -28px;
+    bottom: -54px;
+    width: min(32%, 190px);
+    height: min(112%, 310px);
+    opacity: 0.18;
+}
+
 .result-card.success {
     border-left-color: var(--color-safe-light);
     background: linear-gradient(90deg, rgba(111, 181, 137, 0.05), transparent 30%);

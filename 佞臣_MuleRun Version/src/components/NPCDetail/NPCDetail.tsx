@@ -102,7 +102,6 @@ export function NPCDetail() {
                     <div className="detail-metrics">
                         <span className="metric-chip">打动：{npc.softSpot}</span>
                         <span className="metric-chip">激怒：{npc.triggerPoint}</span>
-                        <span className="metric-chip">适合计谋：{npc.schemeHooks}</span>
                     </div>
                 </div>
 

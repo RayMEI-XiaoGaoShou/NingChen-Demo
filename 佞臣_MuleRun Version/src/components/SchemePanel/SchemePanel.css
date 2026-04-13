@@ -71,18 +71,36 @@
 }
 
 .feng-assist-panel {
+    position: relative;
     margin-top: var(--spacing-md);
     padding: 14px 16px;
     border-radius: var(--radius-sm);
     border: 1px solid rgba(201, 176, 101, 0.22);
     background: linear-gradient(180deg, rgba(37, 27, 12, 0.45) 0%, rgba(20, 16, 10, 0.28) 100%);
+    overflow: hidden;
 }
 
 .feng-assist-header {
+    position: relative;
+    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: var(--spacing-md);
+}
+
+.feng-assist-portrait {
+    position: absolute;
+    right: -4px;
+    bottom: -16px;
+    z-index: 0;
+    width: 96px;
+    height: 136px;
+    object-fit: contain;
+    object-position: right bottom;
+    opacity: 0.16;
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.72));
+    pointer-events: none;
 }
 
 .feng-assist-title {
@@ -103,11 +121,15 @@
 }
 
 .feng-assist-tip {
+    position: relative;
+    z-index: 1;
     margin: 10px 0 0;
     line-height: 1.7;
 }
 
 .feng-assist-preview {
+    position: relative;
+    z-index: 1;
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid rgba(201, 176, 101, 0.16);

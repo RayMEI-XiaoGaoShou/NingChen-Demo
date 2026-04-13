@@ -50,6 +50,25 @@ describe('normalizeNorthSchemeParse', () => {
         expect(warLogistics.grainRelevance).toBeGreaterThan(generic.grainRelevance)
     })
 
+    it('uses provided campaign event context instead of only the static round event', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+        const speech = '寿春一线已被南陈撕开缺口，粮道与前线同时受压，眼下不宜再把兵粮耗在虚名之争。'
+        const staticRoundContext = fallbackNorthParseFromSpeech({
+            speech,
+            npc: zuting,
+            round: 11,
+        })
+        const branchRoundContext = fallbackNorthParseFromSpeech({
+            speech,
+            npc: zuting,
+            round: 11,
+            eventName: '淮南失守，北周前线后方俱显疲态',
+            eventBriefing: '淮南急报入京，寿春一线已被南陈撕开缺口，粮道与前线同时受压。',
+        })
+
+        expect(branchRoundContext.eventFit).toBeGreaterThan(staticRoundContext.eventFit)
+    })
+
     it('recognizes court logistics advice as governance-heavy battle preparation', () => {
         const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
 

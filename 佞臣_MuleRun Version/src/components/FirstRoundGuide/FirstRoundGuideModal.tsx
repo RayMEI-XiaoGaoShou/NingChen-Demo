@@ -1,4 +1,5 @@
 import './FirstRoundGuideModal.css'
+import { createPortal } from 'react-dom'
 
 interface FirstRoundGuideModalProps {
     title: string
@@ -7,7 +8,7 @@ interface FirstRoundGuideModalProps {
 }
 
 export function FirstRoundGuideModal({ title, body, onClose }: FirstRoundGuideModalProps) {
-    return (
+    const modal = (
         <div className="first-round-guide-backdrop">
             <div className="gold-panel decree-panel first-round-guide-modal animate-slide-up">
                 <div className="first-round-guide-header">
@@ -30,4 +31,10 @@ export function FirstRoundGuideModal({ title, body, onClose }: FirstRoundGuideMo
             </div>
         </div>
     )
+
+    if (typeof document === 'undefined') {
+        return modal
+    }
+
+    return createPortal(modal, document.body)
 }

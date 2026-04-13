@@ -4,11 +4,12 @@ import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { SCHEMES } from '../../data/schemes'
 import { chatCompletion } from '../../ai/aiService'
 import { buildEmpressFeedbackPrompt, buildJudgePrompt } from '../../ai/prompts'
-import { ROUND_EVENTS } from '../../data/rounds'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
+import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import './Settlement.css'
 
@@ -38,6 +39,13 @@ export function getSafeSettlementJudgeFacts(
             policyHints: judgeFacts?.aiNativeSummary?.policyHints ?? [],
         },
     }
+}
+
+export function getSettlementInvasionWindowLabel(ratio: number | null | undefined): string {
+    if (!isFiniteNumber(ratio)) return '南征窗口仍待观察'
+    if (ratio >= 1.2) return '南征箭在弦上'
+    if (ratio >= 0.8) return '南征议势升温'
+    return '朝廷仍偏安内'
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -71,6 +79,8 @@ export function Settlement() {
         firstRoundGuideSeen,
         markFirstRoundGuideSeen,
         openGameplayGuide,
+        shuCampaign,
+        huainanCampaign,
     } = useGameStore()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
@@ -82,7 +92,7 @@ export function Settlement() {
     const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
     const schemeHints = judgeFacts.aiNativeSummary.schemeHints
     const backlashHints = judgeFacts.aiNativeSummary.backlashHints
-    const invasionWindowLabel = lastSettlement?.judgeFacts?.invasionSummary?.split?.('：')?.[0] ?? '待判'
+    const invasionWindowLabel = getSettlementInvasionWindowLabel(lastSettlement?.invasionPoliticalRatio)
     const settlementPolicyFollowup =
         lastSettlement?.policyAftereffect && lastSettlement.policyReport
             ? getSettlementPolicyFollowupText(lastSettlement.policyReport.focusMatched)
@@ -112,7 +122,7 @@ export function Settlement() {
                 return
             }
 
-            const event = ROUND_EVENTS[currentRound - 1]
+            const event = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
             const trustSummary = Object.entries(lastSettlement.trustChanges)
                 .map(([id, delta]) => {
                     const npc = npcs.find(n => n.id === id)
@@ -122,7 +132,7 @@ export function Settlement() {
 
             const messages = buildJudgePrompt({
                 round: currentRound,
-                eventName: event?.eventName ?? '',
+                eventName: event.eventName,
                 eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
                     schemeName: schemeName(currentSchemes[i]?.schemeType ?? ''),
@@ -187,7 +197,7 @@ export function Settlement() {
         return () => {
             cancelled = true
         }
-    }, [currentRound, currentSchemes, lastSettlement, northPower, npcs])
+    }, [currentRound, currentSchemes, huainanCampaign, lastSettlement, northPower, npcs, shuCampaign])
 
     return (
         <div className="page-container settlement page-enter">
@@ -246,6 +256,14 @@ export function Settlement() {
                                     className={`result-card glass-panel animate-slide-up ${result.success ? 'success' : 'failure'}`}
                                     style={{ animationDelay: `${0.8 + i * 0.2}s` }}
                                 >
+                                    {npc && (
+                                        <NpcPortrait
+                                            name={npc.name}
+                                            alt={`${npc.name}画像`}
+                                            className="settlement-card-portrait settlement-scheme-target-portrait"
+                                            positionY="18%"
+                                        />
+                                    )}
                                     <div className="result-header">
                                         <div className="result-info">
                                             <span className="result-index">计谋 {i + 1}</span>
@@ -289,6 +307,12 @@ export function Settlement() {
                     <div className="results-section animate-slide-up animate-delay-3">
                         <h3 className="section-title">南陈回信</h3>
                         <div className="result-card glass-panel success empress-report">
+                            <NpcPortrait
+                                name="陈倩"
+                                alt="陈倩画像"
+                                className="settlement-card-portrait settlement-empress-portrait"
+                                positionY="14%"
+                            />
                             <div className="result-header">
                                 <div className="result-info">
                                     <span className="result-scheme">本回合问政回批</span>

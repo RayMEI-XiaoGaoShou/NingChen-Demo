@@ -43,6 +43,16 @@ body {
     position: relative;
 }
 
+.app-cover-shell {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+}
+
+.app-roundstart-shell {
+    min-height: 100vh;
+}
+
 .app::before {
     content: '';
     position: fixed;
@@ -105,6 +115,10 @@ body {
 .app-content {
     flex: 1;
     padding: clamp(18px, 2vw, 32px) 0 clamp(36px, 4vw, 56px);
+}
+
+.app-content-cover {
+    padding: 0;
 }
 
 .page-container {

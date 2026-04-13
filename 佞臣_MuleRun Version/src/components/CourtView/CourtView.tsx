@@ -1,4 +1,4 @@
-import { useGameStore } from '../../stores/gameStore'
+﻿import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
@@ -40,29 +40,40 @@ function getFactionDoctrine(factionId: 'emperor' | 'empress') {
     }
 }
 
-function getAdvisorAside(dangerNpcs: NPC[], schemeRoom: number): string {
-    if (dangerNpcs.length > 0) {
-        return `先盯 ${dangerNpcs[0].name}。此人位高而疑心重，若任其顺势发言，很容易把本回合的朝议推向对你不利的方向。`
+function getExternalBlocDoctrine(factionId: 'longxi' | 'prairie') {
+    if (factionId === 'longxi') {
+        return {
+            title: '陇右勋贵',
+            summary: '虎据陇右的军事贵族，家族把持地方军政数十载，控遏与西域的商贸往来，部下精锐私兵唯领袖马首是瞻',
+        }
     }
 
-    if (schemeRoom <= 1) {
-        return '本回合可落子的次数不多，宁可挑真正会牵动朝局的人，也别把计谋浪费在声量太小的人身上。'
+    return {
+        title: '内附草原势力',
+        summary: '被高官厚禄引诱而归附北周的草原部落族长，然草原狼的野心岂是区区财帛、官位能满足的？',
     }
-
-    return '先分清谁在争议程、谁在争兵权、谁只是在借局势抬身价。看清这一层，再决定今朝先动谁。'
 }
 
-function getMilitaryLocation(npc: NPC): string | null {
-    const locationMap: Record<string, string> = {
-        weichimu: '驻守寿春',
-        linghuelvguang: '总镇河北',
-        duguwenyue: '控扼陇右',
-        hebabogui: '总督河西陇右',
-        ansiming: '据守卢龙',
-        erzhulie: '镇抚北庭',
+function getDisplayedNpcTitle(npc: NPC): string {
+    const titleMap: Record<string, string> = {
+        weichimu: '上柱国、梁国公、都督河南诸军事【驻扎彭城】',
+        'weichimù': '上柱国、梁国公、都督河南诸军事【驻扎彭城】',
+        linghuelvguang: '上柱国、秦国公、都督河北诸军事【驻扎邺城】',
+        duguwenyue: '后将军、上柱国、澜侯【驻扎天水】',
+        hebabogui: '卫将军、上柱国、北地公、都督河西陇右诸军事【驻扎金城郡】',
+        'hebaboguì': '卫将军、上柱国、北地公、都督河西陇右诸军事【驻扎金城郡】',
+        erzhulie: '北庭节度使、上柱国【驻扎雁门】',
+        'erzhulié': '北庭节度使、上柱国【驻扎雁门】',
+        ansiming: '卢龙节度使、上柱国【驻扎范阳】',
     }
-    return locationMap[npc.id] ?? null
+
+    return titleMap[npc.id] ?? npc.title
 }
+
+const LOYALTY_TOOLTIP = '忠诚度表示此人对北周朝廷的服从与归附程度，越低越容易离心。'
+const TRUST_TOOLTIP = '信任度表示此人对你的个人信任程度，越高越容易被你说动。'
+const WAR_TREND_TOOLTIP = '南征风向由帝党与后党在本回合的势力对比推导而来。帝党越强，朝中越容易转向主战。'
+const SAFETY_RISK_TOOLTIP = '自身安危由低信任且有朝堂影响力的可执行角色共同决定。越多人戒备你、位置越高，风险越重。'
 
 export function CourtView() {
     const {
@@ -128,8 +139,6 @@ export function CourtView() {
                 ? { label: '暗流渐浓', className: 'risk-warning' }
                 : { label: '朝中尚可周旋', className: 'risk-safe' }
 
-    const adviserAside = getAdvisorAside(dangerNpcs, maxSchemes - schemeCount)
-
     return (
         <div className="page-container court-view page-enter">
             {currentRound === 1 && !firstRoundGuideSeen.court_observe && (
@@ -148,8 +157,7 @@ export function CourtView() {
             </div>
 
             <div className="court-header animate-slide-up">
-                <span className="page-eyebrow">朝堂观察</span>
-                <h2 className="page-title">朝堂局势：先辨阵营，再锁人心</h2>
+                <h2 className="page-title">朝堂局势</h2>
 
                 <div className="glass-panel status-bar">
                     <div className="status-item">
@@ -157,19 +165,32 @@ export function CourtView() {
                         <span className={`status-value power-level-${powerLabel}`}>{powerLabel}</span>
                     </div>
                     <div className="status-item">
-                        <span className="status-label">南征风向</span>
+                        <span className="status-label">
+                            南征风向
+                            <span
+                                className="status-help status-help-seal"
+                                title={WAR_TREND_TOOLTIP}
+                                aria-label={WAR_TREND_TOOLTIP}
+                            >
+                                ?
+                            </span>
+                        </span>
                         <span className={`status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
                     </div>
                     <div className="status-item">
-                        <span className="status-label">自身安危</span>
+                        <span className="status-label">
+                            自身安危
+                            <span
+                                className="status-help status-help-seal"
+                                title={SAFETY_RISK_TOOLTIP}
+                                aria-label={SAFETY_RISK_TOOLTIP}
+                            >
+                                ?
+                            </span>
+                        </span>
                         <span className={`status-value ${safetyRisk.className}`}>{safetyRisk.label}</span>
                     </div>
                 </div>
-            </div>
-
-            <div className="advisor-panel animate-slide-up animate-delay-1">
-                <div className="advisor-title">冯道之旁批</div>
-                <p className="advisor-copy">{adviserAside}</p>
             </div>
 
             <div className="court-main-grid animate-slide-up animate-delay-2">
@@ -201,7 +222,7 @@ export function CourtView() {
                                             <span className="faction-name">{doctrine.title}</span>
                                             <p className="faction-doctrine">{doctrine.summary}</p>
                                         </div>
-                                        <span className="faction-value">综合势能 {group.influence.toFixed(1)}</span>
+                                        <span className="faction-value">综合实力 {group.influence.toFixed(1)}</span>
                                     </div>
                                     <div className="faction-bar">
                                         <div
@@ -218,7 +239,7 @@ export function CourtView() {
 
                                 <div className="npc-grid">
                                     {group.members.map((npc, index) => {
-                                        const location = getMilitaryLocation(npc)
+                                        const displayedTitle = getDisplayedNpcTitle(npc)
                                         const knownIntel = intelProgress[npc.id] ?? 0
                                         return (
                                             <button
@@ -230,24 +251,32 @@ export function CourtView() {
                                             >
                                                 <NpcPortrait
                                                     name={npc.name}
-                                                    className="npc-avatar-placeholder"
-                                                    framed
-                                                    positionY="18%"
-                                                    zoom={1.28}
+                                                    className="npc-card-portrait"
+                                                    positionY="14%"
+                                                    zoom={1.1}
                                                 />
-                                                <div className="npc-info">
-                                                    <span className="npc-name">{npc.name}</span>
-                                                    <span className="npc-title">{npc.title}</span>
-                                                    {location && <span className="npc-location">{location}</span>}
-                                                    <span className="npc-faction">{group.faction?.name}</span>
-                                                    <span className="npc-faction">暗线已明：{knownIntel}/{npc.secretThreads.length}</span>
+                                                <div className="npc-card-main">
+                                                    <div className="npc-card-head">
+                                                        <div className="npc-head-copy">
+                                                            <span className="npc-name">{npc.name}</span>
+                                                            <span className="npc-title">{displayedTitle}</span>
+                                                        </div>
+                                                        <div className="npc-attitude">
+                                                            <div className="npc-trust-badge">{getTrustLabel(npc.trust)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="npc-meta-row">
+                                                        <span className="npc-meta-chip">{group.faction?.name}</span>
+                                                        <span className="npc-meta-chip">
+                                                            暗线已明：{knownIntel}/{npc.secretThreads.length}
+                                                        </span>
+                                                    </div>
                                                     {npc.isAlive && (
                                                         <span className="npc-reaction">
                                                             {getNpcRoundReaction(currentRound, npc, knownIntel)}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="npc-trust-badge">{getTrustLabel(npc.trust)}</div>
                                                 {!npc.isAlive && <div className="npc-dead-overlay">已死</div>}
                                             </button>
                                         )
@@ -272,57 +301,73 @@ export function CourtView() {
                             id: 'prairie',
                             members: prairieMembers,
                         },
-                    ].map(group => (
-                        <div key={group.id} className="glass-panel external-block">
+                    ].map(group => {
+                        const doctrine = getExternalBlocDoctrine(group.id as 'longxi' | 'prairie')
+                        return (
+                        <div key={group.id} className={`gold-panel faction-block faction-${group.id} external-block`}>
+                            <div className="faction-summary-card faction-summary-card-external">
+                                <div className="faction-card-header">
+                                    <div>
+                                        <span className="faction-name">{doctrine.title}</span>
+                                        <p className="faction-doctrine">{doctrine.summary}</p>
+                                    </div>
+                                </div>
+                            </div>
                             <div className="external-grid">
                                 {group.members.map((npc, index) => {
                                     const progress = externalProgressMap[npc.id]
-                                    const location = getMilitaryLocation(npc)
+                                    const displayedTitle = getDisplayedNpcTitle(npc)
                                     return (
                                         <button
                                             key={npc.id}
-                                            className="glass-panel external-card animate-slide-up"
+                                            className="external-card animate-slide-up"
                                             style={{ animationDelay: `${0.14 + index * 0.05}s` }}
                                             onClick={() => openNpcDetail(npc.id)}
                                         >
                                             <NpcPortrait
                                                 name={npc.name}
-                                                className="external-portrait"
-                                                framed
-                                                positionY="18%"
-                                                zoom={1.28}
+                                                className="external-card-portrait"
+                                                positionY="14%"
+                                                zoom={1.08}
                                             />
                                             <div className="external-main">
                                                 <div className="external-card-header">
                                                     <div className="external-name">{npc.name}</div>
-                                                    <div className="external-title">{npc.title}</div>
-                                                    {location && <div className="external-title">{location}</div>}
+                                                    <div className="external-title npc-title">{displayedTitle}</div>
                                                 </div>
                                                 <div className="external-kpi-row">
                                                     <div className="external-kpi">
                                                         <span className="external-kpi-label">军力</span>
                                                         <strong className="external-kpi-value">{npc.militaryPower}</strong>
                                                     </div>
-                                                    <div className="external-kpi">
-                                                        <span className="external-kpi-label">忠诚</span>
+                                                    <div
+                                                        className="external-kpi external-kpi-explained"
+                                                        title={LOYALTY_TOOLTIP}
+                                                        aria-label={LOYALTY_TOOLTIP}
+                                                    >
+                                                        <span className="external-kpi-label">忠诚度（对朝廷）</span>
                                                         <strong className="external-kpi-value">{npc.loyaltyToCourt}</strong>
+                                                    </div>
+                                                    <div
+                                                        className="external-kpi external-kpi-explained"
+                                                        title={TRUST_TOOLTIP}
+                                                        aria-label={TRUST_TOOLTIP}
+                                                    >
+                                                        <span className="external-kpi-label">信任度（对主角）</span>
+                                                        <strong className="external-kpi-value">{npc.trust}</strong>
                                                     </div>
                                                 </div>
                                                 <div className="external-stats">
                                                     <span>{getExternalTiltLabel(npc)}</span>
                                                     <span>{getExternalPostureLabel(npc)}</span>
                                                 </div>
-                                                {progress && (
-                                                    <div className="external-stats">
-                                                        <span>{progress.phaseLabel}</span>
-                                                        <span>{progress.nextMoveLabel}</span>
-                                                    </div>
-                                                )}
                                                 <span className="npc-reaction external-reaction">
                                                     {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0)}
                                                 </span>
                                                 {progress && (
-                                                    <span className="npc-reaction external-reaction">{progress.gapText}</span>
+                                                    <span className="npc-reaction external-reaction external-progress-copy">
+                                                        {progress.gapText}
+                                                    </span>
                                                 )}
                                             </div>
                                         </button>
@@ -330,7 +375,7 @@ export function CourtView() {
                                 })}
                             </div>
                         </div>
-                    ))}
+                    )})}
                 </section>
             </div>
 
@@ -345,3 +390,6 @@ export function CourtView() {
         </div>
     )
 }
+
+
+

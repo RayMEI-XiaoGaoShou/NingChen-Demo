@@ -30,7 +30,7 @@ describe('simulationMatrix', () => {
 
         expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.resolvedState).toBe('stalemate')
         expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.finalMapSrc).toContain('map_2_bashu.png')
-        expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.campaignSummary).toContain('胶着')
+        expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.campaignSummary).toContain('淮南战事迁延日久')
 
         expect(results.find(item => item.id === 'huainan_failed_after_bashu')?.resolvedState).toBe('failed')
         expect(results.find(item => item.id === 'huainan_failed_after_bashu')?.finalMapSrc).toContain('map_2_bashu.png')

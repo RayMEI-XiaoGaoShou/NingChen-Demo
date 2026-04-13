@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { buildSchemeSpeechPayload, getSchemeSpeechFields, SchemePanel } from './SchemePanel'
+import schemePanelSource from './SchemePanel.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
@@ -8,6 +9,12 @@ import { buildOmenTargetHint } from '../../game/omenTargetHint'
 describe('SchemePanel layout labels', () => {
     beforeEach(() => {
         useGameStore.getState().resetGame()
+    })
+
+    it('does not show scheme hook chips in the current layout leverage points', () => {
+        expect(schemePanelSource).toContain('selectedNpc.softSpot')
+        expect(schemePanelSource).toContain('selectedNpc.triggerPoint')
+        expect(schemePanelSource).not.toMatch(/leverageChips[\s\S]*selectedNpc\.schemeHooks/)
     })
 
     it('uses 叁 for 当前布局 before a second-target step is needed', () => {

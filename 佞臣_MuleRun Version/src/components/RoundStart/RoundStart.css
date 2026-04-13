@@ -56,11 +56,13 @@
 
 .briefing-card,
 .hint-card {
+    position: relative;
     width: 100%;
     padding: clamp(20px, 1.8vw, 30px) clamp(22px, 2vw, 34px);
     border-radius: var(--radius-lg);
     margin-bottom: var(--spacing-xl);
     text-align: left;
+    overflow: hidden;
 }
 
 .briefing-card p,
@@ -272,6 +274,248 @@
     height: 100%;
 }
 
+.round-start-compact {
+    min-height: calc(100vh - 36px);
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1.06fr) minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 0 0 18px;
+}
+
+.roundstart-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.roundstart-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+.roundstart-audio-btn {
+    margin: 0;
+}
+
+.roundstart-title-wrap {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.roundstart-title-line {
+    width: 100%;
+    min-width: 0;
+    font-family: var(--font-heading);
+    font-size: clamp(2rem, 1.45rem + 1.55vw, 3rem);
+    color: var(--color-text-primary);
+    letter-spacing: clamp(4px, 0.32vw, 10px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.78), 0 0 10px rgba(201, 176, 101, 0.16);
+}
+
+.roundstart-section-title,
+.roundstart-band-title {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-md);
+    letter-spacing: 2px;
+    margin-bottom: 8px;
+}
+
+.roundstart-briefing-card {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 14px;
+    padding: 18px 22px;
+    border-radius: 24px;
+    min-height: 0;
+}
+
+.roundstart-briefing-copy {
+    min-height: 0;
+    overflow: hidden;
+}
+
+.roundstart-briefing-copy p {
+    color: var(--color-text-primary);
+    line-height: 1.72;
+}
+
+.roundstart-briefing-copy p + p {
+    margin-top: 10px;
+}
+
+.roundstart-briefing-sidebands {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.roundstart-briefing-band {
+    padding: 16px 18px;
+    border-radius: 18px;
+}
+
+.roundstart-briefing-band p,
+.roundstart-hint-copy p,
+.roundstart-aftereffect-copy p {
+    color: var(--color-text-primary);
+    line-height: 1.68;
+}
+
+.roundstart-intelligence-grid {
+    display: grid;
+    grid-template-columns: minmax(260px, 0.95fr) minmax(320px, 1.12fr) minmax(260px, 0.95fr);
+    gap: 14px;
+    min-height: 0;
+}
+
+.roundstart-power-card,
+.roundstart-map-card,
+.roundstart-hint-card {
+    padding: 18px;
+    border-radius: 22px;
+    min-height: 0;
+}
+
+.roundstart-radar-stack {
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    height: calc(100% - 36px);
+}
+
+.roundstart-radar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    gap: 6px;
+}
+
+.roundstart-radar-item .radar-label {
+    display: none;
+}
+
+.roundstart-radar-label {
+    font-family: var(--font-heading);
+    color: var(--color-accent-gold);
+    margin-bottom: 0;
+    letter-spacing: 2px;
+    font-size: var(--font-size-md);
+}
+
+.roundstart-map-card {
+    display: flex;
+    flex-direction: column;
+}
+
+.roundstart-map-image {
+    width: 100%;
+    height: calc(100% - 36px);
+    object-fit: contain;
+    border-radius: 14px;
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    background: rgba(8, 8, 12, 0.42);
+}
+
+.roundstart-hint-card {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+}
+
+.roundstart-hint-content {
+    position: relative;
+    z-index: 1;
+}
+
+.roundstart-hint-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    line-height: 1.74;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.roundstart-hint-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: baseline;
+}
+
+.roundstart-hint-label {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    letter-spacing: 1px;
+    flex: 0 0 auto;
+}
+
+.roundstart-hint-text {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.roundstart-advisor-portrait {
+    position: absolute;
+    right: -18px;
+    bottom: -28px;
+    z-index: 0;
+    width: min(44%, 154px);
+    height: min(78%, 230px);
+    object-fit: contain;
+    object-position: right bottom;
+    opacity: 0.18;
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.72));
+    pointer-events: none;
+}
+
+.roundstart-advisor-portrait-large {
+    right: -34px;
+    bottom: -52px;
+    width: min(62%, 228px);
+    height: min(105%, 330px);
+    opacity: 0.23;
+}
+
+.roundstart-bottom-stack {
+    display: grid;
+    gap: 12px;
+}
+
+.roundstart-aftereffect-strip {
+    padding: 14px 18px;
+    border-radius: 18px;
+}
+
+.roundstart-aftereffect-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.roundstart-action-bar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.roundstart-enter-btn {
+    margin: 0;
+    min-width: 220px;
+}
+
 @media (max-width: 900px) {
     .round-start {
         max-width: 100%;
@@ -294,5 +538,16 @@
     .aid-map-header {
         flex-direction: column;
         align-items: flex-start;
+    }
+}
+
+@media (max-width: 1200px) {
+    .round-start-compact {
+        grid-template-rows: auto auto auto auto auto;
+    }
+
+    .roundstart-briefing-sidebands,
+    .roundstart-intelligence-grid {
+        grid-template-columns: 1fr;
     }
 }

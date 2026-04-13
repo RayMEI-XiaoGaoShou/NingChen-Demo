@@ -4,8 +4,11 @@ import { getPolicyQuestionForRound } from '../../data/policyQuestions'
 import { parsePolicyReasonInput } from '../../game/aiNativeEngine'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
+import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './EmpressLetter.css'
+
+const optionIndexLabels = ['甲', '乙', '丙', '丁']
 
 export function EmpressLetter() {
     const {
@@ -62,22 +65,24 @@ export function EmpressLetter() {
             </div>
 
             <div className="letter-wrapper animate-slide-up">
-                <div className="letter-heading-block">
-                    <span className="page-eyebrow">女帝问政</span>
-                </div>
-
                 <div className="letter-header">
                     <span className="letter-from">南陈女帝 · 陈倩</span>
                     <span className="letter-label">密札</span>
                 </div>
 
                 <div className="letter-content glass-panel decree-panel animate-slide-up animate-delay-2">
+                    <NpcPortrait
+                        name="陈倩"
+                        alt="陈倩画像"
+                        className="letter-empress-portrait-float"
+                        positionY="14%"
+                        zoom={1}
+                    />
                     {policyQ ? (
                         <>
                             <div className="letter-intro">
                                 <div className="letter-intro-main">
-                                    <p className="topic-chip">问政母题 · {policyQ.topic}</p>
-                                    <p className="question-background">{policyQ.background}</p>
+                                    <p className="question-background question-background-prominent">{policyQ.background}</p>
                                     <p className="question-text">{policyQ.question}</p>
                                 </div>
                             </div>
@@ -90,7 +95,7 @@ export function EmpressLetter() {
                                             className={`gold-panel option-btn ${selected === i ? 'selected' : ''}`}
                                             onClick={() => setSelected(i)}
                                         >
-                                            <div className="option-index">{opt.label}</div>
+                                            <div className="option-index">{optionIndexLabels[i] ?? opt.label}</div>
                                             <div className="option-copy">
                                                 <div className="option-text">{opt.content}</div>
                                                 {opt.riskNote && <div className="option-risk">风险：{opt.riskNote}</div>}

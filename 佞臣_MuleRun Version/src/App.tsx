@@ -1,29 +1,63 @@
 import { useEffect } from 'react'
-import { useGameStore } from './stores/gameStore'
-import { RoundStart } from './components/RoundStart/RoundStart'
-import { CourtView } from './components/CourtView/CourtView'
-import { SchemePanel } from './components/SchemePanel/SchemePanel'
-import { EmpressLetter } from './components/EmpressLetter/EmpressLetter'
-import { SchemeFeedback } from './components/SchemeFeedback/SchemeFeedback'
-import { Settlement } from './components/Settlement/Settlement'
-import { RoundEnd } from './components/RoundEnd/RoundEnd'
-import { Ending } from './components/Ending/Ending'
-import { NPCDetail } from './components/NPCDetail/NPCDetail'
-import { Prologue } from './components/Prologue/Prologue'
-import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
-import { CharacterBios } from './components/CharacterBios/CharacterBios'
 import { Cover } from './components/Cover/Cover'
-import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
+import { CourtView } from './components/CourtView/CourtView'
+import { EmpressLetter } from './components/EmpressLetter/EmpressLetter'
+import { Ending } from './components/Ending/Ending'
 import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundary'
 import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorBoundary/PhaseFallback'
-import { useMediaStore } from './stores/mediaStore'
+import { CharacterBios } from './components/CharacterBios/CharacterBios'
+import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
+import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
+import { NPCDetail } from './components/NPCDetail/NPCDetail'
+import { Prologue } from './components/Prologue/Prologue'
+import { RoundEnd } from './components/RoundEnd/RoundEnd'
+import { RoundStart } from './components/RoundStart/RoundStart'
+import { SchemeFeedback } from './components/SchemeFeedback/SchemeFeedback'
+import { SchemePanel } from './components/SchemePanel/SchemePanel'
+import { Settlement } from './components/Settlement/Settlement'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
+import { useGameStore } from './stores/gameStore'
+import { useMediaStore } from './stores/mediaStore'
+
+export function shouldUseRoundStartFullscreenShell(
+    prologueStep: string,
+    currentPhase: string,
+    currentRound: number,
+) {
+    return prologueStep === 'INGAME' && currentPhase === 'ROUND_START' && currentRound >= 1
+}
+
+export function shouldHideGlobalHeader(prologueStep: string, currentPhase: string) {
+    const isNarrativeEntryStep =
+        prologueStep === 'PROLOGUE' ||
+        prologueStep === 'GAMEPLAY_GUIDE' ||
+        prologueStep === 'CHARACTER_BIOS'
+    const isKnownRoundPage =
+        currentPhase === 'ROUND_START' ||
+        currentPhase === 'COURT_OBSERVE' ||
+        currentPhase === 'SCHEME_PHASE' ||
+        currentPhase === 'EMPRESS_LETTER' ||
+        currentPhase === 'SCHEME_FEEDBACK' ||
+        currentPhase === 'SETTLEMENT' ||
+        currentPhase === 'ROUND_END'
+
+    return (
+        prologueStep === 'COVER' ||
+        isNarrativeEntryStep ||
+        isKnownRoundPage ||
+        (!isNarrativeEntryStep && currentPhase !== 'ENDING')
+    )
+}
 
 function App() {
-    const currentPhase = useGameStore(s => s.currentPhase)
-    const prologueStep = useGameStore(s => s.prologueStep)
-    const helpOverlayOpen = useGameStore(s => s.helpOverlayOpen)
+    const currentPhase = useGameStore(state => state.currentPhase)
+    const prologueStep = useGameStore(state => state.prologueStep)
+    const currentRound = useGameStore(state => state.currentRound)
+    const helpOverlayOpen = useGameStore(state => state.helpOverlayOpen)
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
+    const isCoverStep = prologueStep === 'COVER'
+    const isRoundStartFullscreenStep = shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
+    const hideGlobalHeader = shouldHideGlobalHeader(prologueStep, currentPhase)
 
     useEffect(() => {
         const unsubscribe = useGameStore.subscribe(state => {
@@ -61,7 +95,7 @@ function App() {
     }
 
     const renderContent = () => {
-        if (prologueStep === 'COVER') {
+        if (isCoverStep) {
             return <Cover />
         }
 
@@ -85,28 +119,30 @@ function App() {
         : <PhaseCrashFallback phaseName={currentPhase} />
 
     return (
-        <div className="app">
-            <header className="app-header">
-                <span className="app-header-spacer" />
-                <span className="app-logo">佞臣</span>
-                <button
-                    className="btn-audio"
-                    onClick={() => {
-                        if (isMuted || !audioReady) {
-                            setMuted(false)
-                            requestPlayback()
-                            return
-                        }
+        <div className={`app${isCoverStep ? ' app-cover-shell' : ''}${isRoundStartFullscreenStep ? ' app-roundstart-shell' : ''}`}>
+            {!hideGlobalHeader && (
+                <header className="app-header">
+                    <span className="app-header-spacer" />
+                    <span className="app-logo">佞臣</span>
+                    <button
+                        className="btn-audio"
+                        onClick={() => {
+                            if (isMuted || !audioReady) {
+                                setMuted(false)
+                                requestPlayback()
+                                return
+                            }
 
-                        setMuted(true)
-                    }}
-                >
-                    {isMuted ? '开声' : '静音'}
-                </button>
-            </header>
+                            setMuted(true)
+                        }}
+                    >
+                        {isMuted ? '开声' : '静音'}
+                    </button>
+                </header>
+            )}
             <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}`} phaseName={currentPhase} fallback={errorFallback}>
                 <>
-                    <main className="app-content">
+                    <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}`}>
                         {renderContent()}
                         {helpOverlayOpen && (
                             <div className="help-overlay">

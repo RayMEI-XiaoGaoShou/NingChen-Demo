@@ -3,6 +3,7 @@ import { getDifficultyProfile } from '../../game/difficulty'
 import { hasSavedGameSnapshot, loadGameSnapshot } from '../../game/saveEngine'
 import type { GameDifficulty } from '../../game/types'
 import { useGameStore } from '../../stores/gameStore'
+import { useMediaStore } from '../../stores/mediaStore'
 import './Cover.css'
 
 const DIFFICULTY_OPTIONS: GameDifficulty[] = ['easy', 'normal', 'hard', 'hell']
@@ -10,6 +11,7 @@ const DIFFICULTY_OPTIONS: GameDifficulty[] = ['easy', 'normal', 'hard', 'hell']
 export function Cover() {
     const startNewGame = useGameStore(state => state.startNewGame)
     const loadLatestSave = useGameStore(state => state.loadLatestSave)
+    const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const [showDifficulty, setShowDifficulty] = useState(false)
     const [selectedDifficulty, setSelectedDifficulty] = useState<GameDifficulty>('normal')
     const hasSave = useMemo(() => hasSavedGameSnapshot(), [])
@@ -20,18 +22,31 @@ export function Cover() {
         <div className="cover-page animate-fade-in">
             <video
                 className="cover-video"
-                src="/cover-menu-bg.mp4"
+                src="/cover-menu-bg-v2.mp4"
                 autoPlay
                 muted
                 loop
                 playsInline
             />
             <div className="cover-overlay" />
+            <button
+                className="cover-audio-control"
+                onClick={() => {
+                    if (isMuted || !audioReady) {
+                        setMuted(false)
+                        requestPlayback()
+                        return
+                    }
+
+                    setMuted(true)
+                }}
+            >
+                {isMuted ? '开声' : '静音'}
+            </button>
             <div className="cover-content">
                 <div className="cover-title-wrap animate-slide-up">
-                    <span className="cover-kicker">十年长局 二十回合</span>
                     <h1 className="cover-title">佞臣</h1>
-                    <p className="cover-subtitle">以身入局，借北周之朝局，为南陈争十年之机。</p>
+                    <p className="cover-subtitle">溪云初起日沉阁，山雨欲来风满楼</p>
                 </div>
 
                 <div className="cover-actions animate-slide-up animate-delay-2">

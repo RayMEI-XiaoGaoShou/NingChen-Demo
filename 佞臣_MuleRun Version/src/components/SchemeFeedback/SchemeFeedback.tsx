@@ -1,9 +1,9 @@
 import { useEffect } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { ROUND_EVENTS } from '../../data/rounds'
 import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
+import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
@@ -25,6 +25,18 @@ const SCHEME_NAMES: Record<string, string> = {
 
 const LOCAL_REPLY_FALLBACK = '似有反应，却一时听不分明。'
 
+export function shouldQueueRecoveryParse(params: {
+    actionId?: string
+    hasNorthParse: boolean
+    pendingStructuredSchemeIds: string[]
+    npcFeedbackCount: number
+}): boolean {
+    if (!params.actionId) return false
+    if (params.hasNorthParse) return false
+    if (params.npcFeedbackCount === 0) return false
+    return !params.pendingStructuredSchemeIds.includes(params.actionId)
+}
+
 export function SchemeFeedback() {
     const {
         npcFeedbacks,
@@ -44,11 +56,13 @@ export function SchemeFeedback() {
         firstRoundGuideSeen,
         markFirstRoundGuideSeen,
         openGameplayGuide,
+        shuCampaign,
+        huainanCampaign,
     } = useGameStore()
 
     const allDone = npcFeedbacks.every(item => !item.isLoading)
     const allParsed = currentSchemes.every(action => Boolean(action.northParse)) && pendingStructuredSchemeIds.length === 0
-    const currentRoundEvent = ROUND_EVENTS[currentRound - 1]
+    const currentRoundEvent = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
 
     useEffect(() => {
         if (npcFeedbacks.length > 0 || currentSchemes.length === 0) return
@@ -96,6 +110,8 @@ export function SchemeFeedback() {
                         speech: action.playerSpeech,
                         relatedNpc,
                         omenSpeechInput: action.omenSpeechInput,
+                        eventName: currentRoundEvent.eventName,
+                        eventBriefing: currentRoundEvent.eventBriefing,
                     }).then(parsed => {
                         updateSchemeParse(feedbackId, parsed)
                         return parsed
@@ -123,8 +139,8 @@ export function SchemeFeedback() {
                             speech: action.playerSpeech,
                             success,
                             round: currentRound,
-                            eventName: currentRoundEvent?.eventName,
-                            eventBriefing: currentRoundEvent?.briefing,
+                            eventName: currentRoundEvent.eventName,
+                            eventBriefing: currentRoundEvent.eventBriefing,
                             knownSecretThreads,
                             previousDealings: dynamicContext.previousDealings,
                             relationshipTemperature: dynamicContext.relationshipTemperature,
@@ -150,8 +166,8 @@ export function SchemeFeedback() {
     }, [
         addNpcFeedback,
         currentRound,
-        currentRoundEvent?.briefing,
-        currentRoundEvent?.eventName,
+        currentRoundEvent.eventBriefing,
+        currentRoundEvent.eventName,
         currentSchemes,
         factions,
         intelProgress,
@@ -166,7 +182,15 @@ export function SchemeFeedback() {
 
     useEffect(() => {
         currentSchemes.forEach(action => {
-            if (!action.id || action.northParse || pendingStructuredSchemeIds.includes(action.id)) return
+            const actionId = action.id
+            if (!actionId) return
+
+            if (!shouldQueueRecoveryParse({
+                actionId,
+                hasNorthParse: Boolean(action.northParse),
+                pendingStructuredSchemeIds,
+                npcFeedbackCount: npcFeedbacks.length,
+            })) return
 
             const targetNpc = npcs.find(npc => npc.id === action.targetNpcId)
             if (!targetNpc) return
@@ -175,7 +199,7 @@ export function SchemeFeedback() {
                 ? npcs.find(npc => npc.id === action.relatedNpcId) ?? null
                 : null
 
-            markSchemeParsePending(action.id)
+            markSchemeParsePending(actionId)
             parseNorthSchemeInput({
                 round: currentRound,
                 npc: targetNpc,
@@ -183,11 +207,23 @@ export function SchemeFeedback() {
                 speech: action.playerSpeech,
                 relatedNpc,
                 omenSpeechInput: action.omenSpeechInput,
+                eventName: currentRoundEvent.eventName,
+                eventBriefing: currentRoundEvent.eventBriefing,
             }).then(parsed => {
-                updateSchemeParse(action.id!, parsed)
+                updateSchemeParse(actionId, parsed)
             })
         })
-    }, [currentRound, currentSchemes, markSchemeParsePending, npcs, pendingStructuredSchemeIds, updateSchemeParse])
+    }, [
+        currentRound,
+        currentRoundEvent.eventBriefing,
+        currentRoundEvent.eventName,
+        currentSchemes,
+        markSchemeParsePending,
+        npcFeedbacks.length,
+        npcs,
+        pendingStructuredSchemeIds,
+        updateSchemeParse,
+    ])
 
     return (
         <div className="page-container scheme-feedback animate-fade-in">

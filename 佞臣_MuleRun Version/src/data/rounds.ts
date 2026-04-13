@@ -241,7 +241,7 @@ export const ROUND_EVENTS: RoundEvent[] = [
     {
         round: 20,
         timeLabel: '建文十四年下 / 天嘉十年下',
-        eventName: '十年周期总摊牌，南北两朝进入终局结算',
+        eventName: '终章：千古兴亡多少事，悠悠，不尽长江滚滚流',
         northDescription: '所有势力亮底牌，南征、安内、保地盘、护机器、扶皇权、保摄政，全都在这一回合收成结果。',
         southDescription: '南陈十年经营走到期限，女帝与萧宝颖此前一切布局，都将在终局化作一纸国运判词。',
         briefing: '十年风雨，终于只剩一问：南陈是否已能压过北周，让历史换一个写法。',

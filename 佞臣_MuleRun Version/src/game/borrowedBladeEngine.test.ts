@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { INITIAL_NPCS } from '../data/npcs'
 import type { NPC } from './types'
 import {
     BORROWED_BLADE_TARGET_IDS,
@@ -48,7 +49,7 @@ describe('borrowedBladeEngine target scope', () => {
             'zongai',
             'yuwendi',
             'linghuelvguang',
-            'weichimu',
+            'weichimù',
         ])
         expect(canUseBorrowedBladeDisposalStage('zuting')).toBe(true)
         expect(canUseBorrowedBladeDisposalStage('hebaqi')).toBe(false)
@@ -57,7 +58,16 @@ describe('borrowedBladeEngine target scope', () => {
     it('starts supported targets at safe', () => {
         const stages = initialBorrowedBladeStages()
         expect(stages.zuting).toBe('safe')
-        expect(stages.weichimu).toBe('safe')
+        expect(stages['weichimù']).toBe('safe')
+    })
+
+    it('uses the real 尉迟暮 npc id from formal data', () => {
+        const weichimu = INITIAL_NPCS.find(npc => npc.name === '尉迟暮')
+
+        expect(weichimu).toBeDefined()
+        expect(BORROWED_BLADE_TARGET_IDS).toContain(weichimu!.id)
+        expect(canUseBorrowedBladeDisposalStage(weichimu!.id)).toBe(true)
+        expect(initialBorrowedBladeStages()[weichimu!.id]).toBe('safe')
     })
 })
 

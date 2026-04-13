@@ -80,6 +80,58 @@ describe('campaignDisplayEngine', () => {
         expect(display.summary).toContain('胜机')
     })
 
+    it('uses campaign-state-specific rich briefing copy for round 11 shu outcomes', () => {
+        const gained = getRoundStartCampaignDisplay(
+            11,
+            makeCampaignState({
+                state: 'gained',
+                sourceRound: 10,
+                resolvedState: 'gained',
+            }),
+            makeCampaignState(),
+        )
+        const failed = getRoundStartCampaignDisplay(
+            11,
+            makeCampaignState({
+                state: 'failed',
+                sourceRound: 10,
+                resolvedState: 'failed',
+            }),
+            makeCampaignState(),
+        )
+
+        expect(gained.briefing).toContain('蜀中门户已为南陈所撼')
+        expect(gained.briefing).not.toContain('蜀地战局陷入僵持')
+        expect(failed.briefing).toContain('征蜀捷报未必辉煌')
+        expect(failed.briefing).not.toContain('蜀地战局陷入僵持')
+    })
+
+    it('uses campaign-state-specific rich briefing copy for round 17 huainan outcomes', () => {
+        const gained = getRoundStartCampaignDisplay(
+            17,
+            makeCampaignState(),
+            makeCampaignState({
+                state: 'gained',
+                sourceRound: 16,
+                resolvedState: 'gained',
+            }),
+        )
+        const failed = getRoundStartCampaignDisplay(
+            17,
+            makeCampaignState(),
+            makeCampaignState({
+                state: 'failed',
+                sourceRound: 16,
+                resolvedState: 'failed',
+            }),
+        )
+
+        expect(gained.briefing).toContain('寿春一线已被南陈撕开缺口')
+        expect(gained.briefing).not.toContain('淮南战事迁延日久')
+        expect(failed.briefing).toContain('淮南防线暂稳')
+        expect(failed.briefing).not.toContain('淮南战事迁延日久')
+    })
+
     it('keeps stalemate wording on round 11 when shu campaign stalls', () => {
         const display = getRoundStartCampaignDisplay(
             11,
@@ -93,8 +145,27 @@ describe('campaignDisplayEngine', () => {
             makeCampaignState(),
         )
 
-        expect(display.summary).toContain('僵持')
+        expect(display.summary).toContain('巴蜀战局陷入僵持')
+        expect(display.summary).toContain('安定朝心')
         expect(display.eventName).toContain('蜀地战局僵持')
+    })
+
+    it('keeps stalemate wording on round 17 when huainan campaign stalls', () => {
+        const display = getRoundStartCampaignDisplay(
+            17,
+            makeCampaignState(),
+            makeCampaignState({
+                state: 'stalemate',
+                sourceRound: 16,
+                summary: '淮南战局胶着，双方都被拖入久战。',
+                remainingRounds: 1,
+                resolvedState: 'stalemate',
+            }),
+        )
+
+        expect(display.summary).toContain('淮南战事迁延日久')
+        expect(display.summary).toContain('百姓与州县')
+        expect(display.eventName).toContain('淮南久战')
     })
 
     it('switches the round-17 headline to a success-specific title once huainan is gained', () => {

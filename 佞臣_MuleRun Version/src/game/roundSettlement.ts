@@ -1,7 +1,6 @@
 import { getPolicyQuestionForRound } from '../data/policyQuestions'
 import { INITIAL_RELATIONSHIP_EDGES, RELATIONSHIP_STRUCTURES } from '../data/npcRelationships'
 import { getRoundIntel } from '../data/roundIntel'
-import { ROUND_EVENTS } from '../data/rounds'
 import { isDisasterRound } from '../data/roundRuleConfig'
 import {
     applyDimensionChanges,
@@ -19,6 +18,7 @@ import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaig
 import { deriveCampaignMomentumGain } from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
+import { getRoundCampaignEventContext } from './campaignDisplayEngine'
 import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
 import {
@@ -528,6 +528,8 @@ export function settleRound(params: {
         policyAftereffect,
         schemeResults,
         delayedBacklash,
+        shuCampaign,
+        huainanCampaign,
     })
 
     return {
@@ -958,11 +960,11 @@ function buildJudgeFacts(params: {
     policyAftereffect: PolicyAftereffect | null
     schemeResults: SchemeResult[]
     delayedBacklash: DelayedBacklash[]
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
 }): JudgeFacts {
-    const event = ROUND_EVENTS[params.round - 1]
-    const eventImpactSummary = event
-        ? `主线事件「${event.eventName}」继续发酵；${event.briefing}`
-        : '本回合主线事件照旧推进。'
+    const event = getRoundCampaignEventContext(params.round, params.shuCampaign, params.huainanCampaign)
+    const eventImpactSummary = `主线事件「${event.eventName}」继续发酵；${event.eventBriefing}`
 
     const northDelta = summarizeDimensions(diffDimensions(params.afterNorth, params.beforeNorth))
     const relationshipSummary = summarizeRelationshipReports(params.relationshipReports)

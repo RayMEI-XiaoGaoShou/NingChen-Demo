@@ -11,13 +11,13 @@ import {
     FIRST_OMEN_TEACHING_CONTENT,
     SCHEME_MASTER_GUIDE_CONTENT,
 } from '../../data/prologueContent'
-import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
+import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/schemeEngine'
 import { getHighlightedNpcIds } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
@@ -123,6 +123,8 @@ export function SchemePanel() {
         fengDaozhiAssistsRemaining,
         playerDangerStage,
         requestFengDaozhiDraft,
+        shuCampaign,
+        huainanCampaign,
     } = useGameStore()
 
     const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
@@ -148,7 +150,7 @@ export function SchemePanel() {
         })
         : []
     const currentSchemeData = selectedScheme ? getSchemeByType(selectedScheme) : undefined
-    const currentRoundEvent = ROUND_EVENTS[currentRound - 1]
+    const currentRoundEvent = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
     const omenGuidePresentation = getOmenGuidePresentation({
         round: currentRound,
         difficulty,
@@ -191,7 +193,6 @@ export function SchemePanel() {
         ? [
             `打动：${selectedNpc.softSpot}`,
             `激怒：${selectedNpc.triggerPoint}`,
-            `可撬动：${selectedNpc.schemeHooks}`,
         ]
         : []
 
@@ -299,6 +300,8 @@ export function SchemePanel() {
             speech: speechSnapshot,
             relatedNpc: relatedNpcSnapshot,
             omenSpeechInput: speechPayload.omenSpeechInput,
+            eventName: currentRoundEvent.eventName,
+            eventBriefing: currentRoundEvent.eventBriefing,
         }).then(parsed => {
             updateSchemeParse(actionId, parsed)
             const success = previewSchemeSuccess(
@@ -319,8 +322,8 @@ export function SchemePanel() {
                     speech: speechSnapshot,
                     success,
                     round: currentRound,
-                    eventName: currentRoundEvent?.eventName,
-                    eventBriefing: currentRoundEvent?.briefing,
+                    eventName: currentRoundEvent.eventName,
+                    eventBriefing: currentRoundEvent.eventBriefing,
                     knownSecretThreads,
                     previousDealings: dynamicContext.previousDealings,
                     relationshipTemperature: dynamicContext.relationshipTemperature,

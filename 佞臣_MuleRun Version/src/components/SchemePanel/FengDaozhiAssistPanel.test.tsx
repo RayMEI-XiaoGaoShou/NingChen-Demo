@@ -18,6 +18,8 @@ describe('FengDaozhiAssistPanel', () => {
         )
 
         expect(html).toContain('让冯道之帮你谋划')
+        expect(html).toContain('feng-assist-portrait')
+        expect(html).toContain('冯道之画像')
         expect(html).toContain('本回合剩余 2 次')
         expect(html).toContain('冯道之密札')
         expect(html).toContain('AI 代拟')

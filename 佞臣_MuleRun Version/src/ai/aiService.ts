@@ -20,6 +20,17 @@ function getEnvValue(
     return viteEnv?.[key] ?? runtimeEnv[key]
 }
 
+function isDevRuntime(): boolean {
+    if (typeof window === 'undefined') {
+        const devFlag = ((globalThis as any).process?.env ?? {}).DEV
+        return devFlag === true || devFlag === 'true'
+    }
+
+    const viteEnv = typeof import.meta !== 'undefined' ? import.meta.env : undefined
+    const devFlag = viteEnv?.DEV ?? ((globalThis as any).process?.env ?? {}).DEV
+    return devFlag === true || devFlag === 'true'
+}
+
 function hasKimiConfig(): boolean {
     const apiKey = getEnvValue('VITE_KIMI_API_KEY')
     return Boolean(apiKey && apiKey !== 'your-kimi-api-key-here')
@@ -271,7 +282,7 @@ async function kimiCompletion(
     const apiKey = getEnvValue('VITE_KIMI_API_KEY') || ''
     const model = getEnvValue('VITE_KIMI_MODEL') || 'deepseek-chat'
     const baseUrl = getEnvValue('VITE_KIMI_BASE_URL') || 'https://api.deepseek.com'
-    const isDev = getEnvValue('DEV') === 'true'
+    const isDev = isDevRuntime()
 
     try {
         return openAiCompatibleCompletion(

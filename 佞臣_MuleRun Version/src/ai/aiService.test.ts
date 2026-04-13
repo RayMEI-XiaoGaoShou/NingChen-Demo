@@ -106,6 +106,34 @@ describe('aiService', () => {
         expect(result).toBe('script runtime ok')
     })
 
+    it('uses the local dev proxy when DEV is truthy at runtime', async () => {
+        delete (globalThis as any).window
+        processEnv.VITE_KIMI_API_KEY = 'script-runtime-key'
+        processEnv.VITE_KIMI_BASE_URL = 'https://api.deepseek.com'
+        processEnv.VITE_KIMI_MODEL = 'deepseek-chat'
+        ;(processEnv as Record<string, unknown>).DEV = true as never
+
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                choices: [{ message: { content: 'proxy ok' } }],
+            }),
+        })
+        ;(globalThis as any).fetch = fetchMock
+
+        const { chatCompletion, getAiMode } = await import('./aiService')
+
+        const result = await chatCompletion(
+            [{ role: 'user', content: 'use local proxy' }],
+            { temperature: 0.2, maxTokens: 50, tag: 'test' },
+        )
+
+        expect(getAiMode()).toBe('kimi')
+        expect(fetchMock).toHaveBeenCalledOnce()
+        expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/ai/chat/completions')
+        expect(result).toBe('proxy ok')
+    })
+
     it('retries json completion once when the first response is truncated', async () => {
         delete (globalThis as any).window
         processEnv.VITE_KIMI_API_KEY = 'script-runtime-key'

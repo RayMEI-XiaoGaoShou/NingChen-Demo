@@ -1,29 +1,30 @@
-import { PROLOGUE_SECTIONS } from '../../data/prologueContent'
 import { MAP_ASSETS } from '../../data/mediaAssets'
+import { PROLOGUE_PAGE_SECTIONS } from '../../data/prologuePageContent'
+import { AUTO_PAGE_SCROLL_SPEEDS, useAutoPageScroll } from '../../hooks/useAutoPageScroll'
 import { useGameStore } from '../../stores/gameStore'
+import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './Prologue.css'
 
 export function Prologue() {
     const advancePrologue = useGameStore(state => state.advancePrologue)
+    useAutoPageScroll({ pixelsPerSecond: AUTO_PAGE_SCROLL_SPEEDS.prologue })
 
     return (
-        <div className="page-container prologue-page animate-fade-in">
+        <div
+            className="page-container prologue-page animate-fade-in"
+            data-auto-scroll-speed={AUTO_PAGE_SCROLL_SPEEDS.prologue}
+        >
+            <div className="page-utility-row narrative-utility-row animate-slide-up">
+                <PageUtilityActions />
+            </div>
+
             <div className="prologue-hero animate-slide-up">
                 <span className="prologue-kicker">背景序章</span>
-                <h1 className="prologue-title">纷乱之世</h1>
-                <p className="prologue-summary">
-                    你将以萧宝颖之身潜入北周，表面身份是邺城朝中的翰林编修。
-                    如今北周太后已垂帘听政五年，帝党、后党与地方军头互相牵制，正是你为南陈争时间的缝隙。
-                </p>
-                <div className="prologue-meta">
-                    <span className="prologue-chip">十年拆作二十回合</span>
-                    <span className="prologue-chip">半岁一局</span>
-                    <span className="prologue-chip">以身入局</span>
-                </div>
+                <h1 className="prologue-title">日暮途远，人间何世</h1>
             </div>
 
             <div className="prologue-sections">
-                {PROLOGUE_SECTIONS.map((section, index) => (
+                {PROLOGUE_PAGE_SECTIONS.map((section, index) => (
                     <div key={section.title} className="prologue-section-group">
                         <section
                             className={`glass-panel prologue-section animate-slide-up animate-delay-${Math.min(index + 1, 4)}`}
