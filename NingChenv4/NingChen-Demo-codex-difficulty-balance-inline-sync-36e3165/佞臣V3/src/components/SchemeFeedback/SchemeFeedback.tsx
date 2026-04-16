@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_FOLLOW_UP_TEACHING_CONTENT, FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput, parseSchemeFollowUpInput } from '../../game/aiNativeEngine'
@@ -169,7 +169,7 @@ export function SchemeFeedback() {
 
     const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, string>>({})
     const [submittingFollowUpId, setSubmittingFollowUpId] = useState<string | null>(null)
-    const [feedbackBatchSettledKey, setFeedbackBatchSettledKey] = useState<string | null>(null)
+    const [, setFeedbackBatchSettledKey] = useState<string | null>(null)
     const [orchestratingFeedbacks, setOrchestratingFeedbacks] = useState(false)
     const schemeBatchKey = currentSchemes
         .map(action => action.id ?? `${action.targetNpcId}:${action.schemeType}`)
@@ -198,52 +198,111 @@ export function SchemeFeedback() {
         currentRound === 1 &&
         firstRoundGuideSeen.scheme_feedback &&
         !schemeOnboardingSeen.first_follow_up_teaching
+    const settledBatchKeyRef = useRef<string | null>(null)
+    const orchestrationStateRef = useRef<{
+        npcFeedbacks: typeof npcFeedbacks
+        currentSchemes: typeof currentSchemes
+        npcs: typeof npcs
+        factions: typeof factions
+        intelProgress: typeof intelProgress
+        recentBacklash: typeof recentBacklash
+        roundHistory: typeof roundHistory
+        pendingStructuredSchemeIds: typeof pendingStructuredSchemeIds
+        currentRoundEvent: typeof currentRoundEvent
+        addNpcFeedback: typeof addNpcFeedback
+        updateNpcFeedback: typeof updateNpcFeedback
+        updateSchemeParse: typeof updateSchemeParse
+        markSchemeParsePending: typeof markSchemeParsePending
+        setSchemeFollowUp: typeof setSchemeFollowUp
+    } | null>(null)
+
+    orchestrationStateRef.current = {
+        npcFeedbacks,
+        currentSchemes,
+        npcs,
+        factions,
+        intelProgress,
+        recentBacklash,
+        roundHistory,
+        pendingStructuredSchemeIds,
+        currentRoundEvent,
+        addNpcFeedback,
+        updateNpcFeedback,
+        updateSchemeParse,
+        markSchemeParsePending,
+        setSchemeFollowUp,
+    }
 
     useEffect(() => {
+        settledBatchKeyRef.current = null
         setFeedbackBatchSettledKey(null)
         setOrchestratingFeedbacks(false)
     }, [currentRound, schemeBatchKey])
 
     useEffect(() => {
-        if (currentSchemes.length === 0) return
-        if (orchestratingFeedbacks) return
-        if (feedbackBatchSettledKey === schemeBatchKey) return
-        if (shouldWaitForPrefetchedFeedback({
-            currentSchemes,
-            npcFeedbacks,
-            pendingStructuredSchemeIds,
-        })) return
-
         let cancelled = false
-        setOrchestratingFeedbacks(true)
+        let retryTimer: ReturnType<typeof globalThis.setTimeout> | null = null
 
-        const run = async () => {
+        const scheduleRetry = () => {
+            retryTimer = globalThis.setTimeout(() => {
+                void runFeedbackOrchestration()
+            }, 120)
+        }
+
+        const clearRetry = () => {
+            if (retryTimer) {
+                globalThis.clearTimeout(retryTimer)
+                retryTimer = null
+            }
+        }
+
+        const markBatchSettled = () => {
+            settledBatchKeyRef.current = schemeBatchKey
+            setFeedbackBatchSettledKey(schemeBatchKey)
+            setOrchestratingFeedbacks(false)
+        }
+
+        const runFeedbackOrchestration = async () => {
+            const snapshot = orchestrationStateRef.current
+            if (!snapshot) return
+            if (snapshot.currentSchemes.length === 0) return
+            if (settledBatchKeyRef.current === schemeBatchKey) return
+            if (shouldWaitForPrefetchedFeedback({
+                currentSchemes: snapshot.currentSchemes,
+                npcFeedbacks: snapshot.npcFeedbacks,
+                pendingStructuredSchemeIds: snapshot.pendingStructuredSchemeIds,
+            })) {
+                scheduleRetry()
+                return
+            }
+
+            setOrchestratingFeedbacks(true)
             const existingFeedbackMap = new Map(
-                npcFeedbacks.map(item => [item.id, item] as const),
+                snapshot.npcFeedbacks.map(item => [item.id, item] as const),
             )
 
-            const preparedActions = currentSchemes
+            const preparedActions = snapshot.currentSchemes
                 .map((action, index) => {
-                    const targetNpc = npcs.find(npc => npc.id === action.targetNpcId)
+                    const targetNpc = snapshot.npcs.find(npc => npc.id === action.targetNpcId)
                     if (!targetNpc) return null
 
                     const feedbackId = action.id ?? `rebuild_${index}_${targetNpc.id}`
-                    const previousActions = currentSchemes
+                    const previousActions = snapshot.currentSchemes
                         .slice(0, index)
                         .filter(item => item.targetNpcId === action.targetNpcId).length
                     const relatedNpc = action.relatedNpcId
-                        ? npcs.find(npc => npc.id === action.relatedNpcId) ?? null
+                        ? snapshot.npcs.find(npc => npc.id === action.relatedNpcId) ?? null
                         : null
-                    const knownSecretThreads = targetNpc.secretThreads.slice(0, intelProgress[targetNpc.id] ?? 0)
+                    const knownSecretThreads = targetNpc.secretThreads.slice(0, snapshot.intelProgress[targetNpc.id] ?? 0)
                     const dynamicContext = buildNpcPromptDynamicContext({
                         npc: targetNpc,
-                        factions,
-                        roundHistory,
-                        recentBacklash,
+                        factions: snapshot.factions,
+                        roundHistory: snapshot.roundHistory,
+                        recentBacklash: snapshot.recentBacklash,
                     })
 
                     if (!existingFeedbackMap.has(feedbackId)) {
-                        addNpcFeedback({
+                        snapshot.addNpcFeedback({
                             id: feedbackId,
                             npcId: targetNpc.id,
                             npcName: targetNpc.name,
@@ -259,7 +318,7 @@ export function SchemeFeedback() {
                     const parsePromise = action.northParse
                         ? Promise.resolve(action.northParse)
                         : (
-                            markSchemeParsePending(feedbackId),
+                            snapshot.markSchemeParsePending(feedbackId),
                             parseNorthSchemeInput({
                                 round: currentRound,
                                 npc: targetNpc,
@@ -267,11 +326,11 @@ export function SchemeFeedback() {
                                 speech: action.playerSpeech,
                                 relatedNpc,
                                 omenSpeechInput: action.omenSpeechInput,
-                                eventName: currentRoundEvent.eventName,
-                                eventBriefing: currentRoundEvent.eventBriefing,
+                                eventName: snapshot.currentRoundEvent.eventName,
+                                eventBriefing: snapshot.currentRoundEvent.eventBriefing,
                             }).then(parsed => {
                                 if (cancelled) return parsed
-                                updateSchemeParse(feedbackId, parsed)
+                                snapshot.updateSchemeParse(feedbackId, parsed)
                                 return parsed
                             }).catch(() => {
                                 const fallbackParsed = fallbackNorthParseFromSpeech({
@@ -281,12 +340,12 @@ export function SchemeFeedback() {
                                     schemeType: action.schemeType,
                                     relatedNpc,
                                     omenSpeechInput: action.omenSpeechInput,
-                                    eventName: currentRoundEvent.eventName,
-                                    eventBriefing: currentRoundEvent.eventBriefing,
+                                    eventName: snapshot.currentRoundEvent.eventName,
+                                    eventBriefing: snapshot.currentRoundEvent.eventBriefing,
                                 })
 
                                 if (cancelled) return fallbackParsed
-                                updateSchemeParse(feedbackId, fallbackParsed)
+                                snapshot.updateSchemeParse(feedbackId, fallbackParsed)
                                 return fallbackParsed
                             })
                         )
@@ -307,8 +366,7 @@ export function SchemeFeedback() {
 
             if (preparedActions.length === 0) {
                 if (!cancelled) {
-                    setFeedbackBatchSettledKey(schemeBatchKey)
-                    setOrchestratingFeedbacks(false)
+                    markBatchSettled()
                 }
                 return
             }
@@ -345,11 +403,11 @@ export function SchemeFeedback() {
                 if (existingFeedback && !existingFeedback.isLoading) {
                     const normalizedReply = normalizeReply(existingFeedback.feedback)
                     if (normalizedReply !== existingFeedback.feedback) {
-                        updateNpcFeedback(item.feedbackId, normalizedReply, existingFeedback.source)
+                        snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, existingFeedback.source)
                     }
 
                     if (isFollowUpCandidate && item.action.id) {
-                        setSchemeFollowUp(item.action.id, {
+                        snapshot.setSchemeFollowUp(item.action.id, {
                             questionText: extractTerminalQuestion(normalizedReply) ?? fallbackQuestion,
                             status: 'available',
                         })
@@ -364,7 +422,7 @@ export function SchemeFeedback() {
                     item.action.resolutionRoll ?? 0.5,
                     {
                         round: currentRound,
-                        unlockedSecrets: intelProgress[item.targetNpc.id] ?? 0,
+                        unlockedSecrets: snapshot.intelProgress[item.targetNpc.id] ?? 0,
                         northParse: item.parsed,
                     },
                 )
@@ -378,8 +436,8 @@ export function SchemeFeedback() {
                             success,
                             followUpMode: candidateId && item.action.id === candidateId ? 'question_candidate' : 'statement_only',
                             round: currentRound,
-                            eventName: currentRoundEvent.eventName,
-                            eventBriefing: currentRoundEvent.eventBriefing,
+                            eventName: snapshot.currentRoundEvent.eventName,
+                            eventBriefing: snapshot.currentRoundEvent.eventBriefing,
                             knownSecretThreads: item.knownSecretThreads,
                             previousDealings: item.dynamicContext.previousDealings,
                             relationshipTemperature: item.dynamicContext.relationshipTemperature,
@@ -397,10 +455,10 @@ export function SchemeFeedback() {
 
                     const source = getAiMode() === 'fallback' ? '本地兜底' : getAiModeLabel()
                     const normalizedReply = normalizeReply(reply)
-                    updateNpcFeedback(item.feedbackId, normalizedReply, source)
+                    snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, source)
 
                     if (isFollowUpCandidate && item.action.id) {
-                        setSchemeFollowUp(item.action.id, {
+                        snapshot.setSchemeFollowUp(item.action.id, {
                             questionText: extractTerminalQuestion(normalizedReply) ?? fallbackQuestion,
                             status: 'available',
                         })
@@ -408,9 +466,9 @@ export function SchemeFeedback() {
                 } catch {
                     if (cancelled) return
                     const normalizedReply = normalizeReply(`${item.targetNpc.name}${LOCAL_REPLY_FALLBACK}`)
-                    updateNpcFeedback(item.feedbackId, normalizedReply, '本地兜底')
+                    snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, '本地兜底')
                     if (isFollowUpCandidate && item.action.id) {
-                        setSchemeFollowUp(item.action.id, {
+                        snapshot.setSchemeFollowUp(item.action.id, {
                             questionText: extractTerminalQuestion(normalizedReply) ?? fallbackQuestion,
                             status: 'available',
                         })
@@ -419,41 +477,20 @@ export function SchemeFeedback() {
             }
 
             if (!cancelled) {
-                setFeedbackBatchSettledKey(schemeBatchKey)
-                setOrchestratingFeedbacks(false)
+                markBatchSettled()
             }
         }
 
-        void run().catch(() => {
+        void runFeedbackOrchestration().catch(() => {
             if (cancelled) return
-            setFeedbackBatchSettledKey(schemeBatchKey)
-            setOrchestratingFeedbacks(false)
+            markBatchSettled()
         })
 
         return () => {
             cancelled = true
+            clearRetry()
         }
-    }, [
-        addNpcFeedback,
-        currentRound,
-        currentRoundEvent.eventBriefing,
-        currentRoundEvent.eventName,
-        currentSchemes,
-        feedbackBatchSettledKey,
-        factions,
-        intelProgress,
-        markSchemeParsePending,
-        npcFeedbacks,
-        npcs,
-        orchestratingFeedbacks,
-        pendingStructuredSchemeIds,
-        recentBacklash,
-        roundHistory,
-        schemeBatchKey,
-        setSchemeFollowUp,
-        updateNpcFeedback,
-        updateSchemeParse,
-    ])
+    }, [currentRound, schemeBatchKey])
 
     useEffect(() => {
         let cancelled = false

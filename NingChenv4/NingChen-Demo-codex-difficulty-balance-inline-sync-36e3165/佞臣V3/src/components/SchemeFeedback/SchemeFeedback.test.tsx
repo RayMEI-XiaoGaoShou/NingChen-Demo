@@ -130,6 +130,15 @@ describe('SchemeFeedback orchestration', () => {
     it('waits for prefetch work before orchestrating recovery on the feedback page', () => {
         expect(schemeFeedbackSource).toContain('shouldWaitForPrefetchedFeedback({')
     })
+
+    it('keeps feedback orchestration from being cancelled by its own state writes', () => {
+        expect(schemeFeedbackSource).toContain('const orchestrationStateRef = useRef')
+        expect(schemeFeedbackSource).toContain('runFeedbackOrchestration')
+        expect(schemeFeedbackSource).toContain('}, [currentRound, schemeBatchKey])')
+        expect(schemeFeedbackSource).not.toContain('        currentSchemes,\n        feedbackBatchSettledKey,')
+        expect(schemeFeedbackSource).not.toContain('        npcFeedbacks,\n        npcs,')
+        expect(schemeFeedbackSource).not.toContain('        orchestratingFeedbacks,')
+    })
 })
 
 describe('shouldQueueRecoveryParse', () => {
