@@ -1,0 +1,75 @@
+.radar-chart {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.radar-label {
+    font-family: var(--font-heading);
+    font-size: var(--font-size-sm);
+    color: var(--color-accent-gold);
+    letter-spacing: 4px;
+    text-indent: 4px;
+    opacity: 0.88;
+}
+
+.radar-shell {
+    position: relative;
+    width: var(--radar-size);
+    height: var(--radar-size);
+    overflow: visible;
+}
+
+.radar-svg {
+    display: block;
+    filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.28));
+}
+
+.radar-center-ring {
+    fill: rgba(9, 10, 18, 0.92);
+    stroke: rgba(201, 176, 101, 0.32);
+    stroke-width: 1.4;
+}
+
+.radar-center-core {
+    fill: rgba(201, 176, 101, 0.14);
+    stroke: rgba(245, 221, 149, 0.16);
+    stroke-width: 0.8;
+}
+
+.radar-center-score {
+    fill: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: 24px;
+    letter-spacing: 1px;
+    filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+}
+
+.radar-chip {
+    position: absolute;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transform: translate(-50%, -50%);
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(13, 14, 23, 0.92);
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.radar-chip-label {
+    color: var(--color-text-secondary);
+    font-size: 11px;
+    letter-spacing: 1px;
+    white-space: nowrap;
+}
+
+.radar-chip-value {
+    color: var(--color-accent-gold-light);
+    font-family: var(--font-heading);
+    font-size: 12px;
+}
