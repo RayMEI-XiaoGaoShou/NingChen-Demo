@@ -239,7 +239,20 @@ export function selectRequiredSchemeFollowUpCandidateId(actions: SchemeAction[])
     )?.id ?? null
 }
 
+export function getVisibleAvailableSchemeFollowUpId(
+    actions: Array<{ id?: string; followUp?: { status: SchemeFollowUp['status'] } }>,
+): string | null {
+    const hasResolvedFollowUp = actions.some(action =>
+        action.followUp?.status === 'answered' || action.followUp?.status === 'skipped'
+    )
+    if (hasResolvedFollowUp) return null
+
+    return actions.find(action =>
+        Boolean(action.id && action.followUp?.status === 'available')
+    )?.id ?? null
+}
+
 export function shouldBlockSettlementForFollowUp(actions: SchemeAction[], followUpSubmitting: boolean): boolean {
     if (followUpSubmitting) return true
-    return actions.some(action => action.followUp?.status === 'available')
+    return Boolean(getVisibleAvailableSchemeFollowUpId(actions))
 }

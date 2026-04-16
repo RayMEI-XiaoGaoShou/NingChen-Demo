@@ -12,10 +12,11 @@ import {
     extractTerminalQuestion,
     forceQuestionCandidateReplyText,
     forceStatementReplyText,
+    getVisibleAvailableSchemeFollowUpId,
     selectRequiredSchemeFollowUpCandidateId,
     shouldBlockSettlementForFollowUp,
 } from '../../game/schemeFollowUp'
-import type { SchemeFollowUpParseResult, SchemeType } from '../../game/types'
+import type { SchemeFollowUp, SchemeFollowUpParseResult, SchemeType } from '../../game/types'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
@@ -112,6 +113,12 @@ export function canProceedFromSchemeFeedback(params: {
     return params.allDone && params.allParsed && !params.followUpBlocked
 }
 
+export function getVisibleAvailableFollowUpId(
+    actions: Array<{ id?: string; followUp?: Pick<SchemeFollowUp, 'status' | 'questionText'> }>,
+): string | null {
+    return getVisibleAvailableSchemeFollowUpId(actions)
+}
+
 export function shouldWaitForPrefetchedFeedback(params: {
     currentSchemes: Array<{ id?: string; northParse?: unknown }>
     npcFeedbacks: Array<{ id: string; isLoading: boolean }>
@@ -182,6 +189,7 @@ export function SchemeFeedback() {
         !orchestratingFeedbacks
     const allParsed = currentSchemes.every(action => Boolean(action.northParse)) && pendingStructuredSchemeIds.length === 0
     const followUpBlocked = shouldBlockSettlementForFollowUp(currentSchemes, submittingFollowUpId !== null)
+    const visibleAvailableFollowUpId = getVisibleAvailableFollowUpId(currentSchemes)
     const canProceed = canProceedFromSchemeFeedback({ allDone, allParsed, followUpBlocked })
     const shouldShowFeedbackGuide =
         currentRound === 1 &&
@@ -672,7 +680,7 @@ export function SchemeFeedback() {
                                 )}
                             </div>
 
-                            {followUp?.status === 'available' && (
+                            {followUp?.status === 'available' && actionId === visibleAvailableFollowUpId && (
                                 <div className="feedback-follow-up glass-panel">
                                     <div className="feedback-follow-up-label">追问</div>
                                     <div className="feedback-follow-up-question">{followUp.questionText}</div>

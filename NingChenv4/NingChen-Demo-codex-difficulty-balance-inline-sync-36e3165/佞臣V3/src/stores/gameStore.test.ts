@@ -222,6 +222,41 @@ describe('gameStore addScheme', () => {
         expect(state.currentSchemes[0]?.followUp?.parse?.successRateDelta).toBe(0.05)
     })
 
+    it('keeps only one unhandled scheme follow-up available in a round', () => {
+        useGameStore.setState({
+            currentPhase: 'SCHEME_PHASE',
+        })
+
+        for (const [index, npc] of INITIAL_NPCS.slice(0, 3).entries()) {
+            useGameStore.getState().addScheme({
+                id: `scheme-${index + 1}`,
+                targetNpcId: npc.id,
+                schemeType: 'probe',
+                playerSpeech: `scheme ${index + 1}`,
+                resolutionRoll: 0.1,
+            })
+        }
+
+        useGameStore.getState().setSchemeFollowUp('scheme-1', {
+            questionText: 'First question?',
+            status: 'available',
+        })
+        useGameStore.getState().setSchemeFollowUp('scheme-2', {
+            questionText: 'Second question?',
+            status: 'available',
+        })
+        useGameStore.getState().setSchemeFollowUp('scheme-3', {
+            questionText: 'Third question?',
+            status: 'available',
+        })
+
+        const availableFollowUps = useGameStore.getState().currentSchemes
+            .filter(action => action.followUp?.status === 'available')
+
+        expect(availableFollowUps).toHaveLength(1)
+        expect(availableFollowUps[0]?.id).toBe('scheme-3')
+    })
+
     it('does not create a follow-up when answering an action without one', () => {
         const actionId = 'scheme-1'
 
