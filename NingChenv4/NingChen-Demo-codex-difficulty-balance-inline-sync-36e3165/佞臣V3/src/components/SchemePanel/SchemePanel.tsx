@@ -23,6 +23,7 @@ import { forceStatementReplyText } from '../../game/schemeFollowUp'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import { isOmenAvailableForNpc, roundSupportsExternalAction } from '../../data/roundRuleConfig'
+import { clearSchemeReplyPrefetch, markSchemeReplyPrefetchStarted } from '../../game/schemeReplyPrefetch'
 import { chatCompletion, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { FengDaozhiAssistPanel } from './FengDaozhiAssistPanel'
@@ -400,6 +401,7 @@ export function SchemePanel() {
                 },
             )
 
+            markSchemeReplyPrefetchStarted(actionId)
             try {
                 const reply = await chatCompletion(
                     buildNpcPrompt({
@@ -435,6 +437,8 @@ export function SchemePanel() {
                 if (feedbackStillLoading) {
                     updateNpcFeedback(actionId, `${npcSnapshot.name}听罢，只把话收住，暂未露出更多声色。`, '本地兜底')
                 }
+            } finally {
+                clearSchemeReplyPrefetch(actionId)
             }
         }
 

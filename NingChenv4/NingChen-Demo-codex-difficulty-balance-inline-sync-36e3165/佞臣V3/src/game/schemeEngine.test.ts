@@ -87,6 +87,53 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(getAvailableSchemesForNpc(yuwendi, { round: 13, unlockedSecrets: 1 })).toContain('omen')
     })
 
+    it('treats titled frontier commanders as military actors even when their raw military score is below 40', () => {
+        const ansiming = { ...INITIAL_NPCS.find(npc => npc.name === '安思明')!, trust: 62, militaryPower: 36 }
+        const action = {
+            id: 'ansiming-advise-spillover',
+            targetNpcId: ansiming.id,
+            schemeType: 'advise' as const,
+            playerSpeech: '趁淮南军需最乱时，把转运与边备都抓回自己手里，朝廷就离不开你这一路边镇。',
+            resolutionRoll: 0.01,
+            northParse: makeNorthParse({
+                eventFit: 0.76,
+                structuralPenetration: 0.72,
+                executability: 0.74,
+                militaryRelevance: 0.82,
+                grainRelevance: 0.68,
+                governanceRelevance: 0.48,
+                targetBenefit: 0.62,
+                stateBenefit: -0.38,
+                advicePolarity: 'pro_target_anti_state',
+            }),
+        }
+
+        const titledResult = settleScheme(
+            action,
+            ansiming,
+            null,
+            0,
+            { round: 16, unlockedSecrets: 1 },
+        )
+
+        const disguisedResult = settleScheme(
+            {
+                ...action,
+                id: 'ansiming-advise-no-title-spillover',
+            },
+            {
+                ...ansiming,
+                title: '盐铁使',
+            },
+            null,
+            0,
+            { round: 16, unlockedSecrets: 1 },
+        )
+
+        expect(Math.abs(titledResult.nationEffects.military ?? 0)).toBeGreaterThan(Math.abs(disguisedResult.nationEffects.military ?? 0))
+        expect(Math.abs(titledResult.nationEffects.grain ?? 0)).toBeGreaterThan(Math.abs(disguisedResult.nationEffects.grain ?? 0))
+    })
+
     it.skip('lets war-round alienation spill into military when it hits military actors and supply language', () => {
         const weichimu = { ...INITIAL_NPCS.find(npc => npc.name === '尉迟暮')!, trust: 62 }
         const linghu = { ...INITIAL_NPCS.find(npc => npc.name === '令狐律光')!, trust: 42 }

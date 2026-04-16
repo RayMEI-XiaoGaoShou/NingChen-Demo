@@ -1,23 +1,24 @@
-import { useEffect } from 'react'
-import { Cover } from './components/Cover/Cover'
-import { CourtView } from './components/CourtView/CourtView'
-import { EmpressLetter } from './components/EmpressLetter/EmpressLetter'
-import { Ending } from './components/Ending/Ending'
+import { Suspense, lazy, useEffect } from 'react'
 import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundary'
 import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorBoundary/PhaseFallback'
-import { CharacterBios } from './components/CharacterBios/CharacterBios'
-import { GameplayGuide } from './components/GameplayGuide/GameplayGuide'
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
-import { Prologue } from './components/Prologue/Prologue'
-import { RoundEnd } from './components/RoundEnd/RoundEnd'
-import { RoundStart } from './components/RoundStart/RoundStart'
-import { SchemeFeedback } from './components/SchemeFeedback/SchemeFeedback'
-import { SchemePanel } from './components/SchemePanel/SchemePanel'
-import { Settlement } from './components/Settlement/Settlement'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
 import { useGameStore } from './stores/gameStore'
 import { useMediaStore } from './stores/mediaStore'
+
+const Cover = lazy(() => import('./components/Cover/Cover').then(module => ({ default: module.Cover })))
+const CourtView = lazy(() => import('./components/CourtView/CourtView').then(module => ({ default: module.CourtView })))
+const EmpressLetter = lazy(() => import('./components/EmpressLetter/EmpressLetter').then(module => ({ default: module.EmpressLetter })))
+const Ending = lazy(() => import('./components/Ending/Ending').then(module => ({ default: module.Ending })))
+const CharacterBios = lazy(() => import('./components/CharacterBios/CharacterBios').then(module => ({ default: module.CharacterBios })))
+const GameplayGuide = lazy(() => import('./components/GameplayGuide/GameplayGuide').then(module => ({ default: module.GameplayGuide })))
+const Prologue = lazy(() => import('./components/Prologue/Prologue').then(module => ({ default: module.Prologue })))
+const RoundEnd = lazy(() => import('./components/RoundEnd/RoundEnd').then(module => ({ default: module.RoundEnd })))
+const RoundStart = lazy(() => import('./components/RoundStart/RoundStart').then(module => ({ default: module.RoundStart })))
+const SchemeFeedback = lazy(() => import('./components/SchemeFeedback/SchemeFeedback').then(module => ({ default: module.SchemeFeedback })))
+const SchemePanel = lazy(() => import('./components/SchemePanel/SchemePanel').then(module => ({ default: module.SchemePanel })))
+const Settlement = lazy(() => import('./components/Settlement/Settlement').then(module => ({ default: module.Settlement })))
 
 export function shouldUseRoundStartFullscreenShell(
     prologueStep: string,
@@ -46,6 +47,27 @@ export function shouldHideGlobalHeader(prologueStep: string, currentPhase: strin
         isNarrativeEntryStep ||
         isKnownRoundPage ||
         (!isNarrativeEntryStep && currentPhase !== 'ENDING')
+    )
+}
+
+function PhaseLoadingFallback() {
+    return (
+        <div className="app-phase-loading" role="status" aria-live="polite">
+            <div className="app-phase-loading-panel glass-panel">
+                <span className="app-phase-loading-kicker">页面载入中</span>
+                <h2 className="app-phase-loading-title">正在展开这一页</h2>
+                <p className="app-phase-loading-copy">朝局与回信已经在路上，稍候片刻。</p>
+            </div>
+        </div>
+    )
+}
+
+function GuideOverlayFallback() {
+    return (
+        <div className="app-guide-loading" role="status" aria-live="polite">
+            <span className="app-guide-loading-kicker">玩法说明</span>
+            <p className="app-guide-loading-copy">正在调出冯道之替你整理好的提要。</p>
+        </div>
     )
 }
 
@@ -143,11 +165,15 @@ function App() {
             <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}`} phaseName={currentPhase} fallback={errorFallback}>
                 <>
                     <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}`}>
-                        {renderContent()}
+                        <Suspense fallback={<PhaseLoadingFallback />}>
+                            {renderContent()}
+                        </Suspense>
                         {helpOverlayOpen && (
                             <div className="help-overlay">
                                 <div className="help-overlay-panel">
-                                    <GameplayGuide mode="overlay" />
+                                    <Suspense fallback={<GuideOverlayFallback />}>
+                                        <GameplayGuide mode="overlay" />
+                                    </Suspense>
                                 </div>
                             </div>
                         )}

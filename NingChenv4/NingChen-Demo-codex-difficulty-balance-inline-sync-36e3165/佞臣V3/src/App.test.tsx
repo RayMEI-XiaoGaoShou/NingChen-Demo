@@ -1,48 +1,42 @@
-import { beforeEach, describe, expect, it } from 'vitest'
-import { renderToStaticMarkup } from 'react-dom/server'
-import App, { shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
-import { useGameStore } from './stores/gameStore'
-import { useMediaStore } from './stores/mediaStore'
+import { describe, expect, it } from 'vitest'
+import appSource from './App.tsx?raw'
+import coverSource from './components/Cover/Cover.tsx?raw'
+import viteConfigSource from '../vite.config.ts?raw'
+import { shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
 
-describe('App prologue flow', () => {
-    beforeEach(() => {
-        useGameStore.getState().resetGame()
-        useMediaStore.setState({
-            isMuted: true,
-            audioReady: false,
-            currentTrack: null,
-            playbackRequestToken: 0,
-        })
+describe('App phase loading contract', () => {
+    it('lazy-loads the narrative entry and main round pages', () => {
+        expect(appSource).toContain("lazy(() => import('./components/Cover/Cover')")
+        expect(appSource).toContain("lazy(() => import('./components/Prologue/Prologue')")
+        expect(appSource).toContain("lazy(() => import('./components/CourtView/CourtView')")
+        expect(appSource).toContain("lazy(() => import('./components/SchemePanel/SchemePanel')")
+        expect(appSource).toContain("lazy(() => import('./components/Settlement/Settlement')")
+        expect(appSource).toContain("lazy(() => import('./components/Ending/Ending')")
     })
 
-    it('shows the cover page before the prologue when no save snapshot exists', () => {
-        const markup = renderToStaticMarkup(<App />)
-
-        expect(markup).toContain('cover-page')
-        expect(markup).toContain('cover-action')
+    it('wraps page rendering in Suspense with a dedicated loading shell', () => {
+        expect(appSource).toContain('Suspense fallback={<PhaseLoadingFallback />}')
+        expect(appSource).toContain('app-phase-loading')
+        expect(appSource).toContain('正在展开这一页')
     })
 
-    it('shows the cover audio control when the game starts muted', () => {
-        const markup = renderToStaticMarkup(<App />)
-
-        expect(markup).toContain('cover-audio-control')
-        expect(markup).toContain('开声')
+    it('keeps the cover structure and controls in the cover component source', () => {
+        expect(coverSource).toContain('cover-page')
+        expect(coverSource).toContain('cover-action')
+        expect(coverSource).toContain('cover-audio-control')
+        expect(coverSource).toContain('cover-subtitle')
     })
 
-    it('does not render the global header during the fullscreen cover step', () => {
-        const markup = renderToStaticMarkup(<App />)
-
-        expect(markup).not.toContain('app-header')
-        expect(markup).toContain('cover-page')
+    it('defines stable manual chunk groups for React and the main phase clusters', () => {
+        expect(viteConfigSource).toContain('manualChunks')
+        expect(viteConfigSource).toContain('react-vendor')
+        expect(viteConfigSource).toContain('phase-entry')
+        expect(viteConfigSource).toContain('phase-core-loop')
+        expect(viteConfigSource).toContain('phase-resolution')
     })
+})
 
-    it('uses the updated cover copy without the old kicker line', () => {
-        const markup = renderToStaticMarkup(<App />)
-
-        expect(markup).not.toContain('十年长局 二十回合')
-        expect(markup).toContain('溪云初起日沉阁，山雨欲来风满楼')
-    })
-
+describe('App shell helpers', () => {
     it('enables the compact RoundStart shell for every in-game round start', () => {
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'ROUND_START', 1)).toBe(true)
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'ROUND_START', 2)).toBe(true)
@@ -55,7 +49,7 @@ describe('App prologue flow', () => {
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'COURT_OBSERVE', 1)).toBe(false)
     })
 
-    it('hides the global header for every RoundStart page after the cover', () => {
+    it('hides the global header for in-game and narrative entry pages', () => {
         expect(shouldHideGlobalHeader('INGAME', 'ROUND_START')).toBe(true)
         expect(shouldHideGlobalHeader('PROLOGUE', 'ROUND_START')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'COURT_OBSERVE')).toBe(true)

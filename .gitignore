@@ -1,1 +1,9 @@
 .worktrees/
+.obsidian/
+_branch_cleanup_backups/
+佞臣V3_游戏纯净版/
+NingChenv4/NingChen-Demo-codex-difficulty-balance-inline-sync-36e3165/.gitignore
+*.log
+docx_extract_tmp.txt
+tmp_mujian_tutorial.txt
+live_balance_report_中文整理_2026-04-03.md

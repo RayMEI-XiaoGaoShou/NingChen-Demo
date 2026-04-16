@@ -108,6 +108,85 @@ export function buildSettlementDefaultEmpressReply(
     return `朕已按“${policyReport.optionContent}”着手施行。`
 }
 
+function normalizeSettlementSummary(text: string): string {
+    return text.replace(/[，。、“”！？；：,.!?;:\s]/g, '')
+}
+
+function shouldKeepSettlementSupplement(
+    primary: string,
+    secondary: string,
+    keywords: string[],
+    minimumKeywordHits = 1,
+): boolean {
+    if (!secondary.trim()) return false
+    if (!primary.trim()) return true
+
+    const normalizedPrimary = normalizeSettlementSummary(primary)
+    const normalizedSecondary = normalizeSettlementSummary(secondary)
+
+    if (
+        normalizedPrimary === normalizedSecondary
+        || normalizedPrimary.includes(normalizedSecondary)
+        || normalizedSecondary.includes(normalizedPrimary)
+    ) {
+        return false
+    }
+
+    const keywordHits = keywords.filter(
+        keyword => primary.includes(keyword) && secondary.includes(keyword),
+    ).length
+
+    return keywordHits < minimumKeywordHits
+}
+
+export function getSettlementBacklashText(backlash: DelayedBacklash): string {
+    if (backlash.type === 'guarded') {
+        const primary = `${backlash.npcName}开始对你多了一层提防，下回合信任可能下降。`
+        return shouldKeepSettlementSupplement(primary, backlash.summary, ['提防', '信任', '戒备'])
+            ? `${primary}${backlash.summary}`
+            : primary
+    }
+
+    if (backlash.type === 'shock') {
+        const primary = `${backlash.npcName}已被你的话锋惊动，并牵动朝议转烈；下回合他对你的信任与北周治理、秩序、军事都会承压。`
+        return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '转烈', '承压', '惊动'])
+            ? `${primary}${backlash.summary}`
+            : primary
+    }
+
+    if (backlash.type === 'exposed') {
+        const primary = `你的行止已被${backlash.npcName}暗中记下，下回合他对你的信任可能下降。`
+        return shouldKeepSettlementSupplement(primary, backlash.summary, ['记下', '注目', '审查', '信任'])
+            ? `${primary}${backlash.summary}`
+            : primary
+    }
+
+    if (backlash.type === 'misdirected') {
+        const primary = `你的说辞让${backlash.npcName}所在的朝议方向被带偏，下回合北周治理、秩序或军事可能继续受损。`
+        return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '方向', '带偏', '受损'])
+            ? `${primary}${backlash.summary}`
+            : primary
+    }
+
+    return backlash.summary
+}
+
+export function selectSettlementPolicyAftereffectText(
+    followup: string | null,
+    summary: string | null,
+): string[] {
+    const primary = followup?.trim() ?? ''
+    const secondary = summary?.trim() ?? ''
+
+    if (!primary && !secondary) return []
+    if (!primary) return [secondary]
+    if (!secondary) return [primary]
+
+    return shouldKeepSettlementSupplement(primary, secondary, ['收益', '延续', '回合', '后效'], 2)
+        ? [primary, secondary]
+        : [primary]
+}
+
 export function Settlement() {
     const {
         nextPhase,
@@ -142,7 +221,7 @@ export function Settlement() {
             ? getSettlementPolicyFollowupText(lastSettlement.policyReport.focusMatched)
             : null
     const courtBacklashTexts = lastSettlement?.delayedBacklash?.length
-        ? lastSettlement.delayedBacklash.map(getBacklashExplanation)
+        ? lastSettlement.delayedBacklash.map(getSettlementBacklashText)
         : backlashHints
 
     useEffect(() => {
@@ -457,8 +536,12 @@ export function Settlement() {
                                     </span>
                                 </h3>
                                 <div className="result-card glass-panel success policy-aftereffect-card">
-                                    {settlementPolicyFollowup && <p className="result-text">{settlementPolicyFollowup}</p>}
-                                    <p className="result-text">{lastSettlement.policyAftereffect.summary}</p>
+                                    {selectSettlementPolicyAftereffectText(
+                                        settlementPolicyFollowup,
+                                        lastSettlement.policyAftereffect.summary,
+                                    ).map(text => (
+                                        <p key={text} className="result-text">{text}</p>
+                                    ))}
                                     <div className="result-effects">
                                         {Object.entries(sanitizeDeltaRecord(lastSettlement.policyAftereffect.effects)).map(([dim, val]) => {
                                             if (!val) return null
