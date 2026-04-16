@@ -8,6 +8,7 @@ describe('aiService', () => {
         VITE_KIMI_API_KEY: processEnv.VITE_KIMI_API_KEY,
         VITE_KIMI_BASE_URL: processEnv.VITE_KIMI_BASE_URL,
         VITE_KIMI_MODEL: processEnv.VITE_KIMI_MODEL,
+        VITE_AI_REQUEST_TIMEOUT_MS: processEnv.VITE_AI_REQUEST_TIMEOUT_MS,
         DEV: processEnv.DEV,
     }
 
@@ -17,6 +18,7 @@ describe('aiService', () => {
     })
 
     afterEach(() => {
+        vi.useRealTimers()
         const globalState = globalThis as any
 
         if (originalWindow === undefined) {
@@ -132,6 +134,37 @@ describe('aiService', () => {
         expect(fetchMock).toHaveBeenCalledOnce()
         expect(fetchMock.mock.calls[0]?.[0]).toBe('/api/ai/chat/completions')
         expect(result).toBe('proxy ok')
+    })
+
+    it('falls back instead of hanging when the remote completion request never resolves', async () => {
+        vi.useFakeTimers()
+        delete (globalThis as any).window
+        processEnv.VITE_KIMI_API_KEY = 'script-runtime-key'
+        processEnv.VITE_KIMI_BASE_URL = 'https://api.deepseek.com'
+        processEnv.VITE_KIMI_MODEL = 'deepseek-chat'
+        processEnv.VITE_AI_REQUEST_TIMEOUT_MS = '25'
+        processEnv.DEV = 'false'
+
+        const fetchMock = vi.fn().mockReturnValue(new Promise(() => undefined))
+        ;(globalThis as any).fetch = fetchMock
+
+        const { chatCompletion } = await import('./aiService')
+
+        const pendingResult = chatCompletion(
+            [{ role: 'user', content: 'remote call may hang' }],
+            { temperature: 0.2, maxTokens: 50, tag: 'npc_advise_success' },
+        )
+
+        await vi.advanceTimersByTimeAsync(30)
+        const result = await Promise.race([
+            pendingResult,
+            Promise.resolve('__still_pending__'),
+        ])
+
+        expect(result).not.toBe('__still_pending__')
+        expect(typeof result).toBe('string')
+        expect(fetchMock).toHaveBeenCalledOnce()
+        vi.useRealTimers()
     })
 
     it('retries json completion once when the first response is truncated', async () => {

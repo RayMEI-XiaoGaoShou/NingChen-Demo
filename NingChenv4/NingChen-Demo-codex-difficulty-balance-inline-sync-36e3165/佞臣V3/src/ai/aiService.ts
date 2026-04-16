@@ -8,14 +8,20 @@ type MujianOpenApiConfig = {
     apiKey: string
 }
 
+type EnvKey =
+    | 'VITE_KIMI_API_KEY'
+    | 'VITE_KIMI_MODEL'
+    | 'VITE_KIMI_BASE_URL'
+    | 'VITE_AI_REQUEST_TIMEOUT_MS'
+    | 'DEV'
+
+const DEFAULT_AI_REQUEST_TIMEOUT_MS = 20000
 let currentMode: AiMode = 'fallback'
 let mujianSdk: any = null
 let initPromise: Promise<AiMode> | null = null
 const runtimeEnv = ((globalThis as any).process?.env ?? {}) as Record<string, string | undefined>
 
-function getEnvValue(
-    key: 'VITE_KIMI_API_KEY' | 'VITE_KIMI_MODEL' | 'VITE_KIMI_BASE_URL' | 'DEV',
-): string | undefined {
+function getEnvValue(key: EnvKey): string | undefined {
     const viteEnv = typeof import.meta !== 'undefined' ? import.meta.env : undefined
     return viteEnv?.[key] ?? runtimeEnv[key]
 }
@@ -65,6 +71,38 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
     })
 }
 
+function getAiRequestTimeoutMs(): number {
+    const rawValue = getEnvValue('VITE_AI_REQUEST_TIMEOUT_MS')
+    const parsed = Number(rawValue)
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_AI_REQUEST_TIMEOUT_MS
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null
+    let timer: ReturnType<typeof globalThis.setTimeout> | null = null
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timer = globalThis.setTimeout(() => {
+            controller?.abort()
+            reject(new Error(`AI request timeout after ${timeoutMs}ms`))
+        }, timeoutMs)
+    })
+
+    try {
+        return await Promise.race([
+            fetch(url, {
+                ...init,
+                signal: controller?.signal,
+            }),
+            timeoutPromise,
+        ])
+    } finally {
+        if (timer) {
+            globalThis.clearTimeout(timer)
+        }
+    }
+}
+
 function getMujianOpenApiConfig(): MujianOpenApiConfig | null {
     const openapi = mujianSdk?.openapi ?? (typeof window !== 'undefined' ? window.$mujian_lite?.openapi : null)
     if (!openapi?.baseURL || !openapi?.apiKey) return null
@@ -84,7 +122,7 @@ async function openAiCompatibleCompletion(
     maxTokens: number,
     tag: string,
 ): Promise<string> {
-    const response = await fetch(`${baseUrl}/chat/completions`, {
+    const response = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -96,7 +134,7 @@ async function openAiCompatibleCompletion(
             temperature,
             max_tokens: maxTokens,
         }),
-    })
+    }, getAiRequestTimeoutMs())
 
     if (!response.ok) {
         const errorBody = await response.text().catch(() => '')
@@ -258,7 +296,7 @@ async function mujianCompletion(
             throw new Error('Mujian openapi config unavailable')
         }
 
-        return openAiCompatibleCompletion(
+        return await openAiCompatibleCompletion(
             openapi.baseURL,
             openapi.apiKey,
             'deepseek-v3.2',
@@ -285,7 +323,7 @@ async function kimiCompletion(
     const isDev = isDevRuntime()
 
     try {
-        return openAiCompatibleCompletion(
+        return await openAiCompatibleCompletion(
             isDev ? '/api/ai' : baseUrl,
             apiKey,
             model,
