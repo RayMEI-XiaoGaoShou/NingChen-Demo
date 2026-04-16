@@ -3,7 +3,9 @@ import settlementSource from './Settlement.tsx?raw'
 import roundSettlementSource from '../../game/roundSettlement.ts?raw'
 import {
     buildSettlementDefaultEmpressReply,
+    getSettlementBacklashText,
     hasPolicyReason,
+    selectSettlementPolicyAftereffectText,
 } from './Settlement'
 
 describe('Settlement helpers', () => {
@@ -19,6 +21,28 @@ describe('Settlement helpers', () => {
         expect(buildSettlementDefaultEmpressReply({ optionContent: '清点户籍仓廪' })).toBe(
             '朕已按“清点户籍仓廪”着手施行。',
         )
+    })
+
+    it('avoids repeating guarded backlash summaries that restate the same warning', () => {
+        expect(
+            getSettlementBacklashText({
+                npcId: 'hebaqi',
+                npcName: '贺拔琪',
+                type: 'guarded',
+                intensity: 2,
+                sourceRound: 3,
+                summary: '贺拔琪表面仍循旧章，然近来言语间已多了一层提防。',
+            }),
+        ).toBe('贺拔琪开始对你多了一层提防，下回合信任可能下降。')
+    })
+
+    it('prefers the guided policy aftereffect line when it would otherwise repeat the same idea', () => {
+        expect(
+            selectSettlementPolicyAftereffectText(
+                '你的附言切中此议的真正关节，新政的收益也会延续到下一回合。',
+                '你上回合的奏对收益延续到了这一回合。',
+            ),
+        ).toEqual(['你的附言切中此议的真正关节，新政的收益也会延续到下一回合。'])
     })
 })
 

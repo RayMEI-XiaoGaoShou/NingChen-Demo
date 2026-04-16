@@ -1035,7 +1035,7 @@ function isSchemeAllowed(
 
 function isMilitaryActor(npc: NPC | null | undefined): boolean {
     if (!npc) return false
-    return npc.militaryPower >= 40 || /璇稿啗浜媩鑺傚害浣縷灏嗗啗|閮界潱/.test(npc.title)
+    return npc.militaryPower >= 40 || /节度使|都督|将军|大司马|上柱国/.test(npc.title)
 }
 
 function deriveStrategicSpillover(

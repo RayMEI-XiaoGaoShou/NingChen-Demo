@@ -7,6 +7,7 @@ import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildNpcFollowUpFinalPrompt, buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
+import { isSchemeReplyPrefetchInFlight } from '../../game/schemeReplyPrefetch'
 import {
     extractTerminalQuestion,
     forceQuestionCandidateReplyText,
@@ -111,6 +112,26 @@ export function canProceedFromSchemeFeedback(params: {
     return params.allDone && params.allParsed && !params.followUpBlocked
 }
 
+export function shouldWaitForPrefetchedFeedback(params: {
+    currentSchemes: Array<{ id?: string; northParse?: unknown }>
+    npcFeedbacks: Array<{ id: string; isLoading: boolean }>
+    pendingStructuredSchemeIds: string[]
+}): boolean {
+    const feedbackById = new Map(
+        params.npcFeedbacks.map(item => [item.id, item] as const),
+    )
+
+    return params.currentSchemes.some(action => {
+        if (!action.id) return false
+        if (!action.northParse && params.pendingStructuredSchemeIds.includes(action.id)) {
+            return true
+        }
+
+        const feedback = feedbackById.get(action.id)
+        return Boolean(feedback?.isLoading && isSchemeReplyPrefetchInFlight(action.id))
+    })
+}
+
 export function SchemeFeedback() {
     const {
         npcFeedbacks,
@@ -179,6 +200,11 @@ export function SchemeFeedback() {
         if (currentSchemes.length === 0) return
         if (orchestratingFeedbacks) return
         if (feedbackBatchSettledKey === schemeBatchKey) return
+        if (shouldWaitForPrefetchedFeedback({
+            currentSchemes,
+            npcFeedbacks,
+            pendingStructuredSchemeIds,
+        })) return
 
         let cancelled = false
         setOrchestratingFeedbacks(true)
@@ -404,10 +430,15 @@ export function SchemeFeedback() {
         currentRound,
         currentRoundEvent.eventBriefing,
         currentRoundEvent.eventName,
+        currentSchemes,
+        feedbackBatchSettledKey,
         factions,
         intelProgress,
         markSchemeParsePending,
+        npcFeedbacks,
         npcs,
+        orchestratingFeedbacks,
+        pendingStructuredSchemeIds,
         recentBacklash,
         roundHistory,
         schemeBatchKey,

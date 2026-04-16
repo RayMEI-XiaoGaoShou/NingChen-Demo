@@ -121,6 +121,55 @@ body {
     padding: 0;
 }
 
+.app-phase-loading {
+    width: 100%;
+    min-height: clamp(420px, 66vh, 720px);
+    display: grid;
+    place-items: center;
+}
+
+.app-phase-loading-panel {
+    width: min(100%, 720px);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: clamp(28px, 4vw, 44px);
+    text-align: center;
+    border: 1px solid rgba(201, 176, 101, 0.22);
+    background:
+        linear-gradient(180deg, rgba(21, 22, 33, 0.96), rgba(12, 13, 21, 0.94)),
+        var(--texture-ink);
+}
+
+.app-phase-loading-kicker,
+.app-guide-loading-kicker {
+    color: var(--color-guide-text);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.app-phase-loading-title {
+    font-family: var(--font-heading);
+    font-size: clamp(1.9rem, 1.45rem + 1vw, 2.6rem);
+    color: var(--color-accent-gold);
+    letter-spacing: 2px;
+}
+
+.app-phase-loading-copy,
+.app-guide-loading-copy {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+    line-height: 1.9;
+}
+
+.app-guide-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 18px 0;
+}
+
 .page-container {
     width: 100%;
     max-width: 1520px;

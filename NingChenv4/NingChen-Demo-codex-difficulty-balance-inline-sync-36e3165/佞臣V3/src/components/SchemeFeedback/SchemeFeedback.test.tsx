@@ -1,6 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { SchemeFeedback, canProceedFromSchemeFeedback, shouldQueueRecoveryParse } from './SchemeFeedback'
+import {
+    SchemeFeedback,
+    canProceedFromSchemeFeedback,
+    shouldQueueRecoveryParse,
+    shouldWaitForPrefetchedFeedback,
+} from './SchemeFeedback'
+import {
+    __resetSchemeReplyPrefetchRegistryForTests,
+    markSchemeReplyPrefetchStarted,
+} from '../../game/schemeReplyPrefetch'
 import schemeFeedbackSource from './SchemeFeedback.tsx?raw'
 
 function createNorthParse() {
@@ -92,6 +101,7 @@ vi.mock('../../stores/gameStore', () => ({
 
 beforeEach(() => {
     state = createState()
+    __resetSchemeReplyPrefetchRegistryForTests()
 })
 
 describe('SchemeFeedback orchestration', () => {
@@ -114,6 +124,10 @@ describe('SchemeFeedback orchestration', () => {
         expect(schemeFeedbackSource).toContain('selectRequiredSchemeFollowUpCandidateId(')
         expect(schemeFeedbackSource).toContain('if (existingFeedback && !existingFeedback.isLoading)')
         expect(schemeFeedbackSource).not.toContain('hasDeferredLoadingFeedback')
+    })
+
+    it('waits for prefetch work before orchestrating recovery on the feedback page', () => {
+        expect(schemeFeedbackSource).toContain('shouldWaitForPrefetchedFeedback({')
     })
 })
 
@@ -156,6 +170,52 @@ describe('shouldQueueRecoveryParse', () => {
                 hasNorthParse: true,
                 pendingStructuredSchemeIds: [],
                 npcFeedbackCount: 2,
+            }),
+        ).toBe(false)
+    })
+})
+
+describe('shouldWaitForPrefetchedFeedback', () => {
+    it('waits when a structured parse is already pending for the same action', () => {
+        expect(
+            shouldWaitForPrefetchedFeedback({
+                currentSchemes: [
+                    { id: 'scheme-1' },
+                ],
+                npcFeedbacks: [
+                    { id: 'scheme-1', isLoading: true },
+                ],
+                pendingStructuredSchemeIds: ['scheme-1'],
+            }),
+        ).toBe(true)
+    })
+
+    it('waits when the reply prefetch is still in flight for a loading card', () => {
+        markSchemeReplyPrefetchStarted('scheme-2')
+
+        expect(
+            shouldWaitForPrefetchedFeedback({
+                currentSchemes: [
+                    { id: 'scheme-2', northParse: createNorthParse() },
+                ],
+                npcFeedbacks: [
+                    { id: 'scheme-2', isLoading: true },
+                ],
+                pendingStructuredSchemeIds: [],
+            }),
+        ).toBe(true)
+    })
+
+    it('allows recovery when no prefetch work is still in flight', () => {
+        expect(
+            shouldWaitForPrefetchedFeedback({
+                currentSchemes: [
+                    { id: 'scheme-3', northParse: createNorthParse() },
+                ],
+                npcFeedbacks: [
+                    { id: 'scheme-3', isLoading: true },
+                ],
+                pendingStructuredSchemeIds: [],
             }),
         ).toBe(false)
     })
