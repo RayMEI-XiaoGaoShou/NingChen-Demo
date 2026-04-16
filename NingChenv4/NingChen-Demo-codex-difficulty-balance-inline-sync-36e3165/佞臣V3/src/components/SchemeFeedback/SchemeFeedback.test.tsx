@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
     SchemeFeedback,
     canProceedFromSchemeFeedback,
+    getVisibleAvailableFollowUpId,
     shouldQueueRecoveryParse,
     shouldWaitForPrefetchedFeedback,
 } from './SchemeFeedback'
@@ -260,6 +261,28 @@ describe('canProceedFromSchemeFeedback', () => {
                 followUpBlocked: false,
             }),
         ).toBe(true)
+    })
+})
+
+describe('getVisibleAvailableFollowUpId', () => {
+    it('only exposes one available follow-up even if stale state contains several', () => {
+        expect(
+            getVisibleAvailableFollowUpId([
+                { id: 'scheme-1', followUp: { status: 'available', questionText: 'First?' } },
+                { id: 'scheme-2', followUp: { status: 'available', questionText: 'Second?' } },
+                { id: 'scheme-3', followUp: { status: 'available', questionText: 'Third?' } },
+            ]),
+        ).toBe('scheme-1')
+    })
+
+    it('hides stale available follow-ups after one follow-up has already been resolved', () => {
+        expect(
+            getVisibleAvailableFollowUpId([
+                { id: 'scheme-1', followUp: { status: 'answered', questionText: 'First?' } },
+                { id: 'scheme-2', followUp: { status: 'available', questionText: 'Second?' } },
+                { id: 'scheme-3', followUp: { status: 'available', questionText: 'Third?' } },
+            ]),
+        ).toBeNull()
     })
 })
 

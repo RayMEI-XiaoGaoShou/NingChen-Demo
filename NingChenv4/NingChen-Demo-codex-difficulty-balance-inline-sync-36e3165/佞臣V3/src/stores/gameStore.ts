@@ -853,9 +853,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     setSchemeFollowUp: (actionId: string, followUp: SchemeFollowUp) => {
         set(state => ({
-            currentSchemes: state.currentSchemes.map(action =>
-                action.id === actionId ? { ...action, followUp } : action,
-            ),
+            currentSchemes: state.currentSchemes.map(action => {
+                if (action.id === actionId) return { ...action, followUp }
+                if (followUp.status === 'available' && action.followUp?.status === 'available') {
+                    return { ...action, followUp: undefined }
+                }
+                return action
+            }),
         }))
     },
 

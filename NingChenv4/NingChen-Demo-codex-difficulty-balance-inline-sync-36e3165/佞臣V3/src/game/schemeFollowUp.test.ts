@@ -186,7 +186,22 @@ describe('schemeFollowUp helpers', () => {
         expect(extractTerminalQuestion(reply)).toBe('你究竟想让本公先压谁？')
     })
 
-    it('blocks settlement while follow-up is available or being submitted', () => {
+    it('blocks settlement while the single visible follow-up is available or being submitted', () => {
+        const availableAction = makeAction('available', 'advise', makeNorthParse(), {
+            questionText: 'Need response?',
+            status: 'available',
+        })
+        const answeredAction = makeAction('answered', 'probe', makeNorthParse(), {
+            questionText: 'Already done?',
+            status: 'answered',
+        })
+
+        expect(shouldBlockSettlementForFollowUp([availableAction], false)).toBe(true)
+        expect(shouldBlockSettlementForFollowUp([answeredAction], true)).toBe(true)
+        expect(shouldBlockSettlementForFollowUp([answeredAction], false)).toBe(false)
+    })
+
+    it('does not let stale available follow-ups block settlement after one has been resolved', () => {
         const actions: SchemeAction[] = [
             makeAction('answered', 'probe', makeNorthParse(), {
                 questionText: 'Already done?',
@@ -198,8 +213,6 @@ describe('schemeFollowUp helpers', () => {
             }),
         ]
 
-        expect(shouldBlockSettlementForFollowUp(actions, false)).toBe(true)
-        expect(shouldBlockSettlementForFollowUp(actions, true)).toBe(true)
-        expect(shouldBlockSettlementForFollowUp([actions[0]], false)).toBe(false)
+        expect(shouldBlockSettlementForFollowUp(actions, false)).toBe(false)
     })
 })
