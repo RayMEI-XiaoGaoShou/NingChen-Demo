@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+// @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
+import { readFileSync } from 'fs'
 import { RoundStart, shouldUseCompactRoundStartLayout } from './RoundStart'
 import { useGameStore } from '../../stores/gameStore'
 import { useMediaStore } from '../../stores/mediaStore'
 import roundStartSource from './RoundStart.tsx?raw'
+
+const roundStartStyles = readFileSync(new URL('./RoundStart.css', import.meta.url), 'utf8')
 
 describe('RoundStart compact layout', () => {
     beforeEach(() => {
@@ -69,5 +73,12 @@ describe('RoundStart compact layout', () => {
         expect(shouldUseCompactRoundStartLayout(2)).toBe(true)
         expect(shouldUseCompactRoundStartLayout(8)).toBe(true)
         expect(shouldUseCompactRoundStartLayout(20)).toBe(true)
+    })
+
+    it('lets the compact briefing follow content height instead of stretching empty space', () => {
+        expect(roundStartStyles).toContain('grid-template-rows: auto auto auto minmax(0, 1fr) auto;')
+        expect(roundStartStyles).toContain('grid-template-rows: auto auto;')
+        expect(roundStartStyles).toContain('align-content: start;')
+        expect(roundStartStyles).not.toContain('grid-template-rows: minmax(0, 1fr) auto;')
     })
 })
