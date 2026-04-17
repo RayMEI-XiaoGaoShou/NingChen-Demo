@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { buildExternalActionStageHint } from './externalActionHint'
+import { buildDominantExternalStageHint, buildExternalActionStageHint } from './externalActionHint'
 import { buildOmenAdvisorHint } from './fengDaozhiHint'
 import {
     buildAdvisorHint,
@@ -114,5 +114,40 @@ describe('roundIntelEngine', () => {
 
         expect(hint).toContain('谶')
         expect(hint).toContain('先写征兆')
+    })
+    it('does not let the dominant external hint keep pointing at a secessionist warlord', () => {
+        const hint = buildDominantExternalStageHint({
+            round: 18,
+            npcs: [
+                {
+                    id: 'hebabogui',
+                    name: '贺拔伯圭',
+                    trust: 88,
+                    loyaltyToCourt: 12,
+                    externalStatus: 'secession',
+                    isAlive: true,
+                    powerBase: 'external',
+                    highActionBias: 'secession',
+                },
+                {
+                    id: 'erzhulie',
+                    name: '尔朱烈',
+                    trust: 68,
+                    loyaltyToCourt: 29,
+                    externalStatus: 'watchful',
+                    isAlive: true,
+                    powerBase: 'external',
+                    highActionBias: 'rebellion',
+                },
+            ],
+            intelProgress: {
+                hebabogui: 3,
+                erzhulie: 2,
+            },
+            difficulty: 'normal',
+        })
+
+        expect(hint).not.toContain('贺拔伯圭')
+        expect(hint).toContain('尔朱烈')
     })
 })

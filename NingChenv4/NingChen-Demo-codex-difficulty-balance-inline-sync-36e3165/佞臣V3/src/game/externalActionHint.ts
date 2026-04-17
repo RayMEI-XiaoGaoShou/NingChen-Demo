@@ -1,5 +1,6 @@
 import { buildExternalLineProgress } from './externalLineProgress'
 import { roundSupportsExternalAction } from '../data/roundRuleConfig'
+import { isExternalTerminalStatus } from './externalStatus'
 import type { GameDifficulty, NPC } from './types'
 
 type ExternalHintNpc = Pick<
@@ -44,7 +45,11 @@ export function buildDominantExternalStageHint(input: {
     externalActionEnabled?: boolean
 }): string | null {
     const candidates = input.npcs.filter(
-        npc => npc.isAlive && npc.powerBase === 'external' && npc.highActionBias,
+        npc =>
+            npc.isAlive &&
+            npc.powerBase === 'external' &&
+            npc.highActionBias &&
+            !isExternalTerminalStatus(npc.externalStatus),
     )
 
     const ranked = candidates

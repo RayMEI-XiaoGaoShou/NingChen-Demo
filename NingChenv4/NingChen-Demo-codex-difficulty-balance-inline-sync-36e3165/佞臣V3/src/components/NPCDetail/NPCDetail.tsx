@@ -5,6 +5,7 @@ import type { NPC } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
+import { getExternalTerminalLabel, getExternalTerminalSummary, isTerminalExternalNpc } from '../../game/externalStatus'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
@@ -17,8 +18,7 @@ function getExternalTiltLabel(npc: NPC): string {
 }
 
 function getExternalPostureLabel(npc: NPC): string {
-    if (npc.externalStatus === 'rebellion') return '反叛'
-    if (npc.externalStatus === 'secession') return '割据'
+    if (isTerminalExternalNpc(npc)) return getExternalTerminalLabel(npc.externalStatus)
     if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心'
     if (npc.externalStatus === 'watchful') return '观望'
     return '忠顺'
@@ -35,6 +35,7 @@ export function NPCDetail() {
 
     const trustLevel = getTrustLevel(npc.trust)
     const trustLabel = getTrustLabel(npc.trust)
+    const isTerminalExternal = isTerminalExternalNpc(npc)
     const availableSchemeTypes = getAvailableSchemesForNpc(npc, {
         round: currentRound,
         unlockedSecrets: intelProgress[npc.id] ?? 0,
@@ -124,6 +125,9 @@ export function NPCDetail() {
                                 </div>
                                 <p className="dim">{externalProgress.gapText}</p>
                             </>
+                        )}
+                        {isTerminalExternal && (
+                            <p className="dim">{getExternalTerminalSummary(npc.externalStatus)}</p>
                         )}
                     </div>
                 )}

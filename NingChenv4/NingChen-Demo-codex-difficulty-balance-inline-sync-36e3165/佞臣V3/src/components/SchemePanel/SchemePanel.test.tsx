@@ -128,11 +128,28 @@ describe('SchemePanel layout labels', () => {
         expect(hint).toContain('还差')
     })
 
+    it('explains that proxy does not apply to external warlords', () => {
+        const npc = useGameStore.getState().npcs.find(item => item.id === 'ansiming')!
+
+        const hint = getSchemeUnlockHint({
+            schemeType: 'proxy',
+            npc,
+            round: 9,
+            unlockedSecrets: 2,
+        })
+
+        expect(hint).toContain('借刀只适用于朝堂角色的猜忌链与处决链。地方军头更适合离间/煽动割据/煽动造反')
+    })
+
     it('references locked copy and the current round public stance in source', () => {
         expect(schemePanelSource).toContain('未解锁')
         expect(schemePanelSource).toContain('本回合公开表态')
         expect(schemePanelSource).toContain('getNpcRoundReaction(currentRound, selectedNpc, intelProgress[selectedNpc.id] ?? 0, {')
         expect(schemePanelSource).toContain('shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state')
+    })
+    it('filters secessionist external warlords out of the target list in source', () => {
+        expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n))")
+        expect(schemePanelSource).toContain("import { isTerminalExternalNpc } from '../../game/externalStatus'")
     })
 })
 

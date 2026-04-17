@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -18,6 +18,7 @@ import type { NPC, Faction } from '../game/types'
 import { getAvailableSchemesForNpc } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
+import { deriveNpcMemoryEntriesForRound, mergeNpcMemoryEntries } from '../game/npcMemoryLedger'
 import {
     buildPersistedSnapshot,
     buildRoundStartSnapshot,
@@ -94,6 +95,7 @@ interface GameState {
     pendingBacklash: DelayedBacklash[]
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
+    npcMemoryLedger: NpcMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -157,6 +159,7 @@ const initialFirstRoundGuideSeen: FirstRoundGuideSeenMap = {
 const initialOmenGuideSeen: OmenGuideSeenMap = {
     first_omen_modal: false,
 }
+const initialNpcMemoryLedger: NpcMemoryLedger = {}
 const initialSchemeOnboardingSeen: SchemeOnboardingSeenMap = {
     scheme_master_guide: false,
     first_omen_teaching: false,
@@ -241,6 +244,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     pendingBacklash: [],
     recentBacklash: [],
     roundHistory: [],
+    npcMemoryLedger: initialNpcMemoryLedger,
     endingReport: null,
     battleReport: null,
     shuCampaign: { ...initialCampaignState },
@@ -345,6 +349,17 @@ export const useGameStore = create<GameState>((set, get) => ({
                         summary: result.summaryText,
                     })
                     const roundHistory = [...s.roundHistory, historyEntry]
+                    const npcMemoryLedger = mergeNpcMemoryEntries(
+                        s.npcMemoryLedger,
+                        deriveNpcMemoryEntriesForRound({
+                            round: s.currentRound,
+                            schemes: s.currentSchemes,
+                            schemeResults: result.schemeResults,
+                            npcsBefore: s.npcs,
+                            npcsAfter: updatedNpcs,
+                            externalActionReports: result.externalActionReports,
+                        }),
+                    )
 
                     // 检查是否游戏结束
                     if (result.gameResult !== 'NONE') {
@@ -378,6 +393,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             pendingStructuredSchemeIds: [],
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
+                            npcMemoryLedger,
                             endingReport,
                             battleReport,
                             shuCampaign: result.shuCampaign,
@@ -403,6 +419,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             pendingStructuredSchemeIds: [],
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
+                            npcMemoryLedger,
                             shuCampaign: result.shuCampaign,
                             huainanCampaign: result.huainanCampaign,
                             shuMomentum: result.shuMomentum,
@@ -623,6 +640,9 @@ export const useGameStore = create<GameState>((set, get) => ({
             unlockedSecrets: state.intelProgress[npc.id] ?? 0,
             roundHistory: state.roundHistory,
             recentBacklash: state.recentBacklash,
+            shuCampaign: state.shuCampaign,
+            huainanCampaign: state.huainanCampaign,
+            npcMemoryLedger: state.npcMemoryLedger,
         })
 
         try {
@@ -687,6 +707,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             pendingBacklash: state.pendingBacklash.map(item => ({ ...item })),
             recentBacklash: state.recentBacklash.map(item => ({ ...item })),
             roundHistory: state.roundHistory.map(item => ({ ...item })),
+            npcMemoryLedger: state.npcMemoryLedger,
             endingReport: null,
             battleReport: null,
             shuCampaign: {
@@ -747,6 +768,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             pendingBacklash: snapshot.pendingBacklash,
             recentBacklash: snapshot.recentBacklash,
             roundHistory: snapshot.roundHistory,
+            npcMemoryLedger: snapshot.npcMemoryLedger,
             endingReport: null,
             battleReport: null,
             shuCampaign: snapshot.shuCampaign,
@@ -793,6 +815,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
+            npcMemoryLedger: initialNpcMemoryLedger,
             endingReport: null,
             battleReport: null,
             shuCampaign: { ...initialCampaignState },
@@ -945,6 +968,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         ...initialSchemeOnboardingSeen,
                         ...(snapshot.roundStartSnapshot.schemeOnboardingSeen ?? {}),
                     },
+                    npcMemoryLedger: snapshot.roundStartSnapshot.npcMemoryLedger ?? {},
                     npcs: attachAvailableSchemes(
                         snapshot.roundStartSnapshot.npcs,
                         snapshot.roundStartSnapshot.currentRound,
@@ -972,6 +996,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             pendingBacklash: snapshot.pendingBacklash ?? [],
             recentBacklash: snapshot.recentBacklash ?? [],
             roundHistory: snapshot.roundHistory,
+            npcMemoryLedger: snapshot.npcMemoryLedger ?? {},
             endingReport: snapshot.endingReport,
             battleReport: snapshot.battleReport,
             shuCampaign: snapshot.shuCampaign ?? { ...initialCampaignState },

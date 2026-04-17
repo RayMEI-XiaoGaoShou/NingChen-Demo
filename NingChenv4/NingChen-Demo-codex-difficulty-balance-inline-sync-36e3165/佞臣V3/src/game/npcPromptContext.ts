@@ -1,6 +1,7 @@
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
-import type { DelayedBacklash, Faction, NPC, RoundHistoryEntry, SchemeType } from './types'
+import { buildNpcLongTermMemorySummary } from './npcMemoryLedger'
+import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
 
 const SCHEME_NAMES: Record<SchemeType, string> = {
     probe: '试探',
@@ -23,6 +24,7 @@ export interface NpcPromptDynamicContext {
     relationshipTemperature: string
     recentCourtFortune: string
     factionPressure: string
+    longTermMemorySummary: string
 }
 
 const initialNpcMap = new Map(INITIAL_NPCS.map(npc => [npc.id, npc]))
@@ -33,14 +35,28 @@ export function buildNpcPromptDynamicContext(params: {
     factions: Faction[]
     roundHistory: RoundHistoryEntry[]
     recentBacklash?: DelayedBacklash[]
+    npcMemoryLedger?: NpcMemoryLedger
+    currentRound?: number
 }): NpcPromptDynamicContext {
-    const { npc, factions, roundHistory, recentBacklash = [] } = params
+    const {
+        npc,
+        factions,
+        roundHistory,
+        recentBacklash = [],
+        npcMemoryLedger = {},
+        currentRound = (roundHistory[roundHistory.length - 1]?.round ?? 0) + 1,
+    } = params
 
     return {
         previousDealings: describePreviousDealings(npc, roundHistory),
         relationshipTemperature: describeRelationshipTemperature(npc, roundHistory),
         recentCourtFortune: describeRecentCourtFortune(npc, factions, recentBacklash),
         factionPressure: describeFactionPressure(npc, factions),
+        longTermMemorySummary: buildNpcLongTermMemorySummary({
+            npcId: npc.id,
+            ledger: npcMemoryLedger,
+            currentRound,
+        }),
     }
 }
 
@@ -54,7 +70,7 @@ function describePreviousDealings(npc: NPC, roundHistory: RoundHistoryEntry[]): 
     }
 
     if (lastRound.keyTargets.includes(npc.name)) {
-        return '上一回合你曾把手伸到他身上，只是这一步的得失已混在群臣反应里。'
+        return '上一回合你曾把手伸到他身上，只是这一手的得失已混在群臣反应里。'
     }
 
     return '上一回合你未曾专门碰他。'
@@ -82,7 +98,7 @@ function describeRelationshipTemperature(npc: NPC, roundHistory: RoundHistoryEnt
 
     if (hardCount >= 2 && softCount === 0) {
         return successCount >= 1
-            ? '近两回合你连番敲打逼压，他嘴上未必认，但心里不会全当作耳旁风。'
+            ? '近两回合你连番敲打逼压，他嘴上未必认，心里却不会全当作耳旁风。'
             : '近两回合你对他多是敲打与逼压，所以他大抵会先防着你再开口。'
     }
 
@@ -130,7 +146,7 @@ function describeRecentCourtFortune(
             return `${npc.name}近来已把局面闹到明处，朝廷与边镇都在盯着他的下一步。`
         }
         if (npc.externalStatus === 'watchful') {
-            return `${npc.name}近来边心浮动，既想抬价，也不愿过早把底牌全掀出来。`
+            return `${npc.name}近来边心浮动，既想抬价，也不愿过早把底牌全摊出来。`
         }
     }
 

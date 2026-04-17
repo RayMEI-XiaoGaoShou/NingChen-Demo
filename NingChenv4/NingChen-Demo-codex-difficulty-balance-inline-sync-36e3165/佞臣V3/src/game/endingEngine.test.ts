@@ -3,6 +3,7 @@ import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import type { GameResult } from './types'
 import { buildEndingReport } from './endingEngine'
+import endingEngineSource from './endingEngine.ts?raw'
 
 function makeReport(gameResult: GameResult, northPower: number, southPower: number) {
     return buildEndingReport({
@@ -115,5 +116,12 @@ describe('endingEngine', () => {
         })
 
         expect(report.npcFates.some(item => item.summary.includes('借刀'))).toBe(true)
+    })
+
+    it('describes a living rebellion target as open rebellion rather than secession', () => {
+        expect(endingEngineSource).toContain("if (npc.externalStatus === 'rebellion')")
+        expect(endingEngineSource).toContain('已举兵明旗')
+        expect(endingEngineSource).toContain("if (npc.externalStatus === 'secession')")
+        expect(endingEngineSource).toContain('坐实割据')
     })
 })

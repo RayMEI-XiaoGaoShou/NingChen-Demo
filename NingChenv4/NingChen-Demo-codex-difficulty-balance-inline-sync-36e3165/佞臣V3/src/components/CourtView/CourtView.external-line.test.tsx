@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { CourtView } from './CourtView'
+import courtViewSource from './CourtView.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 import { INITIAL_NPCS } from '../../data/npcs'
@@ -123,5 +124,11 @@ describe('CourtView card presentation', () => {
 
         expect(markup).toContain('虎据陇右的军事贵族，家族把持地方军政数十载，控遏与西域的商贸往来，部下精锐私兵唯领袖马首是瞻')
         expect(markup).toContain('被高官厚禄引诱而归附北周的草原部落族长，然草原狼的野心岂是区区财帛、官位能满足的？')
+    })
+    it('renders terminal external warlords with a disabled overlay path in source', () => {
+        expect(courtViewSource).toContain("const isTerminal = isTerminalExternalNpc(npc)")
+        expect(courtViewSource).toContain("disabled={isTerminal}")
+        expect(courtViewSource).toContain("{!isTerminal && (")
+        expect(courtViewSource).toContain("getExternalTerminalLabel(npc.externalStatus)")
     })
 })

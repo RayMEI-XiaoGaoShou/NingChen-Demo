@@ -148,6 +148,7 @@ export function SchemeFeedback() {
         intelProgress,
         recentBacklash,
         roundHistory,
+        npcMemoryLedger,
         pendingStructuredSchemeIds,
         addNpcFeedback,
         updateNpcFeedback,
@@ -207,6 +208,7 @@ export function SchemeFeedback() {
         intelProgress: typeof intelProgress
         recentBacklash: typeof recentBacklash
         roundHistory: typeof roundHistory
+        npcMemoryLedger: typeof npcMemoryLedger
         pendingStructuredSchemeIds: typeof pendingStructuredSchemeIds
         currentRoundEvent: typeof currentRoundEvent
         addNpcFeedback: typeof addNpcFeedback
@@ -224,6 +226,7 @@ export function SchemeFeedback() {
         intelProgress,
         recentBacklash,
         roundHistory,
+        npcMemoryLedger,
         pendingStructuredSchemeIds,
         currentRoundEvent,
         addNpcFeedback,
@@ -299,6 +302,8 @@ export function SchemeFeedback() {
                         factions: snapshot.factions,
                         roundHistory: snapshot.roundHistory,
                         recentBacklash: snapshot.recentBacklash,
+                        npcMemoryLedger: snapshot.npcMemoryLedger,
+                        currentRound,
                     })
 
                     if (!existingFeedbackMap.has(feedbackId)) {
@@ -443,6 +448,7 @@ export function SchemeFeedback() {
                             relationshipTemperature: item.dynamicContext.relationshipTemperature,
                             recentCourtFortune: item.dynamicContext.recentCourtFortune,
                             factionPressure: item.dynamicContext.factionPressure,
+                            longTermMemorySummary: item.dynamicContext.longTermMemorySummary,
                         }),
                         {
                             temperature: 0.75,

@@ -295,6 +295,11 @@
     filter: grayscale(0.8);
 }
 
+.external-card.dead {
+    opacity: 0.4;
+    filter: grayscale(0.8);
+}
+
 .npc-card-portrait {
     min-height: 176px;
     height: 100%;
@@ -450,6 +455,7 @@
 }
 
 .external-card {
+    position: relative;
     display: grid;
     grid-template-columns: minmax(124px, 156px) minmax(0, 1fr);
     align-items: stretch;

@@ -93,7 +93,7 @@ const NPC_SYSTEM = `你是《佞臣》中的 NPC 角色扮演引擎。你要代�
 - 回答 4 到 6 句，古典白话风，尽量在 120 到 220 字之间，不要太短
 - 必须严格贴合该人物的官职、公开人设、公开立场、性格、软肋与逆鳞
 - 要明显体现当前态度档位给出的语气要求
-- 可以结合“本回合局势”“上回往来”“近两回合关系温度”“近来得失”“派系压力”与“已解锁暗线”决定说话轻重，但不得跳出人设
+- 可以结合“本回合局势”“上回往来”“近两回合关系温度”“近来得失”“派系压力”“长期旧账”与“已解锁暗线”决定说话轻重，但不得跳出人设
 - 不得称主角为“计相”“计编修”或任何你自造的官称
 - 称呼主角时只可称“你”“翰林编修”或“萧编修”
 - 不要只回一句态度表态，要给出一层判断、一层情绪、再带一点试探、提醒或留扣
@@ -171,6 +171,7 @@ export function buildNpcPrompt(params: {
     relationshipTemperature?: string
     recentCourtFortune?: string
     factionPressure?: string
+    longTermMemorySummary?: string
 }): ChatMessage[] {
     const {
         npc,
@@ -186,6 +187,7 @@ export function buildNpcPrompt(params: {
         relationshipTemperature,
         recentCourtFortune,
         factionPressure,
+        longTermMemorySummary,
     } = params
 
     const tone = getTrustTone(npc.trust)
@@ -197,6 +199,9 @@ export function buildNpcPrompt(params: {
     const relationshipTemperatureLine = `近两回合关系温度：${relationshipTemperature ?? '近两回合你对他尚未形成稳定手法，他还在重新掂量你的来意。'}`
     const recentCourtFortuneLine = `近来得失：${recentCourtFortune ?? '近来朝局并无足以改写他心气的新波折。'}`
     const factionPressureLine = `派系压力：${factionPressure ?? '他眼下仍处在彼此掣肘的朝局里，不会轻易把真心亮出来。'}`
+    const longTermMemoryLine = longTermMemorySummary?.trim()
+        ? `长期旧账：${longTermMemorySummary}`
+        : null
     const selfReference = getNpcSelfReference(npc)
     const selfReferenceLine = selfReference
         ? `自称口吻：提及自身权势、判断或行止时，应自称“${selfReference}”。`
@@ -226,6 +231,7 @@ ${previousDealingsLine}
 ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
 ${factionPressureLine}
+${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}
 ${selfReferenceLine}
 ${followUpInstruction ? `${followUpInstruction}\n` : ''}
 当前态度：${tone.label}
@@ -586,6 +592,21 @@ export function buildFengDaozhiDraftPrompt(params: {
     const { context, schemeType, relatedNpcName } = params
     const isOmen = schemeType === 'omen'
     const relatedNpcLine = relatedNpcName ? `关联人物：${relatedNpcName}` : '关联人物：无'
+    const campaignSummaryLine = context.campaignSummary?.trim()
+        ? `战局摘要：${context.campaignSummary}`
+        : null
+    const publicStatementLine = context.currentPublicStatement?.trim()
+        ? `本回合公开表态：${context.currentPublicStatement}`
+        : null
+    const relationshipSummaryLine = context.relationshipSummary?.trim()
+        ? `关系摘要：${context.relationshipSummary}`
+        : `关系摘要：上回往来：${context.previousDealings} 近两回合关系温度：${context.relationshipTemperature}`
+    const courtSituationSummaryLine = context.courtSituationSummary?.trim()
+        ? `朝局摘要：${context.courtSituationSummary}`
+        : `朝局摘要：近来得失：${context.recentCourtFortune} 派系压力：${context.factionPressure}`
+    const longTermMemoryLine = context.longTermMemorySummary?.trim()
+        ? `长期旧账：${context.longTermMemorySummary}`
+        : null
     const visibleSecrets = context.visibleSecrets.length > 0
         ? context.visibleSecrets.join('；')
         : '暂无已解锁暗线'
@@ -607,15 +628,13 @@ export function buildFengDaozhiDraftPrompt(params: {
 回合：第${context.round}回合
 时局：${context.eventName}
 局势摘要：${context.eventBriefing}
-目标人物：${context.targetNpcName}（${context.targetNpcTitle}）
+${campaignSummaryLine ? `${campaignSummaryLine}\n` : ''}${publicStatementLine ? `${publicStatementLine}\n` : ''}目标人物：${context.targetNpcName}（${context.targetNpcTitle}）
 目标公开人设：${context.targetPersona}
 ${relatedNpcLine}
 已解锁暗线：${visibleSecrets}
-上回往来：${context.previousDealings}
-近两回合关系温度：${context.relationshipTemperature}
-近来得失：${context.recentCourtFortune}
-派系压力：${context.factionPressure}
-萧宝颖当前危险：${context.playerDangerStage}
+${relationshipSummaryLine}
+${courtSituationSummaryLine}
+${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}萧宝颖当前危险：${context.playerDangerStage}
 
 ${formatRules}
 

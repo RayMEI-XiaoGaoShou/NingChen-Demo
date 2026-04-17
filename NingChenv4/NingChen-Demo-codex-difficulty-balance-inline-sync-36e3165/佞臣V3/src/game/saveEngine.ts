@@ -10,6 +10,7 @@ import type {
     HelpOverlaySource,
     NationDimensions,
     NPC,
+    NpcMemoryLedger,
     OmenGuideSeenMap,
     PlayerDangerStage,
     PolicyAftereffect,
@@ -62,6 +63,7 @@ export interface GameSnapshotCore {
     pendingBacklash: DelayedBacklash[]
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
+    npcMemoryLedger: NpcMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -114,6 +116,7 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         pendingBacklash: state.pendingBacklash,
         recentBacklash: state.recentBacklash,
         roundHistory: state.roundHistory,
+        npcMemoryLedger: state.npcMemoryLedger,
         endingReport: state.endingReport,
         battleReport: state.battleReport,
         shuCampaign: state.shuCampaign,
@@ -166,6 +169,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             fengDaozhiAssistsRemaining?: number
             shuMomentum?: number
             huainanMomentum?: number
+            npcMemoryLedger?: NpcMemoryLedger
         }
         if (parsed.version !== 1) return null
         return {
@@ -184,6 +188,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             fengDaozhiAssistsRemaining: parsed.fengDaozhiAssistsRemaining ?? 0,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
+            npcMemoryLedger: parsed.npcMemoryLedger ?? {},
         }
     } catch {
         return null

@@ -55,6 +55,7 @@ function resetStore() {
         pendingBacklash: [],
         recentBacklash: [],
         roundHistory: [],
+        npcMemoryLedger: {},
         endingReport: null,
         battleReport: null,
         shuMomentum: 0,
@@ -551,6 +552,7 @@ describe('gameStore guide and prologue state', () => {
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
+            npcMemoryLedger: {},
             endingReport: null,
             battleReport: null,
             shuCampaign: {
@@ -625,6 +627,7 @@ describe('gameStore guide and prologue state', () => {
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
+            npcMemoryLedger: {},
             endingReport: null,
             battleReport: null,
             shuCampaign: {
