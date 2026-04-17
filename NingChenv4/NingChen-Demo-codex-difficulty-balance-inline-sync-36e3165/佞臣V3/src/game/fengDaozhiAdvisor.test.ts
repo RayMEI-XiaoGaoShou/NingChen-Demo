@@ -1,7 +1,21 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
+import type { CampaignState } from './types'
 import { buildFengDaozhiDraftContext, buildFallbackFengDaozhiDraft, normalizeFengDaozhiDraft } from './fengDaozhiAdvisor'
+
+function makeCampaignState(overrides: Partial<CampaignState> = {}): CampaignState {
+    return {
+        state: 'idle',
+        resolvedState: null,
+        sourceRound: null,
+        summary: '',
+        ongoingNorthImpact: {},
+        ongoingSouthImpact: {},
+        remainingRounds: 0,
+        ...overrides,
+    }
+}
 
 describe('fengDaozhiAdvisor', () => {
     it('does not leak locked secret threads into Feng Daozhi context', () => {
@@ -19,10 +33,42 @@ describe('fengDaozhiAdvisor', () => {
             unlockedSecrets: 1,
             roundHistory: [],
             recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
         })
 
         expect(context.visibleSecrets).toEqual(['已知'])
         expect(context.visibleSecrets).not.toContain('未解锁')
+    })
+
+    it('uses a shared situation summary pack for branch rounds', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'yuwendi')! }
+        const context = buildFengDaozhiDraftContext({
+            request: {
+                round: 11,
+                difficulty: 'normal',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerDangerStage: 'safe',
+            },
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState({
+                state: 'gained',
+                resolvedState: 'gained',
+                sourceRound: 10,
+            }),
+            huainanCampaign: makeCampaignState(),
+        })
+
+        expect(context.eventBriefing).toContain('急报入京')
+        expect(context.campaignSummary).toContain('胜机')
+        expect(context.currentPublicStatement).toContain('蜀地已失')
+        expect(context.courtSituationSummary).toContain('战局走向：')
+        expect(context.courtSituationSummary).toContain('公开表态：')
     })
 
     it('normalizes omen drafts into dual-step output', () => {
@@ -57,6 +103,8 @@ describe('fengDaozhiAdvisor', () => {
             unlockedSecrets: 0,
             roundHistory: [],
             recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
         })
 
         const fallback = buildFallbackFengDaozhiDraft({
@@ -73,7 +121,7 @@ describe('fengDaozhiAdvisor', () => {
 
         expect(fallback.primaryText.length).toBeGreaterThan(0)
         expect(fallback.secondaryText?.length).toBeGreaterThan(0)
-    expect(fallback.reasoning).toContain('名分与法统压力')
+        expect(fallback.reasoning).toContain('名分与法统压力')
         expect(fallback.source).toBe('fallback')
     })
 })

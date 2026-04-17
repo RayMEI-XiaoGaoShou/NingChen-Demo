@@ -14,6 +14,7 @@ import {
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
+import { isTerminalExternalNpc } from '../../game/externalStatus'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
@@ -67,7 +68,7 @@ function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | '
 
 function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string {
     if (externalStatus === 'rebellion') return '反叛'
-    if (externalStatus === 'secession') return '割据'
+    if (externalStatus === 'secession') return '已割据'
     if (loyaltyToCourt <= 35 || alignmentBias === 'self') return '离心'
     if (externalStatus === 'watchful') return '观望'
     return '忠顺'
@@ -108,6 +109,10 @@ export function getSchemeUnlockHint(params: {
 
     const missingConditions: string[] = []
     const trustGap = Math.max(0, scheme.trustThreshold - npc.trust)
+
+    if (schemeType === 'proxy' && npc.powerBase === 'external') {
+        return '未解锁：借刀只适用于朝堂角色的猜忌链与处决链。地方军头更适合离间/煽动割据/煽动造反'
+    }
 
     if (scheme.targetScope === 'externalOnly' && npc.powerBase !== 'external') {
         missingConditions.push('仅地方军头可用')
@@ -199,6 +204,7 @@ export function SchemePanel() {
         updateSchemeParse,
         recentBacklash,
         roundHistory,
+        npcMemoryLedger,
         firstRoundGuideSeen,
         schemeOnboardingSeen,
         markFirstRoundGuideSeen,
@@ -227,7 +233,7 @@ export function SchemePanel() {
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId)
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
-    const aliveNpcs = npcs.filter(n => n.isAlive)
+    const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n))
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const availableSchemeTypes = selectedNpc
         ? getAvailableSchemesForNpc(selectedNpc, {
@@ -385,6 +391,8 @@ export function SchemePanel() {
             factions,
             roundHistory,
             recentBacklash,
+            npcMemoryLedger,
+            currentRound,
         })
 
         const generatePreliminaryReply = async (parsed: SchemeAction['northParse']) => {
@@ -418,6 +426,7 @@ export function SchemePanel() {
                         relationshipTemperature: dynamicContext.relationshipTemperature,
                         recentCourtFortune: dynamicContext.recentCourtFortune,
                         factionPressure: dynamicContext.factionPressure,
+                        longTermMemorySummary: dynamicContext.longTermMemorySummary,
                     }),
                     {
                         temperature: 0.75,

@@ -2,6 +2,7 @@
 import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExternalAction } from '../data/roundRuleConfig'
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
 import { getDifficultyProfile } from './difficulty'
+import { isTerminalExternalNpc } from './externalStatus'
 import {
     applySchemeFollowUpToNorthParse,
     getSchemeFollowUpEffectMultiplier,
@@ -89,7 +90,9 @@ export function getAvailableSchemesForNpc(
     context: Partial<SchemeContext> = {},
 ): SchemeType[] {
     const { round = 1, unlockedSecrets = 0 } = context
-    const base = getAvailableSchemesForTrust(npc.trust)
+    if (isTerminalExternalNpc(npc)) return []
+
+    const base = getAvailableSchemesForTrust(npc.trust).filter(type => !(npc.powerBase === 'external' && type === 'proxy'))
     const canEscalateExternalAction =
         npc.powerBase === 'external' &&
         npc.isAlive &&

@@ -801,7 +801,7 @@ describe('settleRound layered settlement', () => {
         expect(withDeadRebel.shuCampaign.summary).toBe(baseline.shuCampaign.summary)
     })
 
-    it('turns a surviving rebellion into secession instead of opening a separate overthrow branch', () => {
+    it('keeps a surviving rebellion marked as rebellion when the warlord beats back the suppression force', () => {
         const anSiming = INITIAL_NPCS.find(npc => npc.id === 'ansiming')!
 
         const result = settleRound({
@@ -837,9 +837,9 @@ describe('settleRound layered settlement', () => {
         const updatedAnSiming = result.updatedNpcs?.find((npc: any) => npc.id === anSiming.id)
 
         expect(updatedAnSiming?.isAlive).toBe(true)
-        expect(updatedAnSiming?.externalStatus).toBe('secession')
+        expect(updatedAnSiming?.externalStatus).toBe('rebellion')
         expect(result.externalActionReports?.[0]?.action).toBe('rebellion')
-        expect(result.externalActionReports?.[0]?.outcome).toContain('据地自守')
+        expect(result.externalActionReports?.[0]?.outcome).toContain('击退平叛军队后割据一方')
     })
 
     it('lets proxy finish a disposable court target through the borrowed-blade chain', () => {

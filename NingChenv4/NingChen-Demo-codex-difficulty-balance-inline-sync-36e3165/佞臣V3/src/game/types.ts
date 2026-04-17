@@ -21,6 +21,7 @@ export type BorrowedBladeOutcome = 'failed' | 'light' | 'heavy' | 'kill'
 export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
+export type NpcMemoryCategory = 'favor' | 'betrayal' | 'warning' | 'saved_face' | 'power_shift'
 export type FirstRoundGuideKey =
     | 'round_start'
     | 'court_observe'
@@ -325,6 +326,18 @@ export interface DelayedBacklash {
     summary: string
     sourceRound: number
 }
+
+export interface NpcMemoryEntry {
+    npcId: string
+    category: NpcMemoryCategory
+    sourceRound: number
+    importance: 1 | 2 | 3
+    summary: string
+    schemeType?: SchemeType
+    tags?: string[]
+}
+
+export type NpcMemoryLedger = Record<string, NpcMemoryEntry[]>
 
 export interface AiNativeSummary {
     schemeHints: string[]

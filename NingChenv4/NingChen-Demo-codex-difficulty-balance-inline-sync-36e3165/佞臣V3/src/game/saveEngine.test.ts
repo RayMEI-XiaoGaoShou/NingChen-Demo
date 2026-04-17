@@ -82,6 +82,7 @@ const initialSchemeOnboardingSeen = {
         pendingBacklash: [],
         recentBacklash: [],
         roundHistory: [],
+        npcMemoryLedger: {},
         endingReport: null,
         battleReport: null,
         shuCampaign: {

@@ -3,6 +3,7 @@ import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
+import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
@@ -19,8 +20,8 @@ function getExternalTiltLabel(npc: NPC): string {
 }
 
 function getExternalPostureLabel(npc: NPC): string {
-    if (npc.externalStatus === 'rebellion') return '已露反迹'
-    if (npc.externalStatus === 'secession') return '割据将成'
+    if (npc.externalStatus === 'rebellion') return '已反叛'
+    if (npc.externalStatus === 'secession') return '已割据'
     if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心已显'
     if (npc.externalStatus === 'watchful') return '持重观局'
     return '表面恭顺'
@@ -322,12 +323,14 @@ export function CourtView() {
                                 {group.members.map((npc, index) => {
                                     const progress = externalProgressMap[npc.id]
                                     const displayedTitle = getDisplayedNpcTitle(npc)
+                                    const isTerminal = isTerminalExternalNpc(npc)
                                     return (
                                         <button
                                             key={npc.id}
-                                            className="external-card animate-slide-up"
+                                            className={`external-card animate-slide-up ${isTerminal ? 'dead' : ''}`}
                                             style={{ animationDelay: `${0.14 + index * 0.05}s` }}
                                             onClick={() => openNpcDetail(npc.id)}
+                                            disabled={isTerminal}
                                         >
                                             <NpcPortrait
                                                 name={npc.name}
@@ -366,18 +369,23 @@ export function CourtView() {
                                                     <span>{getExternalTiltLabel(npc)}</span>
                                                     <span>{getExternalPostureLabel(npc)}</span>
                                                 </div>
-                                                <span className="npc-reaction external-reaction">
-                                                    {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0, {
-                                                        shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
-                                                        huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
-                                                    })}
+                                                {!isTerminal && (
+                                                    <span className="npc-reaction external-reaction">
+                                                        {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0, {
+                                                            shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
+                                                            huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
+                                                        })}
                                                     </span>
-                                                {progress && (
+                                                )}
+                                                {!isTerminal && progress && (
                                                     <span className="npc-reaction external-reaction external-progress-copy">
                                                         {progress.gapText}
                                                     </span>
                                                 )}
                                             </div>
+                                            {isTerminal && (
+                                                <div className="npc-dead-overlay">{getExternalTerminalLabel(npc.externalStatus)}</div>
+                                            )}
                                         </button>
                                     )
                                 })}
@@ -398,4 +406,3 @@ export function CourtView() {
         </div>
     )
 }
-

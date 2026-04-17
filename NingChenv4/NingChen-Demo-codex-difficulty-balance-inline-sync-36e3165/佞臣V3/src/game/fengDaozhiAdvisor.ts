@@ -1,12 +1,13 @@
-import { ROUND_EVENTS } from '../data/rounds'
 import { getSchemeByType } from '../data/schemes'
-import { buildNpcPromptDynamicContext } from './npcPromptContext'
+import { buildFengDaozhiSituationSummary } from './fengDaozhiSituationSummary'
 import type {
+    CampaignState,
     DelayedBacklash,
     Faction,
     FengDaozhiDraftRequest,
     FengDaozhiDraftResult,
     NPC,
+    NpcMemoryLedger,
     PlayerDangerStage,
     RoundHistoryEntry,
 } from './types'
@@ -15,15 +16,20 @@ export interface FengDaozhiDraftContext {
     round: number
     eventName: string
     eventBriefing: string
+    campaignSummary?: string
     schemeLabel: string
     targetNpcName: string
     targetNpcTitle: string
     targetPersona: string
+    currentPublicStatement?: string
     visibleSecrets: string[]
     previousDealings: string
     relationshipTemperature: string
     recentCourtFortune: string
     factionPressure: string
+    longTermMemorySummary?: string
+    relationshipSummary?: string
+    courtSituationSummary?: string
     playerDangerStage: PlayerDangerStage
 }
 
@@ -34,29 +40,51 @@ export function buildFengDaozhiDraftContext(params: {
     unlockedSecrets: number
     roundHistory: RoundHistoryEntry[]
     recentBacklash: DelayedBacklash[]
+    shuCampaign: CampaignState
+    huainanCampaign: CampaignState
+    npcMemoryLedger?: NpcMemoryLedger
 }): FengDaozhiDraftContext {
-    const { request, npc, factions, unlockedSecrets, roundHistory, recentBacklash } = params
-    const roundEvent = ROUND_EVENTS[request.round - 1]
-    const dynamicContext = buildNpcPromptDynamicContext({
+    const {
+        request,
         npc,
         factions,
+        unlockedSecrets,
         roundHistory,
         recentBacklash,
+        shuCampaign,
+        huainanCampaign,
+        npcMemoryLedger,
+    } = params
+    const situationSummary = buildFengDaozhiSituationSummary({
+        round: request.round,
+        npc,
+        factions,
+        unlockedSecrets,
+        roundHistory,
+        recentBacklash,
+        shuCampaign,
+        huainanCampaign,
+        npcMemoryLedger,
     })
 
     return {
         round: request.round,
-        eventName: roundEvent?.eventName ?? '',
-        eventBriefing: roundEvent?.briefing ?? '',
+        eventName: situationSummary.eventName,
+        eventBriefing: situationSummary.eventBriefing,
+        campaignSummary: situationSummary.campaignSummary ?? '',
         schemeLabel: getSchemeByType(request.schemeType)?.name ?? request.schemeType,
         targetNpcName: npc.name,
         targetNpcTitle: npc.title,
         targetPersona: npc.publicPersona,
+        currentPublicStatement: situationSummary.currentPublicStatement,
         visibleSecrets: npc.secretThreads.slice(0, Math.max(0, unlockedSecrets)),
-        previousDealings: dynamicContext.previousDealings,
-        relationshipTemperature: dynamicContext.relationshipTemperature,
-        recentCourtFortune: dynamicContext.recentCourtFortune,
-        factionPressure: dynamicContext.factionPressure,
+        previousDealings: situationSummary.previousDealings,
+        relationshipTemperature: situationSummary.relationshipTemperature,
+        recentCourtFortune: situationSummary.recentCourtFortune,
+        factionPressure: situationSummary.factionPressure,
+        longTermMemorySummary: situationSummary.longTermMemorySummary,
+        relationshipSummary: situationSummary.relationshipSummary,
+        courtSituationSummary: situationSummary.courtSituationSummary,
         playerDangerStage: request.playerDangerStage,
     }
 }

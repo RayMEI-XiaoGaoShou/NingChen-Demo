@@ -38,9 +38,9 @@ function formatResolvedState(state: 'gained' | 'stalemate' | 'failed'): string {
 function formatExternalStatus(status: string): string {
     switch (status) {
         case 'secession':
-            return '割据'
+            return '已割据'
         case 'rebellion':
-            return '叛乱'
+            return '已反叛'
         case 'watchful':
             return '观望'
         case 'loyal':

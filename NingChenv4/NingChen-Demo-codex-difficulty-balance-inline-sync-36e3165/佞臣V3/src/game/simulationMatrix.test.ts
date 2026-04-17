@@ -47,7 +47,7 @@ describe('simulationMatrix', () => {
         expect(results.find(item => item.id === 'heba_bogui_secession')?.finalExternalStatus).toBe('secession')
         expect(results.find(item => item.id === 'heba_bogui_secession')?.externalActionSummary).toContain('贺拔伯圭')
 
-        expect(results.find(item => item.id === 'an_siming_rebellion')?.finalExternalStatus).toBe('secession')
+        expect(results.find(item => item.id === 'an_siming_rebellion')?.finalExternalStatus).toBe('rebellion')
         expect(results.find(item => item.id === 'an_siming_rebellion')?.externalActionSummary).toContain('安思明')
     })
 })

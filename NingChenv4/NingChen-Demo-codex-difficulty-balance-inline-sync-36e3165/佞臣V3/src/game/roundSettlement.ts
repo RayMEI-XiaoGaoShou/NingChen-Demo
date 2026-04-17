@@ -661,14 +661,14 @@ function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'rebellion'
     }
 
     if (leverage >= 72) {
-        targetNpc.externalStatus = 'secession'
+        targetNpc.externalStatus = 'rebellion'
         const damage = damageByMilitaryTier(targetNpc.militaryPower, 'rebellion')
         return {
             report: {
                 npcId: targetNpc.id,
                 npcName: targetNpc.name,
                 action,
-                outcome: `${targetNpc.name}举兵之后击退平叛军，转而据地自守，北周不得不承认其割据之实。`,
+                outcome: `${targetNpc.name}击退平叛军队后割据一方，北周不得不正面应对其明旗反周之势。`,
                 nationEffects: damage,
             },
             factionPenalty: linkedFactionPenalty(targetNpc, 2.4, 2.1),

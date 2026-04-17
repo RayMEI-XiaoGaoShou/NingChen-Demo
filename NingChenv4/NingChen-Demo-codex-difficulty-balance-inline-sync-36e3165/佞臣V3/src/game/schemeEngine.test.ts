@@ -87,6 +87,12 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(getAvailableSchemesForNpc(yuwendi, { round: 13, unlockedSecrets: 1 })).toContain('omen')
     })
 
+    it('does not offer proxy to external warlords even at high trust', () => {
+        const ansiming = { ...INITIAL_NPCS.find(npc => npc.name === '安思明')!, trust: 82 }
+
+        expect(getAvailableSchemesForNpc(ansiming, { round: 12, unlockedSecrets: 2 })).not.toContain('proxy')
+    })
+
     it('treats titled frontier commanders as military actors even when their raw military score is below 40', () => {
         const ansiming = { ...INITIAL_NPCS.find(npc => npc.name === '安思明')!, trust: 62, militaryPower: 36 }
         const action = {
@@ -336,7 +342,7 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(normal.trustChange).toBe(easy.trustChange)
     })
 
-    it('does not offer secession or rebellion again once an external warlord has already turned secessionist', () => {
+    it('does not offer any schemes once an external warlord has already turned secessionist', () => {
         const hebabogui = {
             ...INITIAL_NPCS.find(npc => npc.id.startsWith('hebabog'))!,
             trust: 90,
@@ -346,8 +352,7 @@ describe('schemeEngine contextual scheme rules', () => {
 
         const schemes = getAvailableSchemesForNpc(hebabogui, { round: 18, unlockedSecrets: 3 })
 
-        expect(schemes).not.toContain('secession')
-        expect(schemes).not.toContain('rebellion')
+        expect(schemes).toEqual([])
     })
 
     it('amplifies frame fallout when the speech truly lures the target into taking the blame', () => {

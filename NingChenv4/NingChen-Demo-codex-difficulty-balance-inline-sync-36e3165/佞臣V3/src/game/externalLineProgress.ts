@@ -1,4 +1,5 @@
 import { getDifficultyProfile } from './difficulty'
+import { isExternalTerminalStatus } from './externalStatus'
 import type { GameDifficulty, HighActionBias, NPC, SchemeType } from './types'
 
 type ExternalLineNpc = Pick<
@@ -74,6 +75,7 @@ export function buildExternalLineProgress(input: {
 }): ExternalLineProgress | null {
     const { npc, unlockedSecrets, difficulty, externalActionEnabled } = input
     if (!npc.isAlive || npc.powerBase !== 'external' || !npc.highActionBias) return null
+    if (isExternalTerminalStatus(npc.externalStatus)) return null
 
     const ambition = npc.highActionBias
     const thresholds = getThresholds(ambition, difficulty)

@@ -7,4 +7,12 @@ describe('NPCDetail', () => {
         expect(npcDetailSource).toContain('npc.triggerPoint')
         expect(npcDetailSource).not.toMatch(/className="metric-chip"[^>]*>[^<]*\{npc\.schemeHooks\}/)
     })
+
+    it('uses terminal external labels and explains when a warlord line has already closed', () => {
+        expect(npcDetailSource).toContain('getExternalTerminalLabel')
+        expect(npcDetailSource).toContain('getExternalTerminalSummary')
+        expect(npcDetailSource).toContain('isTerminalExternalNpc')
+        expect(npcDetailSource).toContain("getExternalTerminalLabel(npc.externalStatus)")
+        expect(npcDetailSource).toContain("getExternalTerminalSummary(npc.externalStatus)")
+    })
 })

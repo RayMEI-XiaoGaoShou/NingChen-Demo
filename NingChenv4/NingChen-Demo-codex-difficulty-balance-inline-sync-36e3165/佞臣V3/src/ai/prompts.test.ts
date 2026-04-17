@@ -325,6 +325,20 @@ describe('buildFengDaozhiDraftPrompt', () => {
         expect(prompt[1].content).toContain('萧宝颖当前危险：under_watch')
     })
 
+    it('injects campaign summary and current public statement into Feng Daozhi prompt', () => {
+        const prompt = buildFengDaozhiDraftPrompt({
+            context: {
+                ...baseContext,
+                campaignSummary: '西线的用兵与收权已把帝后两党都推到了台前。',
+                currentPublicStatement: '孤以为，西线兵权不可再散落于诸司之手。',
+            },
+            schemeType: 'advise',
+        })[1].content
+
+        expect(prompt).toContain('战局摘要：西线的用兵与收权已把帝后两党都推到了台前。')
+        expect(prompt).toContain('本回合公开表态：孤以为，西线兵权不可再散落于诸司之手。')
+    })
+
     it('requires dual-step omen drafting', () => {
         const prompt = buildFengDaozhiDraftPrompt({
             context: { ...baseContext, schemeLabel: '谶纬' },
