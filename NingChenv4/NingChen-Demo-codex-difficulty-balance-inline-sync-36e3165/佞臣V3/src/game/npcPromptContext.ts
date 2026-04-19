@@ -1,6 +1,7 @@
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import { buildNpcLongTermMemorySummary } from './npcMemoryLedger'
+import { isCourtDispositionTarget, normalizeCourtDispositionNpc } from './courtDisposition'
 import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
 
 const SCHEME_NAMES: Record<SchemeType, string> = {
@@ -119,6 +120,9 @@ function describeRecentCourtFortune(
         return `近来${stripTailPunctuation(backlash.summary)}。`
     }
 
+    const courtFavorFortune = describeCourtFavorFortune(npc)
+    if (courtFavorFortune) return courtFavorFortune
+
     const initialNpc = initialNpcMap.get(npc.id)
     const ownFaction = npc.factionId === 'emperor' || npc.factionId === 'empress'
         ? factions.find(item => item.id === npc.factionId)
@@ -163,6 +167,33 @@ function describeRecentCourtFortune(
     return npc.powerBase === 'external'
         ? `${npc.name}手里仍握着地方兵权，眼下并不愿让朝中看轻自己。`
         : `${npc.name}近来并无大起大落，但座次与脸面仍要处处计较。`
+}
+
+function describeCourtFavorFortune(npc: NPC): string | null {
+    if (!isCourtDispositionTarget(npc.id)) return null
+
+    const courtNpc = normalizeCourtDispositionNpc(npc)
+    if (courtNpc.courtStatus === 'dismissed') {
+        return `${courtNpc.name}已被罢黜离席，仍留性命，却再难在朝堂上替任何一边撑住局面。`
+    }
+    if (courtNpc.courtStatus === 'executed') {
+        return `${courtNpc.name}已被处决，旧日席位只剩余波，旁人提起时也会格外避讳。`
+    }
+
+    if (courtNpc.emperorFavor <= 18 && courtNpc.empressDowagerFavor <= 18) {
+        return `${courtNpc.name}近来已到两边都不愿保的地步，言行间难免露出穷途之气。`
+    }
+    if (courtNpc.emperorFavor <= 35 && courtNpc.empressDowagerFavor <= 35) {
+        return `${courtNpc.name}近来御前恩宠与帘前眷顾都在往下掉，说话时比往日更怕失足。`
+    }
+    if (courtNpc.emperorFavor <= 35) {
+        return `${courtNpc.name}近来御前恩宠已薄，许多话都不敢再像从前那样说满。`
+    }
+    if (courtNpc.empressDowagerFavor <= 35) {
+        return `${courtNpc.name}近来帘前眷顾将尽，格外在意太后与后党脸色。`
+    }
+
+    return null
 }
 
 function describeFactionPressure(npc: NPC, factions: Faction[]): string {

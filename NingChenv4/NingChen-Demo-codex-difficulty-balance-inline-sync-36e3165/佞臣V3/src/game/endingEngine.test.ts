@@ -91,7 +91,7 @@ describe('endingEngine', () => {
         expect(death.epilogueLines[0]).toContain('南陈女帝')
     })
 
-    it('surfaces borrowed-blade death in npc fates', () => {
+    it('describes court execution without reusing old borrowed-blade phrasing', () => {
         const report = buildEndingReport({
             gameResult: 'VICTORY',
             currentRound: 20,
@@ -101,9 +101,10 @@ describe('endingEngine', () => {
                 ? {
                     ...npc,
                     isAlive: false,
-                    deathCause: 'borrowed_blade',
+                    courtStatus: 'executed',
+                    deathCause: 'court_execution',
                     deathByNpcName: '祖廷',
-                }
+                } as any
                 : { ...npc }),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
             intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
@@ -115,8 +116,66 @@ describe('endingEngine', () => {
             },
         })
 
-        expect(report.npcFates.some(item => item.summary.includes('借刀'))).toBe(true)
+        expect(report.npcFates.some(item => item.summary.includes('已被处决'))).toBe(true)
+        expect(report.npcFates.some(item => item.summary.includes('借刀之局'))).toBe(false)
     })
+
+    it('describes dismissed court targets as removed but not dead', () => {
+        const report = buildEndingReport({
+            gameResult: 'VICTORY',
+            currentRound: 20,
+            northPower: 56,
+            southPower: 62,
+            npcs: INITIAL_NPCS.map(npc => npc.id === 'zuting'
+                ? {
+                    ...npc,
+                    isAlive: true,
+                    courtStatus: 'dismissed',
+                } as any
+                : { ...npc }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
+            lastSettlement: {
+                externalActionReports: [],
+                relationshipReports: [],
+                deathKiller: null,
+                invasionTriggered: false,
+            },
+        })
+
+        const fate = report.npcFates.find(item => item.npcId === 'zuting')
+        expect(fate?.summary).toContain('已被罢黜')
+        expect(fate?.summary).not.toContain('死')
+        expect(fate?.summary).not.toContain('处决')
+    })
+
+    it('keeps Weichi Mu in the ending focus list when he is removed by court disposition', () => {
+        const report = buildEndingReport({
+            gameResult: 'VICTORY',
+            currentRound: 20,
+            northPower: 56,
+            southPower: 62,
+            npcs: INITIAL_NPCS.map(npc => npc.id === 'weichimù'
+                ? {
+                    ...npc,
+                    isAlive: true,
+                    courtStatus: 'dismissed',
+                } as any
+                : { ...npc }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
+            lastSettlement: {
+                externalActionReports: [],
+                relationshipReports: [],
+                deathKiller: null,
+                invasionTriggered: false,
+            },
+        })
+
+        const fate = report.npcFates.find(item => item.npcId === 'weichimù')
+        expect(fate?.summary).toContain('已被罢黜')
+    })
+
 
     it('describes a living rebellion target as open rebellion rather than secession', () => {
         expect(endingEngineSource).toContain("if (npc.externalStatus === 'rebellion')")

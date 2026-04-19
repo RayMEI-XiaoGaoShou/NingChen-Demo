@@ -101,6 +101,17 @@ describe('gameStore addScheme', () => {
         expect(state.huainanCampaign.state).toBe('idle')
     })
 
+    it('initializes npc court disposition fields from seed defaults', () => {
+        useGameStore.getState().resetGame()
+
+        const state = useGameStore.getState()
+        const zuting = state.npcs.find(npc => npc.id === 'zuting') as any
+        expect(zuting.emperorFavor).toBe(26)
+        expect(zuting.empressDowagerFavor).toBe(82)
+        expect(zuting.courtStatus).toBe('active')
+        expect(state.npcs.every(npc => (npc as any).courtStatus !== undefined)).toBe(true)
+    })
+
     it('rejects targeting the same NPC twice in one round', () => {
         const targetNpcId = INITIAL_NPCS[0]!.id
 
@@ -710,6 +721,132 @@ describe('gameStore guide and prologue state', () => {
             first_follow_up_teaching: false,
         })
         expect(state.fengDaozhiAssistsRemaining).toBe(3)
+    })
+
+    it('hydrates legacy npc objects through court disposition normalization', () => {
+        const legacyNpcs = INITIAL_NPCS.map(npc => {
+            const { emperorFavor, empressDowagerFavor, courtStatus, disposalStage, ...legacyNpc } = npc as any
+            return legacyNpc
+        })
+        const snapshot = {
+            version: 1,
+            currentRound: 3,
+            currentPhase: 'ROUND_START',
+            difficulty: 'normal',
+            schemeCount: 0,
+            maxSchemes: 3,
+            playerDangerStage: 'safe',
+            isGameOver: false,
+            gameResult: 'NONE',
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            northPower: calculateCompositePower(NORTH_INITIAL),
+            southPower: calculateCompositePower(SOUTH_INITIAL),
+            npcs: legacyNpcs,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            relationships: INITIAL_RELATIONSHIP_EDGES.map(edge => ({ ...edge })),
+            intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
+            currentSchemes: [],
+            selectedPolicyOption: null,
+            policyReason: '',
+            selectedPolicyParse: null,
+            npcFeedbacks: [],
+            pendingStructuredSchemeIds: [],
+            lastSettlement: null,
+            lastPolicyReport: null,
+            lastPolicyAftereffect: null,
+            pendingBacklash: [],
+            recentBacklash: [],
+            roundHistory: [],
+            npcMemoryLedger: {},
+            endingReport: null,
+            battleReport: null,
+            shuCampaign: {
+                state: 'idle',
+                sourceRound: null,
+                summary: '',
+                ongoingNorthImpact: {},
+                ongoingSouthImpact: {},
+                remainingRounds: 0,
+            },
+            huainanCampaign: {
+                state: 'idle',
+                sourceRound: null,
+                summary: '',
+                ongoingNorthImpact: {},
+                ongoingSouthImpact: {},
+                remainingRounds: 0,
+            },
+            shuMomentum: 0,
+            huainanMomentum: 0,
+            roundStartSnapshot: {
+                currentRound: 3,
+                currentPhase: 'ROUND_START',
+                difficulty: 'normal',
+                schemeCount: 0,
+                maxSchemes: 3,
+                prologueStep: 'INGAME',
+                helpOverlayOpen: false,
+                helpOverlaySource: null,
+                firstRoundGuideSeen: initialFirstRoundGuideSeen,
+                schemeOnboardingSeen: initialSchemeOnboardingSeen,
+                omenGuideSeen: { first_omen_modal: false },
+                fengDaozhiAssistsRemaining: 2,
+                playerDangerStage: 'safe',
+                isGameOver: false,
+                gameResult: 'NONE',
+                northStats: { ...NORTH_INITIAL },
+                southStats: { ...SOUTH_INITIAL },
+                northPower: calculateCompositePower(NORTH_INITIAL),
+                southPower: calculateCompositePower(SOUTH_INITIAL),
+                npcs: legacyNpcs,
+                factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+                relationships: INITIAL_RELATIONSHIP_EDGES.map(edge => ({ ...edge })),
+                intelProgress: Object.fromEntries(INITIAL_NPCS.map(npc => [npc.id, 0])),
+                currentSchemes: [],
+                selectedPolicyOption: null,
+                policyReason: '',
+                selectedPolicyParse: null,
+                npcFeedbacks: [],
+                pendingStructuredSchemeIds: [],
+                lastSettlement: null,
+                lastPolicyReport: null,
+                lastPolicyAftereffect: null,
+                pendingBacklash: [],
+                recentBacklash: [],
+                roundHistory: [],
+                npcMemoryLedger: {},
+                endingReport: null,
+                battleReport: null,
+                shuCampaign: {
+                    state: 'idle',
+                    sourceRound: null,
+                    summary: '',
+                    ongoingNorthImpact: {},
+                    ongoingSouthImpact: {},
+                    remainingRounds: 0,
+                },
+                huainanCampaign: {
+                    state: 'idle',
+                    sourceRound: null,
+                    summary: '',
+                    ongoingNorthImpact: {},
+                    ongoingSouthImpact: {},
+                    remainingRounds: 0,
+                },
+                shuMomentum: 0,
+                huainanMomentum: 0,
+            },
+        } as unknown as PersistedGameSnapshot
+
+        useGameStore.getState().hydrateSnapshot(snapshot)
+
+        const zuting = useGameStore.getState().npcs.find(npc => npc.id === 'zuting') as any
+        const roundStartZuting = useGameStore.getState().roundStartSnapshot?.npcs.find(npc => npc.id === 'zuting') as any
+        expect(zuting.emperorFavor).toBe(26)
+        expect(zuting.empressDowagerFavor).toBe(82)
+        expect(zuting.courtStatus).toBe('active')
+        expect(roundStartZuting.emperorFavor).toBe(26)
     })
 
     it('can save and restore the current round start snapshot after a failed round', () => {

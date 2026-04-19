@@ -27,6 +27,7 @@ import {
     type PersistedGameSnapshot,
     type RoundStartSnapshot,
 } from '../game/saveEngine'
+import { normalizeCourtDispositionNpcs } from '../game/courtDisposition'
 import { getDifficultyProfile } from '../game/difficulty'
 import { chatCompletionJson } from '../ai/aiService'
 import { buildFengDaozhiDraftPrompt } from '../ai/prompts'
@@ -198,7 +199,7 @@ function attachAvailableSchemes(
     round: number,
     intelProgress: Record<string, number>,
 ): NPC[] {
-    return npcs.map(npc => ({
+    return normalizeCourtDispositionNpcs(npcs).map(npc => ({
         ...npc,
         availableSchemes: getAvailableSchemesForNpc(npc, {
             round,

@@ -1,6 +1,11 @@
 import { getRoundIntel } from '../data/roundIntel'
 import { getRoundPublicStatement, type RoundStatementContext } from '../data/roundPublicStatements'
-import { getHighestBorrowedBladeStageLabel } from './borrowedBladeEngine'
+import {
+    getCourtDispositionOpportunity,
+    isCourtDispositionTarget,
+    normalizeCourtDispositionNpc,
+    type CourtDispositionNpc,
+} from './courtDisposition'
 import type { NPC } from './types'
 
 type HintNpc = Pick<NPC, 'id' | 'name' | 'isAlive'>
@@ -56,8 +61,31 @@ export function getRoundAdvisorHint(round: number, npcs: HintNpc[], externalStag
 }
 
 export function buildBorrowedBladeAdvisorHint(npcs: NPC[]): string | null {
-    const label = getHighestBorrowedBladeStageLabel(npcs)
-    return label ? `另有一人已被推到借刀边缘：${label}。` : null
+    const candidates = npcs
+        .filter(npc => npc.isAlive && isCourtDispositionTarget(npc.id))
+        .map(npc => normalizeCourtDispositionNpc(npc))
+        .filter(npc => npc.courtStatus === 'active')
+        .map(npc => ({ npc, opportunity: getCourtDispositionOpportunity(npc) }))
+
+    const actionable =
+        candidates.find(item => item.opportunity === 'executable')
+        ?? candidates.find(item => item.opportunity === 'dismissible')
+        ?? candidates.find(item => item.npc.emperorFavor <= 35 || item.npc.empressDowagerFavor <= 35)
+
+    if (!actionable) return null
+
+    if (actionable.opportunity === 'executable') {
+        return `另有一人皇帝恩宠与太后眷顾皆尽，两边都不愿保，可处决：${actionable.npc.name}。`
+    }
+    if (actionable.opportunity === 'dismissible') {
+        return `另有一人皇帝恩宠与太后眷顾皆薄，可罢黜：${actionable.npc.name}。`
+    }
+    return buildSingleFavorAdvisorHint(actionable.npc)
+}
+
+function buildSingleFavorAdvisorHint(npc: CourtDispositionNpc): string {
+    if (npc.emperorFavor <= 35) return `另有一人御前恩宠已薄，若再失帘前眷顾便可图罢黜：${npc.name}。`
+    return `另有一人帘前眷顾将尽，若再失皇帝恩宠便可图罢黜：${npc.name}。`
 }
 
 export function getNpcRoundReaction(

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { buildSchemeSpeechPayload, getSchemeSpeechFields, getSchemeUnlockHint, SchemePanel } from './SchemePanel'
 import schemePanelSource from './SchemePanel.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
+import { INITIAL_NPCS } from '../../data/npcs'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
 
@@ -138,7 +139,32 @@ describe('SchemePanel layout labels', () => {
             unlockedSecrets: 2,
         })
 
-        expect(hint).toContain('借刀只适用于朝堂角色的猜忌链与处决链。地方军头更适合离间/煽动割据/煽动造反')
+        expect(hint).toContain('借刀只能借太后或御前之手')
+    })
+
+    it('shows proxy as locked on non-executor court NPCs', () => {
+        const npc = INITIAL_NPCS.find(item => item.id === 'linghuelvguang')!
+
+        const hint = getSchemeUnlockHint({
+            schemeType: 'proxy',
+            npc,
+            round: 8,
+            unlockedSecrets: 2,
+        })
+
+        expect(hint).toContain('借刀只能借太后或御前之手')
+    })
+
+    it('keeps proxy related targets limited to active court disposition targets in source', () => {
+        expect(schemePanelSource).toContain("selectedScheme === 'proxy'")
+        expect(schemePanelSource).toContain('isCourtDispositionTarget(npc)')
+        expect(schemePanelSource).toContain("getCourtStatus(npc) === 'active'")
+    })
+
+    it('drops stale related targets when the selected scheme no longer needs one', () => {
+        expect(schemePanelSource).toContain('if (!scheme.needsSecondTarget) setRelatedNpcId(null)')
+        expect(schemePanelSource).toContain('const effectiveRelatedNpcId = currentSchemeData?.needsSecondTarget ? relatedNpcId : null')
+        expect(schemePanelSource).toContain('relatedNpcId: effectiveRelatedNpcId ?? undefined')
     })
 
     it('references locked copy and the current round public stance in source', () => {
@@ -148,7 +174,7 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelSource).toContain('shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state')
     })
     it('filters secessionist external warlords out of the target list in source', () => {
-        expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n))")
+        expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')")
         expect(schemePanelSource).toContain("import { isTerminalExternalNpc } from '../../game/externalStatus'")
     })
 })

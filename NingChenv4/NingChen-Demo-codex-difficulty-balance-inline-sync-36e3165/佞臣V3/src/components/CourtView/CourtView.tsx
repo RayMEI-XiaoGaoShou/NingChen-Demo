@@ -6,6 +6,12 @@ import { getCourtBalance } from '../../game/nationEngine'
 import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
+import {
+    getCourtDispositionOpportunity as getCoreCourtDispositionOpportunity,
+    getCourtStatusLabel as getCoreCourtStatusLabel,
+    isCourtDispositionTarget as isCourtDispositionTargetId,
+    normalizeCourtDispositionNpc,
+} from '../../game/courtDisposition'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
@@ -75,6 +81,36 @@ const LOYALTY_TOOLTIP = '忠诚度表示此人对北周朝廷的服从与归附�
 const TRUST_TOOLTIP = '信任度表示此人对你的个人信任程度，越高越容易被你说动。'
 const WAR_TREND_TOOLTIP = '南征风向由帝党与后党在本回合的势力对比推导而来。帝党越强，朝中越容易转向主战。'
 const SAFETY_RISK_TOOLTIP = '自身安危由低信任且有朝堂影响力的可执行角色共同决定。越多人戒备你、位置越高，风险越重。'
+type CourtStatus = 'active' | 'dismissed' | 'executed'
+type CourtDispositionNpc = NPC & {
+    emperorFavor: number
+    empressDowagerFavor: number
+    courtStatus?: CourtStatus
+}
+
+function isCourtDispositionTarget(npc: NPC): boolean {
+    return isCourtDispositionTargetId(npc.id)
+}
+
+function getCourtStatus(npc: NPC): CourtStatus {
+    return (npc as CourtDispositionNpc).courtStatus ?? 'active'
+}
+
+function getCourtStatusLabel(status: CourtStatus): string {
+    return getCoreCourtStatusLabel(status)
+}
+
+function getCourtFavor(npc: NPC) {
+    const courtNpc = normalizeCourtDispositionNpc(npc) as CourtDispositionNpc
+    return {
+        emperorFavor: courtNpc.emperorFavor,
+        empressDowagerFavor: courtNpc.empressDowagerFavor,
+    }
+}
+
+function getCourtDispositionOpportunity(npc: NPC): 'safe' | 'dismissible' | 'executable' {
+    return getCoreCourtDispositionOpportunity(normalizeCourtDispositionNpc(npc))
+}
 
 export function CourtView() {
     const {
@@ -244,13 +280,17 @@ export function CourtView() {
                                     {group.members.map((npc, index) => {
                                         const displayedTitle = getDisplayedNpcTitle(npc)
                                         const knownIntel = intelProgress[npc.id] ?? 0
+                                        const courtStatus = getCourtStatus(npc)
+                                        const isTerminalCourt = isCourtDispositionTarget(npc) && getCourtStatus(npc) !== 'active'
+                                        const courtFavor = getCourtFavor(npc)
+                                        const opportunity = getCourtDispositionOpportunity(npc)
                                         return (
                                             <button
                                                 key={npc.id}
-                                                className={`npc-card trust-${getTrustLevel(npc.trust)} animate-slide-up ${!npc.isAlive ? 'dead' : ''}`}
+                                                className={`npc-card trust-${getTrustLevel(npc.trust)} animate-slide-up ${(!npc.isAlive || isTerminalCourt) ? 'dead court-terminal' : ''}`}
                                                 style={{ animationDelay: `${0.12 + index * 0.04}s` }}
                                                 onClick={() => openNpcDetail(npc.id)}
-                                                disabled={!npc.isAlive}
+                                                disabled={!npc.isAlive || isTerminalCourt}
                                             >
                                                 <NpcPortrait
                                                     name={npc.name}
@@ -274,7 +314,23 @@ export function CourtView() {
                                                             暗线已明：{knownIntel}/{npc.secretThreads.length}
                                                         </span>
                                                     </div>
-                                                    {npc.isAlive && (
+                                                    {isCourtDispositionTarget(npc) && courtStatus === 'active' && (
+                                                        <div className="npc-favor-row">
+                                                            <span className="npc-meta-chip npc-favor-chip">
+                                                                皇帝恩宠 {courtFavor.emperorFavor}
+                                                            </span>
+                                                            <span className="npc-meta-chip npc-favor-chip">
+                                                                太后眷顾 {courtFavor.empressDowagerFavor}
+                                                            </span>
+                                                            {opportunity === 'dismissible' && (
+                                                                <span className="npc-meta-chip npc-meta-chip-warning">可罢黜</span>
+                                                            )}
+                                                            {opportunity === 'executable' && (
+                                                                <span className="npc-meta-chip npc-meta-chip-danger">可处决</span>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                    {npc.isAlive && courtStatus === 'active' && (
                                                         <span className="npc-reaction">
                                                             {getNpcRoundReaction(currentRound, npc, knownIntel, {
                                                                 shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
@@ -283,7 +339,12 @@ export function CourtView() {
                                                         </span>
                                                     )}
                                                 </div>
-                                                {!npc.isAlive && <div className="npc-dead-overlay">已死</div>}
+                                                {isTerminalCourt && (
+                                                    <div className="npc-dead-overlay npc-court-status-overlay">
+                                                        {getCourtStatusLabel(courtStatus)}
+                                                    </div>
+                                                )}
+                                                {!isTerminalCourt && !npc.isAlive && <div className="npc-dead-overlay">已死</div>}
                                             </button>
                                         )
                                     })}

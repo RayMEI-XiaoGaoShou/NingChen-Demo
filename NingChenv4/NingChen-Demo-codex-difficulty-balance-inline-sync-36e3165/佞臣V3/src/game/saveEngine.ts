@@ -23,6 +23,7 @@ import type {
     SchemeAction,
 } from './types'
 import type { NpcFeedback } from '../stores/gameStore'
+import { normalizeCourtDispositionNpcs } from './courtDisposition'
 import type { PolicySettlementReport, RoundSettlementResult } from './roundSettlement'
 
 const STORAGE_KEY = 'ningchen-save-v1'
@@ -100,7 +101,7 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         southStats: state.southStats,
         northPower: state.northPower,
         southPower: state.southPower,
-        npcs: state.npcs,
+        npcs: normalizeCourtDispositionNpcs(state.npcs),
         factions: state.factions,
         relationships: state.relationships,
         intelProgress: state.intelProgress,
@@ -186,6 +187,13 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             ),
             omenGuideSeen: parsed.omenGuideSeen ?? { first_omen_modal: false },
             fengDaozhiAssistsRemaining: parsed.fengDaozhiAssistsRemaining ?? 0,
+            npcs: normalizeCourtDispositionNpcs(parsed.npcs ?? []),
+            roundStartSnapshot: parsed.roundStartSnapshot
+                ? {
+                    ...parsed.roundStartSnapshot,
+                    npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
+                }
+                : null,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
             npcMemoryLedger: parsed.npcMemoryLedger ?? {},

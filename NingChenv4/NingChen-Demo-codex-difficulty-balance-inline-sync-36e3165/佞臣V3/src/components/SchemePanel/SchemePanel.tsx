@@ -25,6 +25,7 @@ import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntel
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import { isOmenAvailableForNpc, roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { clearSchemeReplyPrefetch, markSchemeReplyPrefetchStarted } from '../../game/schemeReplyPrefetch'
+import { isCourtDispositionExecutor as isCourtDispositionExecutorId, isCourtDispositionTarget as isCourtDispositionTargetId } from '../../game/courtDisposition'
 import { chatCompletion, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { FengDaozhiAssistPanel } from './FengDaozhiAssistPanel'
@@ -74,6 +75,21 @@ function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secessi
     return '忠顺'
 }
 
+type CourtStatus = 'active' | 'dismissed' | 'executed'
+type CourtDispositionNpc = NPC & { courtStatus?: CourtStatus }
+
+function isCourtDispositionExecutor(npc: NPC): boolean {
+    return isCourtDispositionExecutorId(npc.id)
+}
+
+function isCourtDispositionTarget(npc: NPC): boolean {
+    return isCourtDispositionTargetId(npc.id)
+}
+
+function getCourtStatus(npc: NPC): CourtStatus {
+    return (npc as CourtDispositionNpc).courtStatus ?? 'active'
+}
+
 export function buildSchemeSpeechPayload(params: {
     schemeType: SchemeType
     speech: string
@@ -110,8 +126,8 @@ export function getSchemeUnlockHint(params: {
     const missingConditions: string[] = []
     const trustGap = Math.max(0, scheme.trustThreshold - npc.trust)
 
-    if (schemeType === 'proxy' && npc.powerBase === 'external') {
-        return '未解锁：借刀只适用于朝堂角色的猜忌链与处决链。地方军头更适合离间/煽动割据/煽动造反'
+    if (schemeType === 'proxy' && !isCourtDispositionExecutor(npc)) {
+        return '未解锁：借刀只能借太后或御前之手；先削低目标的皇帝恩宠与太后眷顾，再借贺拔琪或宗艾收网。'
     }
 
     if (scheme.targetScope === 'externalOnly' && npc.powerBase !== 'external') {
@@ -233,7 +249,7 @@ export function SchemePanel() {
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId)
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
-    const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n))
+    const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const availableSchemeTypes = selectedNpc
         ? getAvailableSchemesForNpc(selectedNpc, {
@@ -294,6 +310,11 @@ export function SchemePanel() {
             `激怒：${selectedNpc.triggerPoint}`,
         ]
         : []
+    const relatedNpcCandidates = currentSchemeData?.needsSecondTarget
+        ? selectedScheme === 'proxy'
+            ? aliveNpcs.filter(npc => npc.id !== selectedNpcId && isCourtDispositionTarget(npc) && getCourtStatus(npc) === 'active')
+            : aliveNpcs.filter(npc => npc.id !== selectedNpcId)
+        : []
 
     const schemeNames: Record<string, string> = {
         probe: '试探',
@@ -312,6 +333,7 @@ export function SchemePanel() {
 
     const handleFengDaozhiDraft = async () => {
         if (!selectedNpcId || !selectedScheme || fengDaozhiAssistsRemaining <= 0 || fengDraftLoading) return
+        const effectiveRelatedNpcId = currentSchemeData?.needsSecondTarget ? relatedNpcId : null
 
         setFengDraftLoading(true)
         try {
@@ -321,7 +343,7 @@ export function SchemePanel() {
                 targetNpcId: selectedNpcId,
                 schemeType: selectedScheme,
                 playerDangerStage,
-                relatedNpcId: relatedNpcId ?? undefined,
+                relatedNpcId: effectiveRelatedNpcId ?? undefined,
                 omenSpeechInput: selectedScheme === 'omen'
                     ? { omenText, interpretationText }
                     : undefined,
@@ -344,6 +366,7 @@ export function SchemePanel() {
 
     const handleExecute = async () => {
         if (!selectedNpcId || !selectedScheme || !selectedNpc) return
+        const effectiveRelatedNpcId = currentSchemeData?.needsSecondTarget ? relatedNpcId : null
         const actionId = createActionId()
         const resolutionRoll = Math.random()
         const speechPayload = buildSchemeSpeechPayload({
@@ -358,7 +381,7 @@ export function SchemePanel() {
             id: actionId,
             targetNpcId: selectedNpcId,
             schemeType: selectedScheme,
-            relatedNpcId: relatedNpcId ?? undefined,
+            relatedNpcId: effectiveRelatedNpcId ?? undefined,
             playerSpeech: speechPayload.playerSpeech,
             omenSpeechInput: speechPayload.omenSpeechInput,
             resolutionRoll,
@@ -383,7 +406,7 @@ export function SchemePanel() {
 
         const npcSnapshot = { ...selectedNpc }
         const speechSnapshot = speechPayload.playerSpeech
-        const relatedNpcSnapshot = relatedNpcId ? npcs.find(npc => npc.id === relatedNpcId) ?? null : null
+        const relatedNpcSnapshot = effectiveRelatedNpcId ? npcs.find(npc => npc.id === effectiveRelatedNpcId) ?? null : null
         const previousActions = currentSchemes.filter(item => item.targetNpcId === selectedNpcId).length
         const knownSecretThreads = npcSnapshot.secretThreads.slice(0, intelProgress[npcSnapshot.id] ?? 0)
         const dynamicContext = buildNpcPromptDynamicContext({
@@ -626,7 +649,9 @@ export function SchemePanel() {
                                         <div className="scheme-select-grid">
                                             {SCHEMES.map(scheme => {
                                                 if (scheme.targetScope === 'externalOnly' && selectedNpc.powerBase !== 'external') return null
-                                                const available = availableSchemeTypes.includes(scheme.type)
+                                                const available = scheme.type === 'proxy'
+                                                    ? availableSchemeTypes.includes(scheme.type) && isCourtDispositionExecutor(selectedNpc)
+                                                    : availableSchemeTypes.includes(scheme.type)
                                                 const unlockHint = available
                                                     ? undefined
                                                     : getSchemeUnlockHint({
@@ -647,6 +672,7 @@ export function SchemePanel() {
                                                             disabled={!available}
                                                             onClick={() => {
                                                                 setSelectedScheme(scheme.type)
+                                                                if (!scheme.needsSecondTarget) setRelatedNpcId(null)
                                                                 setSpeech('')
                                                                 setOmenText('')
                                                                 setInterpretationText('')
@@ -670,7 +696,7 @@ export function SchemePanel() {
                                     <div className="step animate-slide-up">
                                         <h3 className="step-title"><span className="step-num">叁</span> 选择关联人物</h3>
                                         <div className="npc-select-grid">
-                                            {aliveNpcs.filter(npc => npc.id !== selectedNpcId).map(npc => (
+                                            {relatedNpcCandidates.map(npc => (
                                                 <button
                                                     key={npc.id}
                                                     className={`npc-select-btn ${relatedNpcId === npc.id ? 'selected' : ''}`}
@@ -692,6 +718,11 @@ export function SchemePanel() {
                                                 </button>
                                             ))}
                                         </div>
+                                        {selectedScheme === 'proxy' && relatedNpcCandidates.length === 0 && (
+                                            <p className="scheme-related-empty">
+                                                眼下没有仍在位、且可被罢黜或处决的朝臣目标。
+                                            </p>
+                                        )}
                                     </div>
                                 )}
                             </div>

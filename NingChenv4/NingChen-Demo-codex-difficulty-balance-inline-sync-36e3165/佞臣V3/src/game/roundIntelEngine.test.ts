@@ -100,13 +100,22 @@ describe('roundIntelEngine', () => {
         expect(failed).toContain('南陈征蜀受挫')
     })
 
-    it('adds a borrowed-blade hint when a supported target is already near disposal', () => {
+    it('builds a favor-based court disposition hint instead of old disposal-stage wording', () => {
         const hint = buildBorrowedBladeAdvisorHint(
-            INITIAL_NPCS.map(npc => npc.id === 'zuting' ? { ...npc, disposalStage: 'disposable' } : { ...npc }),
+            INITIAL_NPCS.map(npc => npc.id === 'zuting'
+                ? {
+                    ...npc,
+                    emperorFavor: 18,
+                    empressDowagerFavor: 16,
+                    courtStatus: 'active',
+                } as any
+                : { ...npc }),
         )
 
         expect(hint).toContain('祖廷')
-        expect(hint).toContain('借刀')
+        expect(hint).toContain('可处决')
+        expect(hint).toContain('皇帝恩宠')
+        expect(hint).not.toContain('借刀边缘')
     })
 
     it('builds a dedicated omen teaching hint on the first omen round', () => {

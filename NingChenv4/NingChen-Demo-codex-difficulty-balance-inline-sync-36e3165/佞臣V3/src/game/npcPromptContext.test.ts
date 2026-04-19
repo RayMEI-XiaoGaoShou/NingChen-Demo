@@ -115,4 +115,39 @@ describe('npcPromptContext', () => {
         expect(context.recentCourtFortune).toContain('近来独孤文约表面仍循旧章')
         expect(context.factionPressure).toContain('后党想把他当压舱石')
     })
+
+    it('surfaces court favor deterioration in dynamic prompt context', () => {
+        const npc = {
+            ...INITIAL_NPCS.find(item => item.id === 'zuting')!,
+            emperorFavor: 30,
+            empressDowagerFavor: 29,
+            courtStatus: 'active',
+        } as any
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+        })
+
+        expect(context.recentCourtFortune).toContain('御前恩宠')
+        expect(context.recentCourtFortune).toContain('帘前眷顾')
+    })
+
+    it('calls out when neither side is willing to protect a court target', () => {
+        const npc = {
+            ...INITIAL_NPCS.find(item => item.id === 'zuting')!,
+            emperorFavor: 18,
+            empressDowagerFavor: 17,
+            courtStatus: 'active',
+        } as any
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+        })
+
+        expect(context.recentCourtFortune).toContain('两边都不愿保')
+    })
 })

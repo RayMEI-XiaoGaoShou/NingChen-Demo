@@ -64,6 +64,22 @@ describe('CourtView card presentation', () => {
         expect(markup).not.toContain('npc-portrait-shell')
     })
 
+    it('renders court favor chips and includes threshold labels for disposition targets', () => {
+        const markup = renderCourtViewMarkup()
+
+        expect(markup).toContain('皇帝恩宠 26')
+        expect(markup).toContain('太后眷顾 82')
+        expect(courtViewSource).toContain('可罢黜')
+        expect(courtViewSource).toContain('可处决')
+    })
+
+    it('marks dismissed or executed court targets as terminal cards with no reaction text', () => {
+        expect(courtViewSource).toContain("courtStatus === 'active'")
+        expect(courtViewSource).toContain("getCourtStatus(npc) !== 'active'")
+        expect(courtViewSource).toContain('getCourtStatusLabel(courtStatus)')
+        expect(courtViewSource).toContain('getCoreCourtStatusLabel')
+    })
+
     it('shows three external metric blocks with hover explanations and no summary metrics row', () => {
         useGameStore.setState({
             currentRound: 7,

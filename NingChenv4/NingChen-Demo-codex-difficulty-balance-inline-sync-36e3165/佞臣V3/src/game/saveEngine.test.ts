@@ -210,4 +210,48 @@ const initialSchemeOnboardingSeen = {
         expect(loaded?.currentSchemes[0]?.followUp?.status).toBe('answered')
         expect(loaded?.currentSchemes[0]?.followUp?.parse?.successRateDelta).toBe(0.07)
     })
+
+    it('fills court disposition fields when building and loading older npc snapshots', () => {
+        const oldNpcs = INITIAL_NPCS.map(npc => {
+            const { emperorFavor, empressDowagerFavor, courtStatus, ...legacyNpc } = npc as any
+            return legacyNpc
+        })
+        const snapshot = buildPersistedSnapshot({
+            ...createBaseState(),
+            prologueStep: 'INGAME',
+            npcs: oldNpcs,
+            roundStartSnapshot: {
+                ...createBaseState(),
+                prologueStep: 'INGAME',
+                npcs: oldNpcs,
+            },
+        })
+
+        expect(snapshot).toBeTruthy()
+        const savedZuting = snapshot?.npcs.find(npc => npc.id === 'zuting') as any
+        const savedRoundStartZuting = snapshot?.roundStartSnapshot?.npcs.find(npc => npc.id === 'zuting') as any
+        expect(savedZuting.emperorFavor).toBe(26)
+        expect(savedZuting.empressDowagerFavor).toBe(82)
+        expect(savedZuting.courtStatus).toBe('active')
+        expect(savedRoundStartZuting.emperorFavor).toBe(26)
+
+        const localStorage = createLocalStorageMock()
+        vi.stubGlobal('localStorage', localStorage)
+        localStorage.setItem('ningchen-save-v1', JSON.stringify({
+            ...snapshot,
+            npcs: oldNpcs,
+            roundStartSnapshot: {
+                ...snapshot!.roundStartSnapshot,
+                npcs: oldNpcs,
+            },
+        }))
+
+        const loaded = loadGameSnapshot()
+        const loadedZuting = loaded?.npcs.find(npc => npc.id === 'zuting') as any
+        const loadedRoundStartZuting = loaded?.roundStartSnapshot?.npcs.find(npc => npc.id === 'zuting') as any
+        expect(loadedZuting.emperorFavor).toBe(26)
+        expect(loadedZuting.empressDowagerFavor).toBe(82)
+        expect(loadedZuting.courtStatus).toBe('active')
+        expect(loadedRoundStartZuting.emperorFavor).toBe(26)
+    })
 })

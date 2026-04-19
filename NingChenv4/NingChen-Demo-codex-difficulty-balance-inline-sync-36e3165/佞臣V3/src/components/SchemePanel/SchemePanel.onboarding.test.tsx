@@ -22,7 +22,8 @@ describe('SchemePanel onboarding flows', () => {
         expect(markup).toContain('六种计谋，各有用处')
         expect(markup).toContain('献策')
         expect(markup).toContain('设局嫁祸')
-        expect(markup).toContain('地方军头不适用“借刀处决”链路')
+        expect(markup).toContain('削低两边庇护')
+        expect(markup).toContain('再借贺拔琪或宗艾收网')
     })
 
     it('renders top-right buttons for reopening the scheme guide and gameplay guide', () => {
