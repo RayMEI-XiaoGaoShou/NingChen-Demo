@@ -16,8 +16,13 @@ export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' |
 export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
 export type AdvicePolarity = 'pro_state' | 'pro_target_anti_state' | 'neutral_or_vague'
 export type OmenPolarity = 'legitimizing' | 'destabilizing' | 'vague_or_ceremonial'
-export type BorrowedBladeDisposalStage = 'safe' | 'questioned' | 'isolated' | 'disposable'
-export type BorrowedBladeOutcome = 'failed' | 'light' | 'heavy' | 'kill'
+export type CourtStatus = 'active' | 'dismissed' | 'executed'
+export type CourtDispositionOpportunity = 'safe' | 'dismissible' | 'executable'
+export type BorrowedBladeOutcome =
+    | 'failed'
+    | 'pressure'
+    | 'dismissed'
+    | 'executed'
 export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
@@ -96,6 +101,15 @@ export interface NationDimensions {
     governance: number
 }
 
+export interface CourtDispositionPenalty {
+    nation: Partial<NationDimensions>
+    faction: Partial<Record<CourtFactionId, {
+        militaryPower: number
+        courtInfluence: number
+        internalStability: number
+    }>>
+}
+
 export const DIMENSION_WEIGHTS: Record<keyof NationDimensions, number> = {
     finance: 0.18,
     grain: 0.22,
@@ -127,8 +141,10 @@ export interface NPC {
     schemeHooks: string
     trust: number
     isAlive: boolean
-    disposalStage?: BorrowedBladeDisposalStage
-    deathCause?: 'borrowed_blade' | null
+    emperorFavor?: number
+    empressDowagerFavor?: number
+    courtStatus?: CourtStatus
+    deathCause?: 'borrowed_blade' | 'court_execution' | null
     deathByNpcId?: string | null
     deathByNpcName?: string | null
     deathRound?: number | null

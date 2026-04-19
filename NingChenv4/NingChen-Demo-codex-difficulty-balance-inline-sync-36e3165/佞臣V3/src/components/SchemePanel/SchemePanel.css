@@ -452,6 +452,13 @@
     line-height: 1.7;
 }
 
+.scheme-related-empty {
+    margin: var(--spacing-sm) 0 0;
+    color: var(--color-text-dim);
+    font-size: var(--font-size-sm);
+    line-height: 1.7;
+}
+
 .scheme-preview-chip-list {
     display: flex;
     flex-wrap: wrap;

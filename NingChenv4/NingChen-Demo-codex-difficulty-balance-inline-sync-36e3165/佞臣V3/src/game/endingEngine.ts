@@ -1,4 +1,5 @@
 import { checkFactionCollapse } from './nationEngine'
+import { normalizeCourtDispositionNpc } from './courtDisposition'
 import type { EndingNpcFate, EndingReport, Faction, GameResult, NPC } from './types'
 
 const DEATH_ENDING_TITLES: Record<string, string> = {
@@ -256,7 +257,7 @@ function buildFactionOutlook(
 }
 
 function buildNpcFates(npcs: NPC[], factions: Faction[]): EndingNpcFate[] {
-    const focusNames = ['宇文棣', '贺拔琪', '祖廷', '令狐律光', '贺拔伯圭', '尔朱烈']
+    const focusNames = ['宇文棣', '贺拔琪', '祖廷', '令狐律光', '尉迟暮', '贺拔伯圭', '尔朱烈']
     const focusNpcs = focusNames
         .map(name => npcs.find(npc => npc.name === name))
         .filter((npc): npc is NPC => Boolean(npc))
@@ -272,8 +273,12 @@ function buildNpcFates(npcs: NPC[], factions: Faction[]): EndingNpcFate[] {
 }
 
 function summarizeNpcFateWithBorrowedBlade(npc: NPC, factions: Faction[]): string {
-    if (!npc.isAlive && npc.deathCause === 'borrowed_blade') {
-        return `${npc.name}死于借刀之局，${npc.deathByNpcName ?? '朝中权臣'}顺着裂缝将他正式推出了朝局。`
+    const courtNpc = normalizeCourtDispositionNpc(npc)
+    if (courtNpc.courtStatus === 'dismissed') {
+        return `${courtNpc.name}已被罢黜离席，性命尚存，却不再是终局桌上的执棋人。`
+    }
+    if (courtNpc.courtStatus === 'executed' || (npc as { deathCause?: string | null }).deathCause === 'court_execution') {
+        return `${courtNpc.name}已被处决，${npc.deathByNpcName ?? '太后或御前'}借朝堂名分正式收网。`
     }
 
     return summarizeNpcFate(npc, factions)

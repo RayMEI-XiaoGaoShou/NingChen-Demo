@@ -44,7 +44,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'proxy',
         name: '借刀',
-        description: '借别人之势去压人或剪除阻力',
+        description: '借贺拔琪或宗艾之手，对已同时失去皇帝恩宠与太后眷顾的朝臣正式收网',
         trustThreshold: 70,
         riskLevel: 'extreme',
         needsSecondTarget: true,

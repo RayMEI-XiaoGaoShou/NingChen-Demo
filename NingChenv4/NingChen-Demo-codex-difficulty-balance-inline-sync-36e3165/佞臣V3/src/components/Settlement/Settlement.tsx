@@ -413,6 +413,28 @@ export function Settlement() {
                     </div>
                 </div>
 
+                {lastSettlement?.borrowedBladeReports && lastSettlement.borrowedBladeReports.length > 0 && (
+                    <div className="results-section animate-slide-up animate-delay-3">
+                        <h3 className="section-title">朝堂收网</h3>
+                        <div className="results-list">
+                            {lastSettlement.borrowedBladeReports.map(report => (
+                                <div
+                                    key={`${report.actorNpcId}-${report.targetNpcId}-${report.outcome}`}
+                                    className={`result-card glass-panel ${report.outcome === 'executed' ? 'failure' : 'success'}`}
+                                >
+                                    <div className="result-header">
+                                        <div className="result-info">
+                                            <span className="result-scheme">{report.outcome === 'executed' ? '处决' : report.outcome === 'dismissed' ? '罢黜' : '施压'}</span>
+                                            <span className="result-index">{report.actorNpcName} → {report.targetNpcName}</span>
+                                        </div>
+                                    </div>
+                                    <p className="result-text">{report.summary}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {lastSettlement?.policyReport && (
                     <div className="results-section animate-slide-up animate-delay-3">
                         <h3 className="section-title">南陈回信</h3>

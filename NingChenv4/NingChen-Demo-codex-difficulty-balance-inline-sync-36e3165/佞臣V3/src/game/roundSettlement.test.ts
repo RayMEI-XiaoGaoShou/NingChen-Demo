@@ -842,19 +842,112 @@ describe('settleRound layered settlement', () => {
         expect(result.externalActionReports?.[0]?.outcome).toContain('击退平叛军队后割据一方')
     })
 
-    it('lets proxy finish a disposable court target through the borrowed-blade chain', () => {
+    it('lets frame and omen both erode dual court favor, but omen hits the nation harder', () => {
         const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+
+        const frameResult = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'court-frame',
+                    targetNpcId: zuting.id,
+                    schemeType: 'frame',
+                    playerSpeech: '只要把失言坐实成越权口实，前朝与帷前都不会再替他圆场。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.78,
+                        eventFit: 0.72,
+                        structuralPenetration: 0.74,
+                        executability: 0.75,
+                        exposureRisk: 0.18,
+                        financeRelevance: 0.2,
+                        grainRelevance: 0.24,
+                        militaryRelevance: 0.3,
+                        socialOrderRelevance: 0.28,
+                        governanceRelevance: 0.42,
+                        dominantIntent: 'divide',
+                        selfTrapPotential: 0.86,
+                        scapegoatClarity: 0.81,
+                        legitimacyCrack: 0,
+                        omenPolarity: 'vague_or_ceremonial',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === zuting.id ? { ...npc, trust: 72 } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const omenResult = settleRound({
+            round: 14,
+            schemes: [
+                {
+                    id: 'court-omen',
+                    targetNpcId: zuting.id,
+                    schemeType: 'omen',
+                    playerSpeech: '异兆既落在他头上，只需把名分裂口点透，前朝与帷前自会同时起疑。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.76,
+                        eventFit: 0.74,
+                        structuralPenetration: 0.74,
+                        executability: 0.72,
+                        exposureRisk: 0.2,
+                        financeRelevance: 0.26,
+                        grainRelevance: 0.34,
+                        militaryRelevance: 0.18,
+                        socialOrderRelevance: 0.52,
+                        governanceRelevance: 0.68,
+                        dominantIntent: 'divide',
+                        selfTrapPotential: 0,
+                        scapegoatClarity: 0,
+                        legitimacyCrack: 0.88,
+                        omenPolarity: 'destabilizing',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === zuting.id ? { ...npc, trust: 72 } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const framedTarget = frameResult.updatedNpcs.find((npc: any) => npc.id === zuting.id)
+        const omenTarget = omenResult.updatedNpcs.find((npc: any) => npc.id === zuting.id)
+
+        expect(framedTarget?.emperorFavor).toBe(18)
+        expect(framedTarget?.empressDowagerFavor).toBe(74)
+        expect(omenTarget?.emperorFavor).toBe(20)
+        expect(omenTarget?.empressDowagerFavor).toBe(75)
+        expect(omenResult.northStatsAfter.governance).toBeLessThan(frameResult.northStatsAfter.governance)
+    })
+
+    it('lets the valid executor use proxy to execute a dual-threshold court target', () => {
+        const hebaqi = INITIAL_NPCS.find(npc => npc.id === 'hebaqí')!
         const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
 
         const result = settleRound({
             round: 12,
             schemes: [
                 {
-                    id: 'borrowed-blade-kill',
-                    targetNpcId: zuting.id,
+                    id: 'court-execution',
+                    targetNpcId: hebaqi.id,
                     relatedNpcId: yuwendi.id,
                     schemeType: 'proxy',
-                    playerSpeech: '此刻只需顺着河北失序与主战失当的口实再推一步，燕王便会先被推出去担责。',
+                    playerSpeech: '两边都已不肯保他，此刻只消借太后之手，把收网的名分坐实即可。',
                     resolutionRoll: 0.01,
                     northParse: {
                         characterFit: 0.78,
@@ -878,11 +971,16 @@ describe('settleRound layered settlement', () => {
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
             npcs: INITIAL_NPCS.map(npc => {
-                if (npc.id === zuting.id) {
+                if (npc.id === hebaqi.id) {
                     return { ...npc, trust: 86 }
                 }
                 if (npc.id === yuwendi.id) {
-                    return { ...npc, disposalStage: 'disposable' as const }
+                    return {
+                        ...npc,
+                        emperorFavor: 18,
+                        empressDowagerFavor: 16,
+                        courtStatus: 'active' as const,
+                    }
                 }
                 return { ...npc }
             }),
@@ -895,8 +993,91 @@ describe('settleRound layered settlement', () => {
         const updatedYuwendi = result.updatedNpcs.find((npc: any) => npc.id === yuwendi.id)
 
         expect(updatedYuwendi?.isAlive).toBe(false)
-        expect(updatedYuwendi?.deathCause).toBe('borrowed_blade')
-        expect(updatedYuwendi?.deathByNpcName).toBe('祖廷')
-        expect(result.borrowedBladeReports?.[0]?.outcome).toBe('kill')
+        expect(updatedYuwendi?.courtStatus).toBe('executed')
+        expect(updatedYuwendi?.deathCause).toBe('court_execution')
+        expect(updatedYuwendi?.deathByNpcName).toBe('贺拔琪')
+        expect(result.borrowedBladeReports?.[0]?.outcome).toBe('executed')
+    })
+
+    it('skips later same-round schemes once a court target has been executed', () => {
+        const hebaqi = INITIAL_NPCS.find(npc => npc.id === 'hebaqí')!
+        const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
+
+        const result = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'court-execution-first',
+                    targetNpcId: hebaqi.id,
+                    relatedNpcId: yuwendi.id,
+                    schemeType: 'proxy',
+                    playerSpeech: '两边都已不肯保他，此刻只消借太后之手，把收网的名分坐实即可。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.78,
+                        eventFit: 0.76,
+                        structuralPenetration: 0.8,
+                        executability: 0.72,
+                        exposureRisk: 0.18,
+                        financeRelevance: 0.14,
+                        grainRelevance: 0.24,
+                        militaryRelevance: 0.42,
+                        socialOrderRelevance: 0.38,
+                        governanceRelevance: 0.54,
+                        dominantIntent: 'divide',
+                        suspicionTransmission: 0.2,
+                        fractureTransmission: 0.3,
+                        proxyTransmission: 0.82,
+                        evidence: [],
+                    },
+                },
+                {
+                    id: 'executed-target-should-not-act',
+                    targetNpcId: yuwendi.id,
+                    schemeType: 'advise',
+                    playerSpeech: '此后仍请殿下替我筹谋。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.9,
+                        eventFit: 0.8,
+                        structuralPenetration: 0.5,
+                        executability: 0.8,
+                        exposureRisk: 0.1,
+                        financeRelevance: 0.4,
+                        grainRelevance: 0.4,
+                        militaryRelevance: 0.4,
+                        socialOrderRelevance: 0.4,
+                        governanceRelevance: 0.4,
+                        dominantIntent: 'strategize',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => {
+                if (npc.id === hebaqi.id) return { ...npc, trust: 86 }
+                if (npc.id === yuwendi.id) {
+                    return {
+                        ...npc,
+                        trust: 50,
+                        emperorFavor: 18,
+                        empressDowagerFavor: 16,
+                        courtStatus: 'active' as const,
+                    }
+                }
+                return { ...npc }
+            }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedYuwendi = result.updatedNpcs.find((npc: any) => npc.id === yuwendi.id)
+
+        expect(result.schemeResults).toHaveLength(1)
+        expect(updatedYuwendi?.courtStatus).toBe('executed')
+        expect(updatedYuwendi?.trust).toBeLessThan(50)
     })
 })

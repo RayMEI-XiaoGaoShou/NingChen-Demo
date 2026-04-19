@@ -194,3 +194,45 @@
     font-size: var(--font-size-xs);
     line-height: 1.5;
 }
+
+.court-favor-section {
+    padding: 12px;
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    border-radius: var(--radius-sm);
+    background: rgba(201, 176, 101, 0.05);
+}
+
+.court-terminal-section {
+    border-color: rgba(230, 179, 101, 0.28);
+    background: rgba(230, 179, 101, 0.07);
+}
+
+.court-favor-chip {
+    border-color: rgba(201, 176, 101, 0.28);
+    color: var(--color-text-primary);
+}
+
+.court-status-chip {
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.court-status-active {
+    color: var(--color-safe-light);
+    border-color: rgba(111, 181, 137, 0.34);
+}
+
+.court-status-dismissed {
+    color: var(--color-warning-light);
+    border-color: rgba(230, 179, 101, 0.42);
+}
+
+.court-status-executed {
+    color: var(--color-danger-light);
+    border-color: rgba(212, 76, 76, 0.44);
+}
+
+.court-terminal-copy,
+.court-terminal-note {
+    margin-top: var(--spacing-xs);
+}

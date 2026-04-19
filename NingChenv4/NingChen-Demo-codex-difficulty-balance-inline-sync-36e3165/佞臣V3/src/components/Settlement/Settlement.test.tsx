@@ -63,4 +63,10 @@ describe('Settlement source contract', () => {
         expect(roundSettlementSource).toContain('question: string')
         expect(roundSettlementSource).toContain('question: question.question')
     })
+
+    it('renders court disposition reports as their own settlement section', () => {
+        expect(settlementSource).toContain('朝堂收网')
+        expect(settlementSource).toContain('lastSettlement.borrowedBladeReports.map')
+        expect(roundSettlementSource).toContain('朝堂收网${borrowedBladeReports.length}次')
+    })
 })

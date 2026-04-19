@@ -547,7 +547,7 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(Math.abs(structural.nationEffects.grain ?? 0)).toBeGreaterThan(0)
     })
 
-    it('keeps proxy mostly personal unless the borrowed knife creates public consequences', () => {
+    it('keeps proxy personal at scheme-engine level and leaves public consequences to court disposition settlement', () => {
         const yuwendi = { ...INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!, trust: 64 }
         const zuting = { ...INITIAL_NPCS.find(npc => npc.id === 'zuting')!, trust: 58 }
 
@@ -594,7 +594,7 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(privatePush.relatedTrustChange).toBeLessThan(0)
         expect(privatePush.nationEffects.governance ?? 0).toBe(0)
         expect(privatePush.nationEffects.finance ?? 0).toBe(0)
-        expect(Math.abs(publicStrike.nationEffects.governance ?? 0)).toBeGreaterThan(0)
+        expect(publicStrike.nationEffects.governance ?? 0).toBe(0)
     })
 
     it('does not reduce external military strength from generic advice unless the parse marks war relevance', () => {

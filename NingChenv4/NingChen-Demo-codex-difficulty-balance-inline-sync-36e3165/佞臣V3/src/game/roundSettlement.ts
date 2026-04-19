@@ -19,15 +19,14 @@ import { deriveCampaignMomentumGain } from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
 import { getRoundCampaignEventContext } from './campaignDisplayEngine'
+import { isTerminalCourtDispositionNpc, seedCourtDispositionNpc } from './courtDisposition'
+import {
+    deriveCourtDispositionNationDamage,
+    deriveCourtFavorHit,
+    resolveCourtDispositionProxy,
+} from './courtDispositionEngine'
 import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
-import {
-    advanceBorrowedBladeStage,
-    buildBorrowedBladeReport,
-    getBorrowedBladeStage,
-    normalizeBorrowedBladeNpc,
-    resolveBorrowedBladeProxy,
-} from './borrowedBladeEngine'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
@@ -149,7 +148,7 @@ export function settleRound(params: {
     let huainanCampaign = cloneCampaign(params.huainanCampaign)
     let shuMomentum = params.shuMomentum ?? 0
     let huainanMomentum = params.huainanMomentum ?? 0
-    let updatedNpcs = params.npcs.map(npc => normalizeBorrowedBladeNpc({ ...npc }))
+    let updatedNpcs: NPC[] = params.npcs.map(npc => seedCourtDispositionNpc({ ...npc }))
     let factionsAfter = params.factions.map(faction => ({ ...faction }))
     let relationshipsAfter = (params.relationships ?? INITIAL_RELATIONSHIP_EDGES).map(edge => ({ ...edge }))
     const trustChanges: Record<string, number> = {}
@@ -205,11 +204,15 @@ export function settleRound(params: {
             : null
 
         if (!targetNpc) continue
+        if (isTerminalCourtDispositionNpc(targetNpc)) continue
+        const schemeNeedsSecondTarget = action.schemeType === 'slander' || action.schemeType === 'alienate' || action.schemeType === 'proxy'
+        if (schemeNeedsSecondTarget && (!relatedNpc || isTerminalCourtDispositionNpc(relatedNpc))) continue
+        const activeRelatedNpc = relatedNpc && !isTerminalCourtDispositionNpc(relatedNpc) ? relatedNpc : null
 
         const result = settleScheme(
             action,
             targetNpc,
-            relatedNpc,
+            activeRelatedNpc,
             actionsPerNpc[action.targetNpcId] ?? 0,
             {
                 round,
@@ -224,10 +227,10 @@ export function settleRound(params: {
         applyPersonEffects(targetNpc, result.personEffects.trustDelta, result.personEffects.loyaltyDelta, result.personEffects.alignmentShift, result.personEffects.externalStatus)
         trustChanges[targetNpc.id] = (trustChanges[targetNpc.id] ?? 0) + result.personEffects.trustDelta
 
-        if (relatedNpc) {
-            applyPersonEffects(relatedNpc, result.personEffects.relatedTrustDelta, result.personEffects.relatedLoyaltyDelta, null, null)
+        if (activeRelatedNpc) {
+            applyPersonEffects(activeRelatedNpc, result.personEffects.relatedTrustDelta, result.personEffects.relatedLoyaltyDelta, null, null)
             if (result.personEffects.relatedTrustDelta !== 0) {
-                trustChanges[relatedNpc.id] = (trustChanges[relatedNpc.id] ?? 0) + result.personEffects.relatedTrustDelta
+                trustChanges[activeRelatedNpc.id] = (trustChanges[activeRelatedNpc.id] ?? 0) + result.personEffects.relatedTrustDelta
             }
         }
 
@@ -235,77 +238,96 @@ export function settleRound(params: {
             intelUnlocks[targetNpc.id] = (intelUnlocks[targetNpc.id] ?? 0) + result.personEffects.intelDelta
         }
 
-        if (action.schemeType === 'slander' && relatedNpc && relatedNpc.isAlive) {
-            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(relatedNpc), {
-                schemeType: 'slander',
-                success: result.success,
-                transmission: result.northParse.suspicionTransmission ?? 0,
-                scapegoat: 0,
-                legitimacyCrack: 0,
-            })
-            relatedNpc.disposalStage = nextStage
+        if (action.schemeType === 'slander' && activeRelatedNpc && activeRelatedNpc.isAlive) {
+            applyCourtFavorHitToNpc(
+                activeRelatedNpc,
+                deriveCourtFavorHit({
+                    schemeType: 'slander',
+                    actorNpc: targetNpc,
+                    targetNpc: activeRelatedNpc,
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
         }
 
-        if (action.schemeType === 'alienate' && relatedNpc && relatedNpc.isAlive) {
-            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(relatedNpc), {
-                schemeType: 'alienate',
-                success: result.success,
-                transmission: result.northParse.fractureTransmission ?? 0,
-                scapegoat: 0,
-                legitimacyCrack: 0,
-            })
-            relatedNpc.disposalStage = nextStage
+        if (action.schemeType === 'alienate' && activeRelatedNpc && activeRelatedNpc.isAlive) {
+            applyCourtFavorHitToNpc(
+                activeRelatedNpc,
+                deriveCourtFavorHit({
+                    schemeType: 'alienate',
+                    actorNpc: targetNpc,
+                    targetNpc: activeRelatedNpc,
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
         }
 
         if (action.schemeType === 'frame' && targetNpc.isAlive) {
-            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(targetNpc), {
-                schemeType: 'frame',
-                success: result.success,
-                transmission: 0,
-                scapegoat: Math.max(result.northParse.selfTrapPotential ?? 0, result.northParse.scapegoatClarity ?? 0),
-                legitimacyCrack: 0,
-            })
-            targetNpc.disposalStage = nextStage
+            applyCourtFavorHitToNpc(
+                targetNpc,
+                deriveCourtFavorHit({
+                    schemeType: 'frame',
+                    actorNpc: targetNpc,
+                    targetNpc,
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
+            northStats = applyDimensionChanges(
+                northStats,
+                deriveCourtDispositionNationDamage({
+                    schemeType: 'frame',
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
         }
 
         if (action.schemeType === 'omen' && targetNpc.isAlive) {
-            const nextStage = advanceBorrowedBladeStage(getBorrowedBladeStage(targetNpc), {
-                schemeType: 'omen',
-                success: result.success,
-                transmission: 0,
-                scapegoat: 0,
-                legitimacyCrack: result.northParse.legitimacyCrack ?? 0,
-                omenPolarity: result.northParse.omenPolarity,
-            })
-            targetNpc.disposalStage = nextStage
+            applyCourtFavorHitToNpc(
+                targetNpc,
+                deriveCourtFavorHit({
+                    schemeType: 'omen',
+                    actorNpc: targetNpc,
+                    targetNpc,
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
+            northStats = applyDimensionChanges(
+                northStats,
+                deriveCourtDispositionNationDamage({
+                    schemeType: 'omen',
+                    success: result.success,
+                    parse: result.northParse,
+                }),
+            )
         }
 
-        if (action.schemeType === 'proxy' && relatedNpc && relatedNpc.isAlive) {
-            const proxyResolution = resolveBorrowedBladeProxy({
+        if (action.schemeType === 'proxy' && activeRelatedNpc && activeRelatedNpc.isAlive) {
+            const proxyResolution = resolveCourtDispositionProxy({
                 round,
                 actorNpc: targetNpc,
-                targetNpc: relatedNpc,
+                targetNpc: activeRelatedNpc,
                 parse: result.northParse,
                 success: result.success,
             })
 
             if (proxyResolution) {
-                relatedNpc.disposalStage = proxyResolution.nextStage
-                if (proxyResolution.kill) {
-                    relatedNpc.isAlive = false
-                    relatedNpc.militaryPower = 0
-                    relatedNpc.deathCause = 'borrowed_blade'
-                    relatedNpc.deathByNpcId = targetNpc.id
-                    relatedNpc.deathByNpcName = targetNpc.name
-                    relatedNpc.deathRound = round
-                }
+                applyCourtDispositionUpdates(activeRelatedNpc, proxyResolution.targetUpdates)
+                northStats = applyDimensionChanges(northStats, proxyResolution.nationPenalty)
+                factionsAfter = applyFactionEffects(factionsAfter, proxyResolution.factionPenalty as Partial<Record<CourtFactionId, FactionVector>>)
                 borrowedBladeReports.push(
-                    buildBorrowedBladeReport({
-                        actorNpc: targetNpc,
-                        targetNpc: relatedNpc,
+                    {
+                        actorNpcId: targetNpc.id,
+                        actorNpcName: targetNpc.name,
+                        targetNpcId: activeRelatedNpc.id,
+                        targetNpcName: activeRelatedNpc.name,
                         outcome: proxyResolution.outcome,
                         summary: proxyResolution.summary,
-                    }),
+                    },
                 )
             }
         }
@@ -313,7 +335,7 @@ export function settleRound(params: {
         factionsAfter = applyFactionEffects(factionsAfter, result.factionEffects)
         northStats = applyDimensionChanges(northStats, result.nationEffects)
 
-        const relationshipShock = deriveRelationshipShock(action, result, targetNpc, relatedNpc, relationshipsAfter)
+        const relationshipShock = deriveRelationshipShock(action, result, targetNpc, activeRelatedNpc, relationshipsAfter)
         if (relationshipShock) {
             const resolved = applyRelationshipShock({
                 edges: relationshipsAfter,
@@ -613,6 +635,23 @@ function applyFactionEffects(
             internalStability: clamp(faction.internalStability + delta.internalStability),
         }
     })
+}
+
+function applyCourtFavorHitToNpc(
+    npc: NPC,
+    hit: { emperorFavorDelta: number; empressDowagerFavorDelta: number },
+) {
+    if (hit.emperorFavorDelta !== 0) {
+        npc.emperorFavor = clamp((npc.emperorFavor ?? 100) + hit.emperorFavorDelta)
+    }
+
+    if (hit.empressDowagerFavorDelta !== 0) {
+        npc.empressDowagerFavor = clamp((npc.empressDowagerFavor ?? 100) + hit.empressDowagerFavorDelta)
+    }
+}
+
+function applyCourtDispositionUpdates(npc: NPC, updates: Partial<NPC>) {
+    Object.assign(npc, updates)
 }
 
 function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'rebellion'): {
@@ -1055,16 +1094,14 @@ function generateSummary(
     southDelta: number,
 ): string {
     const successCount = schemeResults.filter(result => result.success).length
-    void borrowedBladeReports
-    const disposalSummary = borrowedBladeReports.length > 0
-        ? `借刀链上又有${borrowedBladeReports.length}次收口动作。`
+    const dispositionSummary = borrowedBladeReports.length > 0
+        ? `朝堂收网${borrowedBladeReports.length}次，${borrowedBladeReports.map(report => report.summary).join('')}`
         : ''
-    void disposalSummary
     const actionSummary = externalActionReports.length > 0
         ? `另有${externalActionReports.length}股外部势力明牌动作。`
         : '外部势力尚未彻底明牌。'
 
-    return `本回合${schemeResults.length}次计谋中${successCount}次奏效。${actionSummary}北周综合国力${directionLabel(northDelta)}（${signed(northDelta)}），南陈综合国力${directionLabel(southDelta)}（${signed(southDelta)}）。`
+    return `本回合${schemeResults.length}次计谋中${successCount}次奏效。${dispositionSummary}${actionSummary}北周综合国力${directionLabel(northDelta)}（${signed(northDelta)}），南陈综合国力${directionLabel(southDelta)}（${signed(southDelta)}）。`
 }
 
 function directionLabel(value: number): string {

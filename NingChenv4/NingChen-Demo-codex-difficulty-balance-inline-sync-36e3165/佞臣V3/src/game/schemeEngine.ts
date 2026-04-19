@@ -1,6 +1,7 @@
 ﻿import { getSchemeByType } from '../data/schemes'
 import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExternalAction } from '../data/roundRuleConfig'
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
+import { isCourtDispositionExecutor } from './courtDisposition'
 import { getDifficultyProfile } from './difficulty'
 import { isTerminalExternalNpc } from './externalStatus'
 import {
@@ -92,7 +93,9 @@ export function getAvailableSchemesForNpc(
     const { round = 1, unlockedSecrets = 0 } = context
     if (isTerminalExternalNpc(npc)) return []
 
-    const base = getAvailableSchemesForTrust(npc.trust).filter(type => !(npc.powerBase === 'external' && type === 'proxy'))
+    const base = getAvailableSchemesForTrust(npc.trust)
+        .filter(type => !(npc.powerBase === 'external' && type === 'proxy'))
+        .filter(type => type !== 'proxy' || isCourtDispositionExecutor(npc.id))
     const canEscalateExternalAction =
         npc.powerBase === 'external' &&
         npc.isAlive &&
@@ -718,13 +721,6 @@ function getSuccessTemplate(
                 specialAction: null,
             }
         case 'proxy':
-            if (relatedNpc?.powerBase === 'court') {
-                factionEffects = addFactionEffect(factionEffects, relatedNpc.factionId as CourtFactionId, {
-                    militaryPower: -2.2,
-                    internalStability: -2.2,
-                    courtInfluence: -1.1,
-                })
-            }
             return {
                 person: {
                     ...emptyPerson,

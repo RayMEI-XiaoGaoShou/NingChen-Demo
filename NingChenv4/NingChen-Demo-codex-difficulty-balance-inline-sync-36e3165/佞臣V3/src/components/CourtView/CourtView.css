@@ -373,6 +373,12 @@
     gap: 10px;
 }
 
+.npc-favor-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
 .npc-meta-chip {
     display: inline-flex;
     align-items: center;
@@ -383,6 +389,24 @@
     background: rgba(201, 176, 101, 0.05);
     color: var(--color-text-dim);
     font-size: var(--font-size-sm);
+}
+
+.npc-favor-chip {
+    border-color: rgba(201, 176, 101, 0.22);
+    color: var(--color-text-secondary);
+    background: rgba(201, 176, 101, 0.08);
+}
+
+.npc-meta-chip-warning {
+    border-color: rgba(230, 179, 101, 0.42);
+    color: var(--color-warning-light);
+    background: rgba(230, 179, 101, 0.12);
+}
+
+.npc-meta-chip-danger {
+    border-color: rgba(212, 76, 76, 0.46);
+    color: var(--color-danger-light);
+    background: rgba(212, 76, 76, 0.12);
 }
 
 .npc-reaction {
@@ -440,6 +464,11 @@
     font-size: var(--font-size-xl);
     letter-spacing: 8px;
     z-index: 2;
+}
+
+.npc-court-status-overlay {
+    color: var(--color-warning-light);
+    background: rgba(0, 0, 0, 0.74);
 }
 
 .external-block {

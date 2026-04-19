@@ -1,11 +1,16 @@
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
-import type { NPC } from '../../game/types'
+import type { NPC, SchemeType } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import { getExternalTerminalLabel, getExternalTerminalSummary, isTerminalExternalNpc } from '../../game/externalStatus'
+import {
+    getCourtStatusLabel as getCoreCourtStatusLabel,
+    isCourtDispositionTarget as isCourtDispositionTargetId,
+    normalizeCourtDispositionNpc,
+} from '../../game/courtDisposition'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
@@ -24,6 +29,33 @@ function getExternalPostureLabel(npc: NPC): string {
     return '忠顺'
 }
 
+type CourtStatus = 'active' | 'dismissed' | 'executed'
+type CourtDispositionNpc = NPC & {
+    emperorFavor: number
+    empressDowagerFavor: number
+    courtStatus?: CourtStatus
+}
+
+function isCourtDispositionTarget(npc: NPC): boolean {
+    return isCourtDispositionTargetId(npc.id)
+}
+
+function getCourtStatus(npc: NPC): CourtStatus {
+    return (npc as CourtDispositionNpc).courtStatus ?? 'active'
+}
+
+function getCourtStatusLabel(status: CourtStatus): string {
+    return getCoreCourtStatusLabel(status)
+}
+
+function getCourtFavor(npc: NPC) {
+    const courtNpc = normalizeCourtDispositionNpc(npc) as CourtDispositionNpc
+    return {
+        emperorFavor: courtNpc.emperorFavor,
+        empressDowagerFavor: courtNpc.empressDowagerFavor,
+    }
+}
+
 export function NPCDetail() {
     const { npcs, intelProgress, currentRound, difficulty } = useGameStore()
     const { showNpcDetail, detailNpcId, closeNpcDetail } = useUiStore()
@@ -36,7 +68,10 @@ export function NPCDetail() {
     const trustLevel = getTrustLevel(npc.trust)
     const trustLabel = getTrustLabel(npc.trust)
     const isTerminalExternal = isTerminalExternalNpc(npc)
-    const availableSchemeTypes = getAvailableSchemesForNpc(npc, {
+    const courtStatus = getCourtStatus(npc)
+    const isTerminalCourt = isCourtDispositionTarget(npc) && courtStatus !== 'active'
+    const courtFavor = getCourtFavor(npc)
+    const availableSchemeTypes: SchemeType[] = isTerminalCourt ? [] : getAvailableSchemesForNpc(npc, {
         round: currentRound,
         unlockedSecrets: intelProgress[npc.id] ?? 0,
     })
@@ -82,6 +117,26 @@ export function NPCDetail() {
                 <div className={`trust-badge trust-${trustLevel}`}>
                     {trustLabel}
                 </div>
+
+                {isCourtDispositionTarget(npc) && (
+                    <div className={`npc-detail-section court-favor-section ${isTerminalCourt ? 'court-terminal-section' : ''}`}>
+                        <h4>宫中风向</h4>
+                        <div className="detail-metrics">
+                            <span className="metric-chip court-favor-chip">皇帝恩宠 {courtFavor.emperorFavor}</span>
+                            <span className="metric-chip court-favor-chip">太后眷顾 {courtFavor.empressDowagerFavor}</span>
+                            <span className={`metric-chip court-status-chip court-status-${courtStatus}`}>
+                                {getCourtStatusLabel(courtStatus)}
+                            </span>
+                        </div>
+                        {isTerminalCourt && (
+                            <p className="dim court-terminal-copy">
+                                {courtStatus === 'dismissed'
+                                    ? '已经退出朝堂处置链，不再适合继续布局。'
+                                    : '已走死亡终态，不再适合继续布局。'}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 <div className="npc-detail-section">
                     <h4>公开人设</h4>
@@ -145,19 +200,26 @@ export function NPCDetail() {
                     )}
                 </div>
 
-                <div className="npc-detail-section">
-                    <h4>可用计谋</h4>
-                    <div className="scheme-tags">
-                        {SCHEMES.map(scheme => {
-                            const available = availableSchemeTypes.includes(scheme.type)
-                            return (
-                                <span key={scheme.type} className={`scheme-tag ${available ? '' : 'locked'}`}>
-                                    {scheme.name}{!available && ' 🔒'}
-                                </span>
-                            )
-                        })}
+                {!isTerminalCourt ? (
+                    <div className="npc-detail-section">
+                        <h4>可用计谋</h4>
+                        <div className="scheme-tags">
+                            {SCHEMES.map(scheme => {
+                                const available = availableSchemeTypes.includes(scheme.type)
+                                return (
+                                    <span key={scheme.type} className={`scheme-tag ${available ? '' : 'locked'}`}>
+                                        {scheme.name}{!available && ' 🔒'}
+                                    </span>
+                                )
+                            })}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="npc-detail-section court-terminal-note">
+                        <h4>处置结果</h4>
+                        <p className="dim">此人已离开可操作名单，后续不再显示可用计谋。</p>
+                    </div>
+                )}
             </div>
         </div>
     )
