@@ -36,6 +36,26 @@ describe('selectOmenEchoSpeaker', () => {
         expect(selection).not.toBeNull()
         expect(selection?.speakerNpc.id).toBe(viableNpc.id)
     })
+
+    it('excludes non-terminal candidates that have no available schemes', () => {
+        const targetNpc = INITIAL_NPCS.find(npc => npc.powerBase === 'external' && npc.militaryPower === 55)!
+        const unavailableNpc = {
+            ...INITIAL_NPCS.find(npc => npc.id === 'zuting')!,
+            isAlive: true,
+            courtStatus: 'active' as const,
+            availableSchemes: [],
+        }
+        const viableNpc = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
+
+        const selection = selectOmenEchoSpeaker({
+            targetNpc,
+            npcs: [unavailableNpc, viableNpc],
+            relationships: [],
+        })
+
+        expect(selection).not.toBeNull()
+        expect(selection?.speakerNpc.id).toBe(viableNpc.id)
+    })
 })
 
 describe('buildOmenEchoFallbackText', () => {
