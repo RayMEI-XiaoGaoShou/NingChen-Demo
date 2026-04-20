@@ -227,11 +227,18 @@ export function settleRound(params: {
         processedSchemes.push(action)
         delayedBacklash = delayedBacklash.concat(result.delayedBacklash)
 
-        applyPersonEffects(targetNpc, result.personEffects.trustDelta, result.personEffects.loyaltyDelta, result.personEffects.alignmentShift, result.personEffects.externalStatus)
+        applyPersonEffects(
+            targetNpc,
+            result.personEffects.trustDelta,
+            result.personEffects.loyaltyDelta,
+            result.personEffects.militaryPowerDelta,
+            result.personEffects.alignmentShift,
+            result.personEffects.externalStatus,
+        )
         trustChanges[targetNpc.id] = (trustChanges[targetNpc.id] ?? 0) + result.personEffects.trustDelta
 
         if (activeRelatedNpc) {
-            applyPersonEffects(activeRelatedNpc, result.personEffects.relatedTrustDelta, result.personEffects.relatedLoyaltyDelta, null, null)
+            applyPersonEffects(activeRelatedNpc, result.personEffects.relatedTrustDelta, result.personEffects.relatedLoyaltyDelta, 0, null, null)
             if (result.personEffects.relatedTrustDelta !== 0) {
                 trustChanges[activeRelatedNpc.id] = (trustChanges[activeRelatedNpc.id] ?? 0) + result.personEffects.relatedTrustDelta
             }
@@ -607,11 +614,13 @@ function applyPersonEffects(
     npc: NPC,
     trustDelta: number,
     loyaltyDelta: number,
+    militaryPowerDelta: number,
     alignmentShift: NPC['alignmentBias'] | null,
     externalStatus: NPC['externalStatus'] | null,
 ) {
     npc.trust = clamp(npc.trust + trustDelta)
     npc.loyaltyToCourt = clamp(npc.loyaltyToCourt + loyaltyDelta)
+    npc.militaryPower = clamp(npc.militaryPower + militaryPowerDelta)
 
     if (alignmentShift) {
         npc.alignmentBias = alignmentShift

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import { calculateParsedSuccessRate, getAvailableSchemesForNpc, previewSchemeSuccess, settleScheme } from './schemeEngine'
 import type { NorthSchemeParseResult } from './types'
@@ -1115,5 +1115,121 @@ describe('schemeEngine contextual scheme rules', () => {
 
         expect(result.success).toBe(true)
         expect(Math.abs(result.nationEffects.governance ?? 0)).toBeLessThanOrEqual(0.2)
+    })
+
+    it('reduces external military power a little while cutting loyalty more on a strong omen', () => {
+        const externalNpc = {
+            ...INITIAL_NPCS.find(npc => npc.powerBase === 'external')!,
+            trust: 76,
+        }
+
+        const result = settleScheme(
+            {
+                id: 'strong-external-omen',
+                targetNpcId: externalNpc.id,
+                schemeType: 'omen',
+                playerSpeech: '异兆已经落到边镇头上，朝里只要顺势紧一紧粮道与关防，兵心自然会先松一层。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.82,
+                    eventFit: 0.8,
+                    structuralPenetration: 0.78,
+                    executability: 0.74,
+                    exposureRisk: 0.08,
+                    militaryRelevance: 0.74,
+                    socialOrderRelevance: 0.7,
+                    governanceRelevance: 0.76,
+                    omenAccusationClarity: 0.84,
+                    centralSanctionLeverage: 0.82,
+                    legitimacyCrack: 0.8,
+                    suspicionDirection: 0.78,
+                    omenPolarity: 'destabilizing',
+                    evidence: [],
+                }),
+            },
+            externalNpc,
+            null,
+            0,
+            { round: 15, unlockedSecrets: 2 },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.personEffects.militaryPowerDelta).toBeLessThan(0)
+        expect(result.personEffects.loyaltyDelta).toBeLessThan(0)
+        expect(Math.abs(result.personEffects.loyaltyDelta)).toBeGreaterThan(Math.abs(result.personEffects.militaryPowerDelta))
+        expect(Math.abs(result.personEffects.militaryPowerDelta)).toBeGreaterThanOrEqual(1)
+        expect(Math.abs(result.personEffects.militaryPowerDelta)).toBeLessThanOrEqual(3)
+    })
+
+    it('keeps a vague external omen from applying the same military pressure as a strong one', () => {
+        const externalNpc = {
+            ...INITIAL_NPCS.find(npc => npc.powerBase === 'external')!,
+            trust: 76,
+        }
+
+        const weakResult = settleScheme(
+            {
+                id: 'weak-external-omen',
+                targetNpcId: externalNpc.id,
+                schemeType: 'omen',
+                playerSpeech: '风声未必真切，先把话留在风里看它自己散不散。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.44,
+                    eventFit: 0.28,
+                    structuralPenetration: 0.22,
+                    executability: 0.24,
+                    exposureRisk: 0.1,
+                    militaryRelevance: 0.22,
+                    socialOrderRelevance: 0.2,
+                    governanceRelevance: 0.24,
+                    omenAccusationClarity: 0.14,
+                    centralSanctionLeverage: 0.12,
+                    legitimacyCrack: 0.1,
+                    suspicionDirection: 0.1,
+                    omenPolarity: 'vague_or_ceremonial',
+                    evidence: [],
+                }),
+            },
+            externalNpc,
+            null,
+            0,
+            { round: 15, unlockedSecrets: 2 },
+        )
+
+        const strongResult = settleScheme(
+            {
+                id: 'strong-external-omen-comparison',
+                targetNpcId: externalNpc.id,
+                schemeType: 'omen',
+                playerSpeech: '异兆已经落到边镇头上，朝里只要顺势紧一紧粮道与关防，兵心自然会先松一层。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.82,
+                    eventFit: 0.8,
+                    structuralPenetration: 0.78,
+                    executability: 0.74,
+                    exposureRisk: 0.08,
+                    militaryRelevance: 0.74,
+                    socialOrderRelevance: 0.7,
+                    governanceRelevance: 0.76,
+                    omenAccusationClarity: 0.84,
+                    centralSanctionLeverage: 0.82,
+                    legitimacyCrack: 0.8,
+                    suspicionDirection: 0.78,
+                    omenPolarity: 'destabilizing',
+                    evidence: [],
+                }),
+            },
+            externalNpc,
+            null,
+            0,
+            { round: 15, unlockedSecrets: 2 },
+        )
+
+        expect(weakResult.success).toBe(true)
+        expect(strongResult.success).toBe(true)
+        expect(Math.abs(weakResult.personEffects.militaryPowerDelta)).toBeLessThan(Math.abs(strongResult.personEffects.militaryPowerDelta))
+        expect(Math.abs(weakResult.personEffects.loyaltyDelta)).toBeGreaterThanOrEqual(Math.abs(weakResult.personEffects.militaryPowerDelta))
     })
 })

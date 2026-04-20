@@ -989,6 +989,61 @@ describe('settleRound layered settlement', () => {
         expect(omenResult.northStatsAfter.governance).toBeLessThan(frameResult.northStatsAfter.governance)
     })
 
+    it('writes the external omen military-power delta onto the settled NPC', () => {
+        const externalNpc = {
+            ...INITIAL_NPCS.find(npc => npc.powerBase === 'external')!,
+            trust: 76,
+        }
+
+        const result = settleRound({
+            round: 15,
+            schemes: [
+                {
+                    id: 'external-omen-settlement',
+                    targetNpcId: externalNpc.id,
+                    schemeType: 'omen',
+                    playerSpeech: '异兆既落到边镇，朝中自然会先从粮道和关防上收紧一圈。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.82,
+                        eventFit: 0.8,
+                        structuralPenetration: 0.78,
+                        executability: 0.74,
+                        exposureRisk: 0.08,
+                        financeRelevance: 0.2,
+                        grainRelevance: 0.24,
+                        militaryRelevance: 0.74,
+                        socialOrderRelevance: 0.7,
+                        governanceRelevance: 0.76,
+                        dominantIntent: 'strategize',
+                        omenAccusationClarity: 0.84,
+                        centralSanctionLeverage: 0.82,
+                        legitimacyCrack: 0.8,
+                        suspicionDirection: 0.78,
+                        omenPolarity: 'destabilizing',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === externalNpc.id ? { ...npc, trust: externalNpc.trust } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedExternalNpc = result.updatedNpcs.find((npc: any) => npc.id === externalNpc.id)
+        const schemeDelta = result.schemeResults[0]?.personEffects.militaryPowerDelta ?? 0
+
+        expect(schemeDelta).toBeLessThan(0)
+        expect(updatedExternalNpc?.militaryPower).toBe(externalNpc.militaryPower + schemeDelta)
+        expect(updatedExternalNpc?.loyaltyToCourt).toBeLessThan(externalNpc.loyaltyToCourt)
+    })
+
     it('lets the valid executor use proxy to execute a dual-threshold court target', () => {
         const hebaqi = INITIAL_NPCS.find(npc => npc.id === 'hebaqí')!
         const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
