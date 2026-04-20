@@ -6,7 +6,7 @@
     PolicyResolutionMeta,
     SchemeType,
 } from '../game/types'
-import { getTrustLabel } from '../game/types'
+import { getAlignmentLabel, getExternalStatusLabel, getTrustLabel } from '../game/types'
 import type { FengDaozhiDraftContext } from '../game/fengDaozhiAdvisor'
 
 export interface ChatMessage {
@@ -439,6 +439,11 @@ export function buildNorthSchemeParsePrompt(params: {
         secession: '煽动割据',
         rebellion: '煽动造反',
     }
+    const targetTypeLine = params.npc.powerBase === 'external'
+        ? `目标类型：外部军头
+公开数值：军事力量 ${params.npc.militaryPower}、朝廷忠诚 ${params.npc.loyaltyToCourt}、信任 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}、外部状态 ${getExternalStatusLabel(params.npc.externalStatus)}`
+        : `目标类型：朝廷人物
+公开数值：信任 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}`
 
     const schemeSpecificRubric =
         params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'
@@ -454,8 +459,13 @@ export function buildNorthSchemeParsePrompt(params: {
                   '\n- For proxy, actor motive, means, and public consequence must all be present before proxyTransmission scores high; only score proxyTransmission high when the target has motive, means, and the resulting move would create a broader public consequence.'
             : params.schemeType === 'omen'
                 ? '\n- 若是谶纬，必须先看谶辞/征兆本身是否成立，再看解释/指向是否真正触及灾异、天命、名分、法统。' +
+                  '\n- 要明确区分目标类型：若目标是外部军头，必须写明它如何借兵自重、如何在中枢之外形成独立权势。' +
+                  '\n- 若是朝廷人物，则更应看谶辞是否真指向其名分、官阶、派系位置或中枢权力结构，而不是泛泛骂人不祥。' +
                   '\n- 要额外判断它究竟是在劝人修德安民、补法统，还是在借灾异放大名分裂缝与人心疑惧。' +
                   '\n- 若没有明确的征兆锚点，或解释没有把征兆引向名分裂缝与可疑对象，就不得给高 omen 质量。' +
+                  '\n- omenAccusationClarity 看的是这段谶纬是否清楚点出某个具体目标、某条权力链或某个可疑结构，而不是只营造不祥气氛。' +
+                  '\n- centralSanctionLeverage 看的是它是否给中枢留下具体可执行的处置抓手，例如截断粮道、放慢军需、调御史核账、派监军监督、收束诏令、清查账目或加派监督。' +
+                  '\n- 只有当说辞能让中枢抓到明确对象，并顺势提出可执行的中央处置抓手时，才可给高 centralSanctionLeverage。' +
                   '\n- 普通危言耸听、空泛不祥感，不得给高 omen 质量，也不得轻易判成 destabilizing。'
                 : params.schemeType === 'advise' || params.schemeType === 'probe'
                     ? '\n- 若是献策、试探之类稳计，除非说辞真的点出人物、局势与抓手，否则不要轻易给高 structuralPenetration 或高 executability。' +
@@ -497,6 +507,7 @@ export function buildNorthSchemeParsePrompt(params: {
 回合：第${params.round}回合
 事件：${params.eventName}
 局势：${params.eventBriefing}
+${targetTypeLine}
 目标人物：${params.npc.name}（${params.npc.title}），公开人设：${params.npc.publicPersona}
 公开立场：${params.npc.publicStance}
 性格：${params.npc.personality}
@@ -531,6 +542,8 @@ ${speechBlock}
   "socialOrderRelevance": 0-1,
   "governanceRelevance": 0-1,
   "dominantIntent": "neutral|induce|threaten|divide|empathize|strategize",
+  "omenAccusationClarity": 0-1,
+  "centralSanctionLeverage": 0-1,
   "stateBenefit": -1 to 1,
   "targetBenefit": -1 to 1,
   "factionBenefit": -1 to 1,
