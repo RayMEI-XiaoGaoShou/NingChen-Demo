@@ -1,11 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
+import { chatCompletionJson } from '../ai/aiService'
 import {
     fallbackNorthParseFromSpeech,
     fallbackPolicyParseFromReason,
+    parseNorthSchemeInput,
     normalizeNorthSchemeParse,
     normalizePolicyReasonParse,
 } from './aiNativeEngine'
+
+vi.mock('../ai/aiService', () => ({
+    chatCompletionJson: vi.fn(),
+}))
+
+const chatCompletionJsonMock = vi.mocked(chatCompletionJson)
+
+beforeEach(() => {
+    chatCompletionJsonMock.mockReset()
+})
 
 describe('normalizeNorthSchemeParse', () => {
     it('falls back to safe defaults when AI output is invalid', () => {
@@ -100,6 +112,24 @@ describe('normalizeNorthSchemeParse', () => {
         expect(typeof parsed.legitimacyDirection).toBe('number')
     })
 
+    it('scores external-warlord omen suspicion and center sanctions in fallback parsing', () => {
+        const heba = INITIAL_NPCS.find(npc => npc.powerBase === 'external' && npc.militaryPower === 55)!
+
+        const parsed = fallbackNorthParseFromSpeech({
+            speech: '此人借西线军势自重，明面奉朝，暗里却把兵粮和军需卡在手里。若再纵容，可先截断粮道、放慢军需，并派御史与监军核账。',
+            npc: heba,
+            round: 13,
+            schemeType: 'omen',
+            omenSpeechInput: {
+                omenText: '石马夜鸣，西镇军旗忽动。',
+                interpretationText: '此非泛泛不祥，而是直指外镇军头借兵自重，可先截断粮道并派御史监督。',
+            },
+        })
+
+        expect(parsed.omenAccusationClarity).toBeGreaterThan(0.4)
+        expect(parsed.centralSanctionLeverage).toBeGreaterThan(0.4)
+    })
+
     it('normalizes frame specialist fields and omen specialist fields', () => {
         const parsed = normalizeNorthSchemeParse({
             selfTrapPotential: 0.72,
@@ -187,6 +217,60 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.suspicionTransmission ?? 0).toBeLessThan(0.35)
         expect(parsed.fractureTransmission ?? 0).toBeLessThan(0.35)
         expect(parsed.proxyTransmission ?? 0).toBeLessThan(0.35)
+    })
+
+    it('backfills omen-specialized fields when AI output leaves them near zero', async () => {
+        const heba = INITIAL_NPCS.find(npc => npc.powerBase === 'external' && npc.militaryPower === 55)!
+
+        chatCompletionJsonMock.mockResolvedValue({
+            characterFit: 0.18,
+            eventFit: 0.22,
+            structuralPenetration: 0.14,
+            executability: 0.09,
+            exposureRisk: 0.11,
+            financeRelevance: 0.03,
+            grainRelevance: 0.05,
+            militaryRelevance: 0.04,
+            socialOrderRelevance: 0.02,
+            governanceRelevance: 0.08,
+            dominantIntent: 'strategize',
+            omenAccusationClarity: 0,
+            centralSanctionLeverage: 0,
+            stateBenefit: 0,
+            targetBenefit: 0,
+            factionBenefit: 0,
+            advicePolarity: 'neutral_or_vague',
+            legitimacyDirection: 0,
+            omenPolarity: 'destabilizing',
+            selfTrapPotential: 0,
+            scapegoatClarity: 0,
+            omenAnchorStrength: 0.12,
+            legitimacyCrack: 0.34,
+            suspicionDirection: 0,
+            suspicionTransmission: 0,
+            fractureTransmission: 0,
+            proxyTransmission: 0,
+            evidence: ['ai left omen fields blank'],
+        })
+
+        const parsed = await parseNorthSchemeInput({
+            round: 13,
+            npc: heba,
+            schemeType: 'omen',
+            speech: '此人借西线军势自重，明面奉朝，暗里却把兵粮和军需卡在手里。若再纵容，可先截断粮道、放慢军需，并派御史与监军核账。',
+            omenSpeechInput: {
+                omenText: '石马夜鸣，西镇军旗忽动。',
+                interpretationText: '此非泛泛不祥，而是直指外镇军头借兵自重，可先截断粮道并派御史监督。',
+            },
+            eventName: '铁骑异动',
+            eventBriefing: '朝中正在议论外镇军头是否会借乱自重。',
+        })
+
+        expect(chatCompletionJsonMock).toHaveBeenCalledTimes(1)
+        expect(parsed.characterFit).toBe(0.18)
+        expect(parsed.omenAccusationClarity).toBeGreaterThan(0.4)
+        expect(parsed.centralSanctionLeverage).toBeGreaterThan(0.4)
+        expect(parsed.omenPolarity).toBe('destabilizing')
     })
 })
 

@@ -266,6 +266,34 @@ describe('buildNorthSchemeParsePrompt', () => {
         expect(alienatePrompt).toContain('relationship crack must reach command, logistics, or coordination')
         expect(proxyPrompt).toContain('actor motive, means, and public consequence')
     })
+
+    it('includes target type and external-warlord context in omen parse prompts', () => {
+        const npc = INITIAL_NPCS.find(item => item.powerBase === 'external' && item.militaryPower === 55)!
+
+        const omenPrompt = buildNorthSchemeParsePrompt({
+            round: 13,
+            npc,
+            schemeType: 'omen',
+            speech: '此人借西线军势自重，若再纵容，恐成朝中名分裂缝。',
+            omenSpeechInput: {
+                omenText: '石马夜鸣，西镇军旗忽动。',
+                interpretationText: '此非泛泛不祥，而是直指外镇军头借兵自重，可先截断粮道并派御史监督。',
+            },
+            eventName: '铁骑异动',
+            eventBriefing: '朝中正在议论外镇军头是否会借乱自重。',
+        })[1].content
+
+        expect(omenPrompt).toContain('目标类型：外部军头')
+        expect(omenPrompt).toContain('军事力量 55')
+        expect(omenPrompt).toContain('朝廷忠诚 34')
+        expect(omenPrompt).toContain('信任 15')
+        expect(omenPrompt).toContain('阵营偏向 自立算盘')
+        expect(omenPrompt).toContain('外部状态 观望离心')
+        expect(omenPrompt).toContain('"omenAccusationClarity"')
+        expect(omenPrompt).toContain('"centralSanctionLeverage"')
+        expect(omenPrompt).toContain('截断粮道')
+        expect(omenPrompt).toContain('御史监督')
+    })
 })
 
 describe('buildSchemeFollowUpParsePrompt', () => {

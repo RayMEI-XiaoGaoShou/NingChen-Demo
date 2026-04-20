@@ -258,8 +258,11 @@ function deriveFrameSpecializationFromSpeech(text: string): {
 
 function deriveOmenSpecialization(params: {
     speech: string
+    npc: NPC
     omenSpeechInput?: OmenSpeechInput
 }): {
+    omenAccusationClarity: number
+    centralSanctionLeverage: number
     omenAnchorStrength: number
     legitimacyCrack: number
     suspicionDirection: number
@@ -268,6 +271,24 @@ function deriveOmenSpecialization(params: {
     const interpretationText = params.omenSpeechInput?.interpretationText?.trim() ?? ''
     const anchorSource = omenText || params.speech
     const interpretationSource = interpretationText || params.speech
+    const combinedSource = `${anchorSource} ${interpretationSource} ${params.speech}`
+    const isExternalWarlord = params.npc.powerBase === 'external'
+
+    const omenAccusationClarity = clamp01(
+        0.04
+        + scoreMatches(interpretationSource, ['外镇军头', '外镇', '军头', '节度', '藩镇', '拥兵自重', '借兵自重', '自立', '自重', '离心', '权势', '权柄', '兵粮', '军需', '中枢']) * 0.78
+        + scoreMatches(anchorSource, ['外镇', '军旗', '夜鸣', '异动', '石马', '兵粮', '军需', '军头', '藩镇']) * 0.16
+        + (isExternalWarlord ? 0.08 : 0)
+        + (isExternalWarlord && params.npc.loyaltyToCourt <= 45 ? 0.04 : 0)
+        + (params.npc.externalStatus === 'watchful' ? 0.03 : 0),
+    )
+
+    const centralSanctionLeverage = clamp01(
+        0.04
+        + scoreMatches(combinedSource, ['截断粮道', '断粮', '慢军需', '放慢军需', '军需', '核账', '御史', '监军', '督察', '审计', '清查账目', '收束诏令', '派监督', '监督', '削权', '收权', '减饷', '停供']) * 0.82
+        + scoreMatches(interpretationSource, ['中央处置', '中枢', '朝廷', '御史', '监军', '核账', '截断粮道', '放慢军需', '派监督']) * 0.14
+        + (isExternalWarlord ? 0.05 : 0),
+    )
 
     const omenAnchorStrength = clamp01(
         0.04
@@ -283,14 +304,36 @@ function deriveOmenSpecialization(params: {
 
     const suspicionDirection = clamp01(
         0.04
-        + scoreMatches(interpretationSource, ['最该警惕', '最可疑', '某类人', '朝中重臣', '摄政', '主战之人', '外镇', '中枢']) * 0.9
+        + scoreMatches(interpretationSource, ['最该警惕', '最可疑', '某类人', '朝中重臣', '摄政', '主战之人', '外镇', '中枢', '军头', '藩镇', '自重']) * 0.9
         + (includesAny(interpretationSource, ['警惕', '可疑', '疑在', '疑向']) ? 0.14 : 0),
     )
 
     return {
+        omenAccusationClarity,
+        centralSanctionLeverage,
         omenAnchorStrength,
         legitimacyCrack,
         suspicionDirection,
+    }
+}
+
+function backfillSparseField(currentValue: number | undefined, fallbackValue: number): number {
+    const current = clamp01(currentValue)
+    if (!Number.isFinite(fallbackValue) || fallbackValue <= 0) return current
+    return current <= 0.08 && fallbackValue >= 0.18 ? fallbackValue : current
+}
+
+function mergeOmenSpecializationFields(
+    parsed: NorthSchemeParseResult,
+    fallback: NorthSchemeParseResult,
+): NorthSchemeParseResult {
+    return {
+        ...parsed,
+        omenAccusationClarity: backfillSparseField(parsed.omenAccusationClarity, fallback.omenAccusationClarity ?? 0),
+        centralSanctionLeverage: backfillSparseField(parsed.centralSanctionLeverage, fallback.centralSanctionLeverage ?? 0),
+        omenAnchorStrength: backfillSparseField(parsed.omenAnchorStrength, fallback.omenAnchorStrength ?? 0),
+        legitimacyCrack: backfillSparseField(parsed.legitimacyCrack, fallback.legitimacyCrack ?? 0),
+        suspicionDirection: backfillSparseField(parsed.suspicionDirection, fallback.suspicionDirection ?? 0),
     }
 }
 
@@ -403,8 +446,8 @@ export function fallbackNorthParseFromSpeech(params: {
         ? deriveFrameSpecializationFromSpeech(speech)
         : { selfTrapPotential: 0, scapegoatClarity: 0 }
     const omenSpecialization = params.schemeType === 'omen'
-        ? deriveOmenSpecialization({ speech, omenSpeechInput: params.omenSpeechInput })
-        : { omenAnchorStrength: 0, legitimacyCrack: 0, suspicionDirection: 0 }
+        ? deriveOmenSpecialization({ speech, npc: params.npc, omenSpeechInput: params.omenSpeechInput })
+        : { omenAccusationClarity: 0, centralSanctionLeverage: 0, omenAnchorStrength: 0, legitimacyCrack: 0, suspicionDirection: 0 }
     const suspicionTransmission = params.schemeType === 'slander'
         ? clamp01(scoreMatches(speech, [
             '军令',
@@ -452,6 +495,8 @@ export function fallbackNorthParseFromSpeech(params: {
         socialOrderRelevance,
         governanceRelevance,
         dominantIntent,
+        omenAccusationClarity: omenSpecialization.omenAccusationClarity,
+        centralSanctionLeverage: omenSpecialization.centralSanctionLeverage,
         stateBenefit: advicePolarity.stateBenefit,
         targetBenefit: advicePolarity.targetBenefit,
         factionBenefit: advicePolarity.factionBenefit,
@@ -583,7 +628,7 @@ export async function parseNorthSchemeInput(params: {
             normalized.militaryRelevance > 0 ||
             normalized.socialOrderRelevance > 0 ||
             normalized.governanceRelevance > 0
-        return hasDimensionRelevance
+        const merged = hasDimensionRelevance
             ? normalized
             : {
                 ...normalized,
@@ -593,6 +638,9 @@ export async function parseNorthSchemeInput(params: {
                 socialOrderRelevance: fallbackParsed.socialOrderRelevance,
                 governanceRelevance: fallbackParsed.governanceRelevance,
             }
+        return params.schemeType === 'omen'
+            ? mergeOmenSpecializationFields(merged, fallbackParsed)
+            : merged
     }
 
     return fallbackParsed
