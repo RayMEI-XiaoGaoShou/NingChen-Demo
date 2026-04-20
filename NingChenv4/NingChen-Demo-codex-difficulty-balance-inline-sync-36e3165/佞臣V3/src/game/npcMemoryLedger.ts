@@ -97,6 +97,18 @@ export function deriveNpcMemoryEntriesForRound(params: {
             })
         }
 
+        if (result.success && action.schemeType === 'omen' && after.powerBase === 'external') {
+            entries.push({
+                npcId: after.id,
+                category: 'power_shift',
+                sourceRound: params.round,
+                importance: 3,
+                summary: `第${params.round}回合，你借谶纬让${after.name}先觉出中枢起疑，粮道与军需随之收紧，御史监军也压了上来；他兵势只挨了小挫，心里却更添怨气与防备。`,
+                schemeType: action.schemeType,
+                tags: ['external', 'omen', 'court', 'grain', 'military', 'pressure', 'legitimacy'],
+            })
+        }
+
         if (before.externalStatus !== after.externalStatus && TERMINAL_EXTERNAL_STATUSES.has(after.externalStatus)) {
             entries.push({
                 npcId: after.id,

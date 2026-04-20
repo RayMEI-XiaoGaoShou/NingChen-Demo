@@ -1069,6 +1069,15 @@ export function settleScheme(
 function generateFeedback(action: SchemeAction, npc: NPC, success: boolean, parse: NorthSchemeParseResult): string {
     const name = SCHEME_NAMES[action.schemeType]
 
+    if (action.schemeType === 'omen' && success && npc.powerBase === 'external') {
+        const omenLines = [
+            `${npc.name}听罢便知中枢已起疑，粮道与军需多半要先紧一圈，御史监军也会跟着盯得更密；边镇兵势只是受了小挫，真正更重的是他心里那口怨气。`,
+            `${npc.name}虽未当场失色，却已明白中枢这道谶纬会把朝里的猜忌引到边镇上来：先卡粮道与军需，再加御史监军，兵势只挨一点折，忠心却更难再稳。`,
+            `${npc.name}一下就听出这不是空泛天象，而是中枢要借疑心收紧粮道、军需与眼线，再把御史监军压下去；边镇兵势未必大损，心里却先松了一层。`,
+        ]
+        return randomPick(omenLines)
+    }
+
     if (action.schemeType === 'frame') {
         if (success) {
             const trapLines = [

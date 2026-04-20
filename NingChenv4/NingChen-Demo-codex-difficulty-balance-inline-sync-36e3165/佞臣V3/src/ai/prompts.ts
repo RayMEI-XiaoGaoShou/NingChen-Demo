@@ -211,6 +211,11 @@ export function buildNpcPrompt(params: {
     const selfReferenceLine = selfReference
         ? `自称口吻：提及自身权势、判断或行止时，应自称“${selfReference}”。`
         : '自称口吻：依人物身份自然行文，不必额外抬高自称。'
+    const omenReplyGuidance = schemeType === 'omen'
+        ? npc.powerBase === 'external'
+            ? '谶纬应答：外部军头的第一反应，不是空谈朝中名分，而是先看中枢是否起疑、粮道军需是否会被收紧、御史监军是否要压下来；回应里要写出他是惊惶自辩、怒斥有人借兆栽赃、顺势改口借兆压人，还是先封口压谣稳住军心。'
+            : '谶纬应答：要写出这句谶纬怎样先触到人物的软肋，再决定他是惊惶解释、怒斥有人借兆栽赃、顺势改口借兆立威，还是下令压住风声；不要把谶纬当成泛泛不祥，必须让反应带出角色自己的判断、情绪和动作。'
+        : ''
     const followUpInstruction = followUpMode === 'question_candidate'
         ? '追问模式：若角色身份、关系温度与战术情势足以支撑，可在收束处只准留一句尖锐而自然的追问；否则必须回到陈述，不要为了追问而追问，也不要连发多问。'
         : followUpMode === 'statement_only'
@@ -239,6 +244,7 @@ ${factionPressureLine}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}
 ${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
 ${selfReferenceLine}
+${omenReplyGuidance ? `${omenReplyGuidance}\n` : ''}
 ${followUpInstruction ? `${followUpInstruction}\n` : ''}
 当前态度：${tone.label}
 语气要求：${tone.description}
