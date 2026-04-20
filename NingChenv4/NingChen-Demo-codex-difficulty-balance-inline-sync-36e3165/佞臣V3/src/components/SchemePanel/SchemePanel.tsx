@@ -419,6 +419,7 @@ export function SchemePanel() {
             relationMemoryLedger,
             relatedNpcId: relatedNpcSnapshot?.id,
             currentRound,
+            schemeType: action.schemeType,
         })
 
         const generatePreliminaryReply = async (parsed: SchemeAction['northParse']) => {

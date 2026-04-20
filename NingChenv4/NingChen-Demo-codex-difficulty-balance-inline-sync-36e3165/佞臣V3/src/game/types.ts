@@ -27,6 +27,33 @@ export type BacklashType = 'guarded' | 'misdirected' | 'exposed' | 'shock'
 export type CampaignOutcomeState = 'idle' | 'gained' | 'stalemate' | 'failed'
 export type PlayerDangerStage = 'safe' | 'under_watch' | 'under_review'
 export type NpcMemoryCategory = 'favor' | 'betrayal' | 'warning' | 'saved_face' | 'power_shift'
+export type NpcMemoryTag =
+    | 'trust'
+    | 'soft'
+    | 'face'
+    | 'benefit'
+    | 'pressure'
+    | 'hard'
+    | 'exposed'
+    | 'fallout'
+    | 'external'
+    | 'court'
+    | 'legitimacy'
+    | 'military'
+    | 'grain'
+    | 'warning'
+    | 'betrayal'
+    | 'favor'
+    | 'saved_face'
+    | 'advise'
+    | 'omen'
+    | 'slander'
+    | 'alienate'
+    | 'frame'
+    | 'proxy'
+    | 'secession'
+    | 'rebellion'
+    | (string & {})
 export type FirstRoundGuideKey =
     | 'round_start'
     | 'court_observe'
@@ -350,7 +377,7 @@ export interface NpcMemoryEntry {
     importance: 1 | 2 | 3
     summary: string
     schemeType?: SchemeType
-    tags?: string[]
+    tags?: NpcMemoryTag[]
 }
 
 export type NpcMemoryLedger = Record<string, NpcMemoryEntry[]>

@@ -71,6 +71,7 @@ export function buildFengDaozhiDraftContext(params: {
         npcMemoryLedger,
         relationMemoryLedger,
         relatedNpcId: request.relatedNpcId,
+        schemeType: request.schemeType,
     })
 
     return {

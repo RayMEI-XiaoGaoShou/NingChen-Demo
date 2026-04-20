@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
-import type { CampaignState } from './types'
+import type { CampaignState, NpcMemoryLedger } from './types'
 import { buildFengDaozhiDraftContext, buildFallbackFengDaozhiDraft, normalizeFengDaozhiDraft } from './fengDaozhiAdvisor'
 
 function makeCampaignState(overrides: Partial<CampaignState> = {}): CampaignState {
@@ -123,5 +123,93 @@ describe('fengDaozhiAdvisor', () => {
         expect(fallback.secondaryText?.length).toBeGreaterThan(0)
         expect(fallback.reasoning).toContain('名分与法统压力')
         expect(fallback.source).toBe('fallback')
+    })
+
+    it('passes scheme type through so old debts change by draft type', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const npcMemoryLedger: NpcMemoryLedger = {
+            [npc.id]: [
+                {
+                    npcId: npc.id,
+                    category: 'favor',
+                    sourceRound: 6,
+                    importance: 1,
+                    summary: 'advise memory',
+                    tags: ['trust', 'soft'],
+                },
+                {
+                    npcId: npc.id,
+                    category: 'betrayal',
+                    sourceRound: 7,
+                    importance: 1,
+                    summary: 'slander memory',
+                    tags: ['pressure', 'hard'],
+                },
+                {
+                    npcId: npc.id,
+                    category: 'power_shift',
+                    sourceRound: 8,
+                    importance: 1,
+                    summary: 'omen memory',
+                    tags: ['legitimacy', 'pressure'],
+                },
+            ],
+        }
+
+        const buildContext = (schemeType: 'advise' | 'slander' | 'omen') => buildFengDaozhiDraftContext({
+            request: {
+                round: 9,
+                difficulty: 'normal',
+                targetNpcId: npc.id,
+                schemeType,
+                playerDangerStage: 'safe',
+            },
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
+            npcMemoryLedger,
+        })
+
+        expect(buildContext('advise').longTermMemorySummary).toMatch(/^advise memory/)
+        expect(buildContext('slander').longTermMemorySummary).toMatch(/^slander memory/)
+        expect(buildContext('omen').longTermMemorySummary).toMatch(/^omen memory/)
+    })
+
+    it('keeps selected old debts out of summary fields so drafts do not over-weight them', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const context = buildFengDaozhiDraftContext({
+            request: {
+                round: 9,
+                difficulty: 'normal',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerDangerStage: 'safe',
+            },
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
+            npcMemoryLedger: {
+                [npc.id]: [{
+                    npcId: npc.id,
+                    category: 'favor',
+                    sourceRound: 6,
+                    importance: 3,
+                    summary: 'unique old debt memory',
+                    tags: ['trust', 'soft'],
+                }],
+            },
+        })
+
+        expect(context.longTermMemorySummary).toBe('unique old debt memory')
+        expect(context.relationshipSummary).not.toContain('unique old debt memory')
+        expect(context.courtSituationSummary).not.toContain('unique old debt memory')
     })
 })
