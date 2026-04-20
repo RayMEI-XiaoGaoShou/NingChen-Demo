@@ -25,6 +25,7 @@ function makeSchemeResult(overrides: Partial<SchemeResult> = {}): SchemeResult {
             alignmentShift: null,
             intelDelta: 0,
             externalStatus: null,
+            militaryPowerDelta: 0,
         },
         factionEffects: {},
         nationEffects: {},
@@ -307,7 +308,7 @@ describe('npcRelationshipMemory', () => {
             schemeResults: [
                 makeSchemeResult({
                     success: true,
-                    personEffects: { trustDelta: -1, relatedTrustDelta: 0, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null },
+                    personEffects: { trustDelta: -1, relatedTrustDelta: 0, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null, militaryPowerDelta: 0 },
                     northParse: {
                         characterFit: 0.2,
                         eventFit: 0.18,
@@ -327,7 +328,7 @@ describe('npcRelationshipMemory', () => {
                 }),
                 makeSchemeResult({
                     success: true,
-                    personEffects: { trustDelta: -1, relatedTrustDelta: 0, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null },
+                    personEffects: { trustDelta: -1, relatedTrustDelta: 0, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null, militaryPowerDelta: 0 },
                     northParse: {
                         characterFit: 0.18,
                         eventFit: 0.2,
@@ -365,7 +366,7 @@ describe('npcRelationshipMemory', () => {
                 }),
                 makeSchemeResult({
                     success: true,
-                    personEffects: { trustDelta: -6, relatedTrustDelta: -5, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null },
+                    personEffects: { trustDelta: -6, relatedTrustDelta: -5, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null, militaryPowerDelta: 0 },
                     northParse: {
                         characterFit: 0.9,
                         eventFit: 0.84,
@@ -455,7 +456,7 @@ describe('npcRelationshipMemory', () => {
             schemeResults: [
                 makeSchemeResult({
                     success: true,
-                    personEffects: { trustDelta: -1, relatedTrustDelta: -7, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null },
+                    personEffects: { trustDelta: -1, relatedTrustDelta: -7, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null, militaryPowerDelta: 0 },
                     northParse: {
                         characterFit: 0.76,
                         eventFit: 0.7,
@@ -475,7 +476,7 @@ describe('npcRelationshipMemory', () => {
                 }),
                 makeSchemeResult({
                     success: true,
-                    personEffects: { trustDelta: -1, relatedTrustDelta: -7, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null },
+                    personEffects: { trustDelta: -1, relatedTrustDelta: -7, loyaltyDelta: 0, relatedLoyaltyDelta: 0, alignmentShift: null, intelDelta: 0, externalStatus: null, militaryPowerDelta: 0 },
                     northParse: {
                         characterFit: 0.76,
                         eventFit: 0.7,
