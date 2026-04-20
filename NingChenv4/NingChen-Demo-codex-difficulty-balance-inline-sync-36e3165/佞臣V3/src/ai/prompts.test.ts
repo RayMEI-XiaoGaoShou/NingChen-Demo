@@ -52,6 +52,8 @@ describe('buildNpcPrompt', () => {
             relationshipTemperature: '近两回合你时而拉拢、时而敲打，他眼下最拿不准的正是你究竟想把他往哪边推。',
             recentCourtFortune: '后党近来在朝中吃了亏，他如今比往日更在意先看风向。',
             factionPressure: '后党眼下受帝党挤压，他说话时自然更顾忌宗室与主战一派的锋芒。',
+            longTermMemorySummary: '旧账：他曾记你一笔援手。',
+            relationMemorySummary: '旧账：old suspicion on the grain route x2；fresh evidence on the grain route',
         })
 
         expect(messages[0].content).toContain('不得称主角为“计相”“计编修”')
@@ -63,6 +65,26 @@ describe('buildNpcPrompt', () => {
         expect(messages[1].content).toContain('近两回合关系温度：近两回合你时而拉拢、时而敲打')
         expect(messages[1].content).toContain('近来得失：后党近来在朝中吃了亏')
         expect(messages[1].content).toContain('派系压力：后党眼下受帝党挤压')
+        expect(messages[1].content).toContain('长期旧账：旧账：他曾记你一笔援手。')
+        expect(messages[1].content).toContain('关系旧账：旧账：old suspicion on the grain route x2；fresh evidence on the grain route')
+    })
+
+    it('keeps relation memory out of the prompt when no related line is present', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')!, trust: 12 }
+
+        const messages = buildNpcPrompt({
+            npc,
+            schemeType: 'probe',
+            speech: '我只是来试一试你的口风。',
+            success: false,
+            round: 4,
+            eventName: '试探回合',
+            eventBriefing: '朝中尚未出现可借势的关系旧账。',
+            longTermMemorySummary: '旧账：他曾记你一笔援手。',
+        })
+
+        expect(messages[1].content).toContain('长期旧账：旧账：他曾记你一笔援手。')
+        expect(messages[1].content).not.toContain('关系旧账：')
     })
 
     it('maps trust levels to explicit tone guidance', () => {

@@ -3,6 +3,7 @@ import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import type { DelayedBacklash, RoundHistoryEntry } from './types'
 import { buildNpcPromptDynamicContext } from './npcPromptContext'
+import { createRelationMemoryEntry, mergeRelationMemoryEntries } from './npcRelationshipMemory'
 
 describe('npcPromptContext', () => {
     it('remembers how the protagonist treated the npc last round', () => {
@@ -149,5 +150,49 @@ describe('npcPromptContext', () => {
         })
 
         expect(context.recentCourtFortune).toContain('两边都不愿保')
+    })
+
+    it('summarizes only the related npc relation memory when a related line exists', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const relatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'duguwenyue')! }
+        const unrelatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'yuwendi')! }
+        const relationMemoryLedger = mergeRelationMemoryEntries({}, [
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 6,
+                importance: 2,
+                summary: 'old suspicion on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 8,
+                importance: 3,
+                summary: 'fresh evidence on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: unrelatedNpc.id,
+                stance: 'fear',
+                sourceRound: 9,
+                importance: 3,
+                summary: 'unrelated fear memory',
+            }),
+        ])
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            relatedNpcId: relatedNpc.id,
+            relationMemoryLedger,
+        })
+
+        expect(context.relationMemorySummary).toContain('fresh evidence on the grain route')
+        expect(context.relationMemorySummary).toContain('x2')
+        expect(context.relationMemorySummary).not.toContain('unrelated fear memory')
     })
 })

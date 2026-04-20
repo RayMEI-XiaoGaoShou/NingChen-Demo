@@ -83,6 +83,7 @@ export interface JudgeFacts {
 }
 
 export interface RoundSettlementResult {
+    processedSchemes: SchemeAction[]
     schemeResults: SchemeResult[]
     updatedNpcs: NPC[]
     factionsAfter: Faction[]
@@ -195,6 +196,7 @@ export function settleRound(params: {
     }
 
     const schemeResults: SchemeResult[] = []
+    const processedSchemes: SchemeAction[] = []
     const actionsPerNpc: Record<string, number> = {}
 
     for (const action of schemes) {
@@ -222,6 +224,7 @@ export function settleRound(params: {
         )
 
         schemeResults.push(result)
+        processedSchemes.push(action)
         delayedBacklash = delayedBacklash.concat(result.delayedBacklash)
 
         applyPersonEffects(targetNpc, result.personEffects.trustDelta, result.personEffects.loyaltyDelta, result.personEffects.alignmentShift, result.personEffects.externalStatus)
@@ -566,6 +569,7 @@ export function settleRound(params: {
     })
 
     return {
+        processedSchemes,
         schemeResults,
         updatedNpcs,
         factionsAfter,

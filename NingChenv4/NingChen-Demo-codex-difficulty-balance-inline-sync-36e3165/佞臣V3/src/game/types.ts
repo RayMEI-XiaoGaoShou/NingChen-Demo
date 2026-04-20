@@ -355,6 +355,20 @@ export interface NpcMemoryEntry {
 
 export type NpcMemoryLedger = Record<string, NpcMemoryEntry[]>
 
+export type RelationMemoryStance = 'suspicion' | 'resentment' | 'fear' | 'reliance'
+
+export interface RelationMemoryEntry {
+    holderNpcId: string
+    subjectNpcId: string
+    stance: RelationMemoryStance
+    sourceRound: number
+    importance: 1 | 2 | 3
+    summary: string
+    occurrences: number
+}
+
+export type RelationMemoryLedger = Record<string, RelationMemoryEntry[]>
+
 export interface AiNativeSummary {
     schemeHints: string[]
     backlashHints: string[]

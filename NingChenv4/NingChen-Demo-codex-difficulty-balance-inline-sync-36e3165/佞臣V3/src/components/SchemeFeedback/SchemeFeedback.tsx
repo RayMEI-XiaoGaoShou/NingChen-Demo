@@ -149,6 +149,7 @@ export function SchemeFeedback() {
         recentBacklash,
         roundHistory,
         npcMemoryLedger,
+        relationMemoryLedger,
         pendingStructuredSchemeIds,
         addNpcFeedback,
         updateNpcFeedback,
@@ -209,6 +210,7 @@ export function SchemeFeedback() {
         recentBacklash: typeof recentBacklash
         roundHistory: typeof roundHistory
         npcMemoryLedger: typeof npcMemoryLedger
+        relationMemoryLedger: typeof relationMemoryLedger
         pendingStructuredSchemeIds: typeof pendingStructuredSchemeIds
         currentRoundEvent: typeof currentRoundEvent
         addNpcFeedback: typeof addNpcFeedback
@@ -227,6 +229,7 @@ export function SchemeFeedback() {
         recentBacklash,
         roundHistory,
         npcMemoryLedger,
+        relationMemoryLedger,
         pendingStructuredSchemeIds,
         currentRoundEvent,
         addNpcFeedback,
@@ -303,6 +306,8 @@ export function SchemeFeedback() {
                         roundHistory: snapshot.roundHistory,
                         recentBacklash: snapshot.recentBacklash,
                         npcMemoryLedger: snapshot.npcMemoryLedger,
+                        relationMemoryLedger: snapshot.relationMemoryLedger,
+                        relatedNpcId: relatedNpc?.id,
                         currentRound,
                     })
 
@@ -449,6 +454,7 @@ export function SchemeFeedback() {
                             recentCourtFortune: item.dynamicContext.recentCourtFortune,
                             factionPressure: item.dynamicContext.factionPressure,
                             longTermMemorySummary: item.dynamicContext.longTermMemorySummary,
+                            relationMemorySummary: item.dynamicContext.relationMemorySummary,
                         }),
                         {
                             temperature: 0.75,

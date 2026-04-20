@@ -17,6 +17,7 @@ import type {
     PolicyReasonParseResult,
     PrologueStep,
     RelationshipEdge,
+    RelationMemoryLedger,
     RoundHistoryEntry,
     RoundPhase,
     SchemeOnboardingSeenMap,
@@ -65,6 +66,7 @@ export interface GameSnapshotCore {
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
     npcMemoryLedger: NpcMemoryLedger
+    relationMemoryLedger?: RelationMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -118,6 +120,7 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         recentBacklash: state.recentBacklash,
         roundHistory: state.roundHistory,
         npcMemoryLedger: state.npcMemoryLedger,
+        relationMemoryLedger: state.relationMemoryLedger ?? {},
         endingReport: state.endingReport,
         battleReport: state.battleReport,
         shuCampaign: state.shuCampaign,
@@ -171,6 +174,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             shuMomentum?: number
             huainanMomentum?: number
             npcMemoryLedger?: NpcMemoryLedger
+            relationMemoryLedger?: RelationMemoryLedger
         }
         if (parsed.version !== 1) return null
         return {
@@ -192,11 +196,13 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
                 ? {
                     ...parsed.roundStartSnapshot,
                     npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
+                    relationMemoryLedger: parsed.roundStartSnapshot.relationMemoryLedger ?? {},
                 }
                 : null,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
             npcMemoryLedger: parsed.npcMemoryLedger ?? {},
+            relationMemoryLedger: parsed.relationMemoryLedger ?? {},
         }
     } catch {
         return null
