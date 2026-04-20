@@ -19,6 +19,20 @@ const ADVISE_TAGS = new Set<NpcMemoryTag>(['trust', 'soft', 'face', 'benefit'])
 const HARD_TAGS = new Set<NpcMemoryTag>(['pressure', 'hard', 'exposed', 'fallout'])
 const OMEN_CATEGORY = 'power_shift' as const
 
+function shouldRecordExternalOmenPressureMemory(result: SchemeResult): boolean {
+    const omenPolarity = result.northParse.omenPolarity ?? 'vague_or_ceremonial'
+    if (omenPolarity !== 'destabilizing') return false
+
+    const accusationClarity = result.northParse.omenAccusationClarity ?? 0
+    const sanctionLeverage = result.northParse.centralSanctionLeverage ?? 0
+    const suspicionDirection = result.northParse.suspicionDirection ?? 0
+    const loyaltyShock = Math.max(0, -result.personEffects.loyaltyDelta)
+    const militaryShock = Math.max(0, -(result.personEffects.militaryPowerDelta ?? 0))
+    const centralPressureSignal = accusationClarity * 0.36 + sanctionLeverage * 0.44 + suspicionDirection * 0.2
+
+    return centralPressureSignal >= 0.5 && (loyaltyShock >= 3 || militaryShock >= 1)
+}
+
 export function deriveNpcMemoryEntriesForRound(params: {
     round: number
     schemes: SchemeAction[]
@@ -97,7 +111,12 @@ export function deriveNpcMemoryEntriesForRound(params: {
             })
         }
 
-        if (result.success && action.schemeType === 'omen' && after.powerBase === 'external') {
+        if (
+            result.success
+            && action.schemeType === 'omen'
+            && after.powerBase === 'external'
+            && shouldRecordExternalOmenPressureMemory(result)
+        ) {
             entries.push({
                 npcId: after.id,
                 category: 'power_shift',

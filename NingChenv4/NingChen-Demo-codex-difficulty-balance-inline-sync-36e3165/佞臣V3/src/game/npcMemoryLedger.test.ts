@@ -226,12 +226,67 @@ describe('npcMemoryLedger', () => {
             }),
         ]))
 
-        const omenEntry = entries.find(entry => entry.npcId === npc.id && entry.schemeType === 'omen')
+        const omenEntry = entries.find(entry =>
+            entry.npcId === npc.id
+            && entry.schemeType === 'omen'
+            && entry.tags?.includes('pressure')
+            && entry.tags?.includes('grain'),
+        )
         expect(omenEntry).toBeTruthy()
         expect(omenEntry?.summary).toContain('粮道与军需')
         expect(omenEntry?.summary).toContain('御史监军')
         expect(omenEntry?.summary).toContain('怨气')
         expect(omenEntry?.tags).toEqual(expect.arrayContaining(['external', 'omen', 'grain', 'military', 'pressure']))
+    })
+
+    it('does not record the same pressure memory for weak ceremonial external omen results', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.powerBase === 'external' && item.militaryPower === 55)!, trust: 76 }
+
+        const entries = deriveNpcMemoryEntriesForRound({
+            round: 15,
+            schemes: [{
+                targetNpcId: npc.id,
+                schemeType: 'omen',
+                playerSpeech: '风声未必真切，先把话留在风里看它自己散不散。',
+            }],
+            schemeResults: [
+                makeSchemeResult({
+                    success: true,
+                    northParse: {
+                        ...makeSchemeResult().northParse,
+                        omenPolarity: 'vague_or_ceremonial',
+                        omenAccusationClarity: 0.14,
+                        centralSanctionLeverage: 0.12,
+                        legitimacyCrack: 0.1,
+                        suspicionDirection: 0.1,
+                        targetBenefit: 0,
+                        factionBenefit: 0,
+                    },
+                    personEffects: {
+                        trustDelta: 1,
+                        relatedTrustDelta: 0,
+                        loyaltyDelta: -1,
+                        relatedLoyaltyDelta: 0,
+                        alignmentShift: null,
+                        intelDelta: 0,
+                        externalStatus: null,
+                        militaryPowerDelta: 0,
+                    },
+                }),
+            ],
+            npcsBefore: [npc],
+            npcsAfter: [{ ...npc, loyaltyToCourt: npc.loyaltyToCourt - 1 }],
+            externalActionReports: [],
+        })
+
+        const omenPressureEntry = entries.find(entry =>
+            entry.npcId === npc.id
+            && entry.schemeType === 'omen'
+            && entry.tags?.includes('pressure')
+            && entry.tags?.includes('grain'),
+        )
+
+        expect(omenPressureEntry).toBeUndefined()
     })
 
     it('summarizes the most relevant memories for prompt consumption', () => {
