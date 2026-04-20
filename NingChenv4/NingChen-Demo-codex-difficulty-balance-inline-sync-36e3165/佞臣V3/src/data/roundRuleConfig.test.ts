@@ -29,9 +29,9 @@ describe('roundRuleConfig', () => {
         const round16 = getRoundRuleContext(16)
         const round3 = getRoundRuleContext(3)
 
-        expect(round16.invasionWindowLabel).toBe('鍗楀緛楂樺帇')
+        expect(round16.invasionWindowLabel).toBe('南征高压')
         expect(getMilitarySpilloverStrength(16)).toBeGreaterThan(getMilitarySpilloverStrength(3))
         expect(isDisasterRound(3)).toBe(true)
-        expect(round3.invasionWindowLabel).toBe('瀹夊唴鍘嬪埗')
+        expect(round3.invasionWindowLabel).toBe('安内压制')
     })
 })
