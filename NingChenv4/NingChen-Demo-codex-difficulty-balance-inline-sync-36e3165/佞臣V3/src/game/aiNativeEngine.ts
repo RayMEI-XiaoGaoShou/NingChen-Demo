@@ -80,6 +80,8 @@ export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResul
         socialOrderRelevance: clamp01(candidate.socialOrderRelevance),
         governanceRelevance: clamp01(candidate.governanceRelevance),
         dominantIntent: isNorthIntent(candidate.dominantIntent) ? candidate.dominantIntent : 'neutral',
+        omenAccusationClarity: clamp01(candidate.omenAccusationClarity),
+        centralSanctionLeverage: clamp01(candidate.centralSanctionLeverage),
         stateBenefit: clampSigned(candidate.stateBenefit),
         targetBenefit: clampSigned(candidate.targetBenefit),
         factionBenefit: clampSigned(candidate.factionBenefit),

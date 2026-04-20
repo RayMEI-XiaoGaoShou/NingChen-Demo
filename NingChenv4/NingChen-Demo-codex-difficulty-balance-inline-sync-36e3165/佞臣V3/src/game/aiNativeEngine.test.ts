@@ -128,6 +128,16 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.proxyTransmission).toBeCloseTo(0.58, 2)
     })
 
+    it('normalizes omen accusation and sanction leverage fields', () => {
+        const parsed = normalizeNorthSchemeParse({
+            omenAccusationClarity: 1.24,
+            centralSanctionLeverage: -0.4,
+        })
+
+        expect(parsed.omenAccusationClarity).toBe(1)
+        expect(parsed.centralSanctionLeverage).toBe(0)
+    })
+
     it('classifies clearly pro-state advice as pro_state in fallback parsing', () => {
         const parsed = fallbackNorthParseFromSpeech({
             speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
