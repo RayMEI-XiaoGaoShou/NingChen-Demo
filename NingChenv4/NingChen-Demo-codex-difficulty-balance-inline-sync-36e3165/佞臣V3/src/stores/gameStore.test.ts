@@ -56,6 +56,7 @@ function resetStore() {
         recentBacklash: [],
         roundHistory: [],
         npcMemoryLedger: {},
+        relationMemoryLedger: {},
         endingReport: null,
         battleReport: null,
         shuMomentum: 0,
@@ -352,6 +353,79 @@ describe('gameStore addScheme', () => {
         const state = useGameStore.getState()
         expect(state.currentPhase).toBe('SETTLEMENT')
         expect(state.lastSettlement).toBeTruthy()
+    })
+
+    it('keeps round history and npc memory aligned with processed schemes when an earlier action is skipped', () => {
+        const skippedTarget = INITIAL_NPCS[0]!
+        const processedTarget = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+
+        useGameStore.setState({
+            currentRound: 6,
+            currentPhase: 'SCHEME_FEEDBACK',
+            currentSchemes: [
+                {
+                    id: 'skip-me',
+                    targetNpcId: skippedTarget.id,
+                    schemeType: 'slander',
+                    playerSpeech: '先看他会不会自己露口风。',
+                },
+                {
+                    id: 'keep-me',
+                    targetNpcId: processedTarget.id,
+                    schemeType: 'advise',
+                    playerSpeech: '可借漕运与中枢节制，把南征议程重新拽回中枢。',
+                    resolutionRoll: 0.03,
+                    northParse: {
+                        characterFit: 0.74,
+                        eventFit: 0.58,
+                        structuralPenetration: 0.7,
+                        executability: 0.72,
+                        exposureRisk: 0.14,
+                        financeRelevance: 0.42,
+                        grainRelevance: 0.28,
+                        militaryRelevance: 0.2,
+                        socialOrderRelevance: 0.34,
+                        governanceRelevance: 0.78,
+                        dominantIntent: 'strategize',
+                        stateBenefit: -0.54,
+                        targetBenefit: 0.68,
+                        factionBenefit: 0.2,
+                        advicePolarity: 'pro_target_anti_state',
+                        legitimacyDirection: 0,
+                        omenPolarity: 'vague_or_ceremonial',
+                        evidence: [],
+                    },
+                },
+            ],
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc, trust: npc.id === processedTarget.id ? 66 : npc.trust })),
+            selectedPolicyOption: 0,
+            policyReason: '先稳住粮道，再图后续布置。',
+        })
+
+        useGameStore.getState().nextPhase()
+
+        const state = useGameStore.getState()
+        expect(state.lastSettlement?.processedSchemes).toHaveLength(1)
+        expect(state.lastSettlement?.processedSchemes[0]?.targetNpcId).toBe(processedTarget.id)
+        expect(state.roundHistory.at(-1)?.keyTargets).toEqual([processedTarget.name])
+        expect(state.roundHistory.at(-1)?.schemeDetails).toEqual([
+            expect.objectContaining({
+                targetNpcId: processedTarget.id,
+                targetNpcName: processedTarget.name,
+                schemeType: 'advise',
+                success: true,
+            }),
+        ])
+        expect(state.npcMemoryLedger[processedTarget.id]).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    npcId: processedTarget.id,
+                    category: 'saved_face',
+                    schemeType: 'advise',
+                }),
+            ]),
+        )
+        expect(state.npcMemoryLedger[skippedTarget.id]).toBeUndefined()
     })
 
     it('applies delayed policy fallout when entering the next round', () => {
@@ -855,9 +929,42 @@ describe('gameStore guide and prologue state', () => {
             currentPhase: 'ROUND_START',
             prologueStep: 'INGAME',
             playerDangerStage: 'under_watch',
+            relationMemoryLedger: {
+                zuting: [
+                    {
+                        holderNpcId: 'zuting',
+                        subjectNpcId: 'yuwendi',
+                        stance: 'suspicion',
+                        sourceRound: 6,
+                        importance: 2,
+                        summary: 'round-start relation memory',
+                        occurrences: 1,
+                    },
+                ],
+            },
         })
 
         useGameStore.getState().saveRoundStartSnapshot()
+        const savedSnapshot = useGameStore.getState().roundStartSnapshot
+        useGameStore.setState(state => ({
+            relationMemoryLedger: {
+                ...state.relationMemoryLedger,
+                zuting: [
+                    {
+                        ...(state.relationMemoryLedger.zuting?.[0] ?? {
+                            holderNpcId: 'zuting',
+                            subjectNpcId: 'yuwendi',
+                            stance: 'suspicion' as const,
+                            sourceRound: 6,
+                            importance: 2 as const,
+                            summary: 'round-start relation memory',
+                            occurrences: 1,
+                        }),
+                        summary: 'mutated after snapshot',
+                    },
+                ],
+            },
+        }))
         useGameStore.setState({
             currentPhase: 'ENDING',
             isGameOver: true,
@@ -884,5 +991,7 @@ describe('gameStore guide and prologue state', () => {
         expect(state.currentSchemes).toHaveLength(0)
         expect(state.playerDangerStage).toBe('under_watch')
         expect(state.roundStartSnapshot?.currentRound).toBe(6)
+        expect(savedSnapshot?.relationMemoryLedger?.zuting?.[0]?.summary).toBe('round-start relation memory')
+        expect(state.roundStartSnapshot?.relationMemoryLedger?.zuting?.[0]?.summary).toBe('round-start relation memory')
     })
 })

@@ -2,7 +2,8 @@ import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import { buildNpcLongTermMemorySummary } from './npcMemoryLedger'
 import { isCourtDispositionTarget, normalizeCourtDispositionNpc } from './courtDisposition'
-import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
+import { selectRelationMemoryEntries, summarizeRelationMemoryEntries } from './npcRelationshipMemory'
+import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
 
 const SCHEME_NAMES: Record<SchemeType, string> = {
     probe: '试探',
@@ -26,6 +27,7 @@ export interface NpcPromptDynamicContext {
     recentCourtFortune: string
     factionPressure: string
     longTermMemorySummary: string
+    relationMemorySummary?: string
 }
 
 const initialNpcMap = new Map(INITIAL_NPCS.map(npc => [npc.id, npc]))
@@ -37,6 +39,8 @@ export function buildNpcPromptDynamicContext(params: {
     roundHistory: RoundHistoryEntry[]
     recentBacklash?: DelayedBacklash[]
     npcMemoryLedger?: NpcMemoryLedger
+    relationMemoryLedger?: RelationMemoryLedger
+    relatedNpcId?: string
     currentRound?: number
 }): NpcPromptDynamicContext {
     const {
@@ -45,6 +49,8 @@ export function buildNpcPromptDynamicContext(params: {
         roundHistory,
         recentBacklash = [],
         npcMemoryLedger = {},
+        relationMemoryLedger = {},
+        relatedNpcId,
         currentRound = (roundHistory[roundHistory.length - 1]?.round ?? 0) + 1,
     } = params
 
@@ -58,7 +64,33 @@ export function buildNpcPromptDynamicContext(params: {
             ledger: npcMemoryLedger,
             currentRound,
         }),
+        relationMemorySummary: describeRelationMemorySummary({
+            npcId: npc.id,
+            relatedNpcId,
+            ledger: relationMemoryLedger,
+            currentRound,
+        }),
     }
+}
+
+function describeRelationMemorySummary(params: {
+    npcId: string
+    relatedNpcId?: string
+    ledger: RelationMemoryLedger
+    currentRound: number
+}): string | undefined {
+    if (!params.relatedNpcId) return undefined
+
+    const entries = selectRelationMemoryEntries({
+        ledger: params.ledger,
+        holderNpcId: params.npcId,
+        subjectNpcId: params.relatedNpcId,
+        currentRound: params.currentRound,
+    })
+
+    if (entries.length === 0) return undefined
+
+    return summarizeRelationMemoryEntries(entries)
 }
 
 function describePreviousDealings(npc: NPC, roundHistory: RoundHistoryEntry[]): string {

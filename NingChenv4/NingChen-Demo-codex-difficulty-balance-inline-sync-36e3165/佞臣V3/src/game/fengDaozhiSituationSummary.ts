@@ -1,7 +1,7 @@
 import { getRoundCampaignEventContext, getRoundStartCampaignDisplay } from './campaignDisplayEngine'
 import { buildNpcPromptDynamicContext } from './npcPromptContext'
 import { getNpcRoundReaction } from './roundIntelEngine'
-import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry } from './types'
+import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry } from './types'
 
 export interface FengDaozhiSituationSummary {
     eventName: string
@@ -13,6 +13,7 @@ export interface FengDaozhiSituationSummary {
     recentCourtFortune: string
     factionPressure: string
     longTermMemorySummary: string
+    relationMemorySummary?: string
     relationshipSummary: string
     courtSituationSummary: string
 }
@@ -27,6 +28,8 @@ export function buildFengDaozhiSituationSummary(params: {
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
+    relationMemoryLedger?: RelationMemoryLedger
+    relatedNpcId?: string
 }): FengDaozhiSituationSummary {
     const {
         round,
@@ -38,6 +41,8 @@ export function buildFengDaozhiSituationSummary(params: {
         shuCampaign,
         huainanCampaign,
         npcMemoryLedger = {},
+        relationMemoryLedger = {},
+        relatedNpcId,
     } = params
 
     const roundEvent = getRoundCampaignEventContext(round, shuCampaign, huainanCampaign)
@@ -48,6 +53,8 @@ export function buildFengDaozhiSituationSummary(params: {
         roundHistory,
         recentBacklash,
         npcMemoryLedger,
+        relationMemoryLedger,
+        relatedNpcId,
         currentRound: round,
     })
     const currentPublicStatement = getNpcRoundReaction(round, npc, unlockedSecrets, {
@@ -66,6 +73,7 @@ export function buildFengDaozhiSituationSummary(params: {
         recentCourtFortune: dynamicContext.recentCourtFortune,
         factionPressure: dynamicContext.factionPressure,
         longTermMemorySummary: dynamicContext.longTermMemorySummary,
+        relationMemorySummary: dynamicContext.relationMemorySummary,
         relationshipSummary: compactJoin([
             `上回往来：${dynamicContext.previousDealings}`,
             `近两回合关系温度：${dynamicContext.relationshipTemperature}`,

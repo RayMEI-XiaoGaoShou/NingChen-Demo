@@ -172,6 +172,7 @@ export function buildNpcPrompt(params: {
     recentCourtFortune?: string
     factionPressure?: string
     longTermMemorySummary?: string
+    relationMemorySummary?: string
 }): ChatMessage[] {
     const {
         npc,
@@ -188,6 +189,7 @@ export function buildNpcPrompt(params: {
         recentCourtFortune,
         factionPressure,
         longTermMemorySummary,
+        relationMemorySummary,
     } = params
 
     const tone = getTrustTone(npc.trust)
@@ -201,6 +203,9 @@ export function buildNpcPrompt(params: {
     const factionPressureLine = `派系压力：${factionPressure ?? '他眼下仍处在彼此掣肘的朝局里，不会轻易把真心亮出来。'}`
     const longTermMemoryLine = longTermMemorySummary?.trim()
         ? `长期旧账：${longTermMemorySummary}`
+        : null
+    const relationMemoryLine = relationMemorySummary?.trim()
+        ? `关系旧账：${relationMemorySummary}`
         : null
     const selfReference = getNpcSelfReference(npc)
     const selfReferenceLine = selfReference
@@ -232,6 +237,7 @@ ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
 ${factionPressureLine}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}
+${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
 ${selfReferenceLine}
 ${followUpInstruction ? `${followUpInstruction}\n` : ''}
 当前态度：${tone.label}
@@ -607,6 +613,9 @@ export function buildFengDaozhiDraftPrompt(params: {
     const longTermMemoryLine = context.longTermMemorySummary?.trim()
         ? `长期旧账：${context.longTermMemorySummary}`
         : null
+    const relationMemoryLine = context.relationMemorySummary?.trim()
+        ? `关系旧账：${context.relationMemorySummary}`
+        : null
     const visibleSecrets = context.visibleSecrets.length > 0
         ? context.visibleSecrets.join('；')
         : '暂无已解锁暗线'
@@ -633,6 +642,7 @@ ${campaignSummaryLine ? `${campaignSummaryLine}\n` : ''}${publicStatementLine ? 
 ${relatedNpcLine}
 已解锁暗线：${visibleSecrets}
 ${relationshipSummaryLine}
+${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
 ${courtSituationSummaryLine}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}萧宝颖当前危险：${context.playerDangerStage}
 
