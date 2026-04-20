@@ -4,6 +4,7 @@ import {
     SchemeFeedback,
     canProceedFromSchemeFeedback,
     getVisibleAvailableFollowUpId,
+    orchestrateOmenEchoFeedback,
     shouldQueueRecoveryParse,
     shouldWaitForPrefetchedFeedback,
 } from './SchemeFeedback'
@@ -44,18 +45,47 @@ function createNorthParse() {
     }
 }
 
+function createNpc(overrides: Record<string, unknown> = {}): any {
+    return {
+        id: 'npc-default',
+        name: '某人',
+        factionId: 'emperor',
+        powerBase: 'court',
+        title: '尚书',
+        publicPersona: '谨慎',
+        publicStance: '中立',
+        personality: '稳重',
+        softSpot: '名望',
+        triggerPoint: '逼问',
+        schemeHooks: '试探',
+        trust: 50,
+        isAlive: true,
+        canExecute: false,
+        militaryPower: 10,
+        loyaltyToCourt: 50,
+        alignmentBias: 'swing',
+        externalStatus: 'loyal',
+        availableSchemes: ['probe', 'omen'],
+        highRounds: [],
+        secretThreads: [],
+        ...overrides,
+    }
+}
+
 function createState(): any {
     return {
         npcFeedbacks: [],
         currentSchemes: [],
         npcs: [],
         factions: [],
+        relationships: [],
         intelProgress: {},
         recentBacklash: [],
         roundHistory: [],
         pendingStructuredSchemeIds: [],
         addNpcFeedback: vi.fn(),
         updateNpcFeedback: vi.fn(),
+        updateNpcFeedbackOmenEcho: vi.fn(),
         updateSchemeParse: vi.fn(),
         markSchemeParsePending: vi.fn(),
         setSchemeFollowUp: vi.fn(),
@@ -138,6 +168,156 @@ describe('SchemeFeedback orchestration', () => {
         expect(schemeFeedbackSource).not.toContain('        currentSchemes,\n        feedbackBatchSettledKey,')
         expect(schemeFeedbackSource).not.toContain('        npcFeedbacks,\n        npcs,')
         expect(schemeFeedbackSource).not.toContain('        orchestratingFeedbacks,')
+    })
+
+    it('wires omen echo generation into the feedback orchestration loop', () => {
+        expect(schemeFeedbackSource).toContain('await orchestrateOmenEchoFeedback({')
+        expect(schemeFeedbackSource).toContain('updateNpcFeedbackOmenEcho: snapshot.updateNpcFeedbackOmenEcho')
+        expect(schemeFeedbackSource).toContain("if (params.action.schemeType !== 'omen'")
+    })
+})
+
+describe('orchestrateOmenEchoFeedback', () => {
+    it('attaches an omen echo for omen feedback when AI generation succeeds', async () => {
+        const targetNpc = createNpc({ id: 'target', name: '宇文帝', title: '天子', schemeHooks: '谶纬' })
+        const speakerNpc = createNpc({ id: 'speaker', name: '太后', title: '皇太后' })
+        const updateNpcFeedbackOmenEcho = vi.fn()
+        const chatCompletionImpl = vi.fn().mockResolvedValue('太后闻言，便知此兆可借来压人。')
+        const buildFallbackTextImpl = vi.fn()
+
+        const result = await orchestrateOmenEchoFeedback({
+            feedbackId: 'scheme-omen',
+            action: {
+                schemeType: 'omen',
+                omenSpeechInput: {
+                    omenText: '赤气犯紫微',
+                    interpretationText: '外镇将有异志',
+                },
+            },
+            targetNpc,
+            parsed: createNorthParse(),
+            npcs: [targetNpc, speakerNpc],
+            relationships: [],
+            round: 3,
+            roundEvent: {
+                eventName: '边报骤起',
+                eventBriefing: '朝中正议外镇动向。',
+            },
+            updateNpcFeedbackOmenEcho,
+            chatCompletionImpl,
+            getAiModeImpl: () => 'kimi',
+            selectSpeakerImpl: () => ({
+                speakerNpc,
+                candidateCount: 1,
+                selectionReason: '朝中发声最稳。',
+                relationSummary: null,
+                candidateScores: [],
+            }),
+            buildFallbackTextImpl,
+        })
+
+        expect(chatCompletionImpl).toHaveBeenCalledTimes(1)
+        expect(buildFallbackTextImpl).not.toHaveBeenCalled()
+        expect(updateNpcFeedbackOmenEcho).toHaveBeenCalledWith(
+            'scheme-omen',
+            expect.objectContaining({
+                speakerNpcId: 'speaker',
+                speakerNpcName: '太后',
+                speakerTitle: '皇太后',
+                text: '太后闻言，便知此兆可借来压人。',
+                source: 'ai',
+            }),
+        )
+        expect(result).toEqual(
+            expect.objectContaining({
+                speakerNpcId: 'speaker',
+                text: '太后闻言，便知此兆可借来压人。',
+                source: 'ai',
+            }),
+        )
+    })
+
+    it('does not attach omen echo data for non-omen feedback', async () => {
+        const targetNpc = createNpc({ id: 'target', name: '宇文帝', title: '天子' })
+        const updateNpcFeedbackOmenEcho = vi.fn()
+        const chatCompletionImpl = vi.fn()
+
+        const result = await orchestrateOmenEchoFeedback({
+            feedbackId: 'scheme-probe',
+            action: {
+                schemeType: 'probe',
+            },
+            targetNpc,
+            parsed: createNorthParse(),
+            npcs: [targetNpc],
+            relationships: [],
+            round: 3,
+            roundEvent: {
+                eventName: '边报骤起',
+                eventBriefing: '朝中正议外镇动向。',
+            },
+            updateNpcFeedbackOmenEcho,
+            chatCompletionImpl,
+        })
+
+        expect(result).toBeNull()
+        expect(chatCompletionImpl).not.toHaveBeenCalled()
+        expect(updateNpcFeedbackOmenEcho).not.toHaveBeenCalled()
+    })
+
+    it('falls back to the local omen echo builder when AI generation fails', async () => {
+        const targetNpc = createNpc({ id: 'target', name: '贺拔岳', title: '节度使', powerBase: 'external' })
+        const speakerNpc = createNpc({ id: 'speaker', name: '太后', title: '皇太后' })
+        const updateNpcFeedbackOmenEcho = vi.fn()
+        const chatCompletionImpl = vi.fn().mockRejectedValue(new Error('network down'))
+        const buildFallbackTextImpl = vi.fn().mockReturnValue('太后断言此兆不可纵容，须即刻收束军权。')
+
+        const result = await orchestrateOmenEchoFeedback({
+            feedbackId: 'scheme-omen',
+            action: {
+                schemeType: 'omen',
+                omenSpeechInput: {
+                    omenText: '旌旗夜动',
+                    interpretationText: '外镇借兵自重',
+                },
+            },
+            targetNpc,
+            parsed: createNorthParse(),
+            npcs: [targetNpc, speakerNpc],
+            relationships: [],
+            round: 4,
+            roundEvent: {
+                eventName: '边军异动',
+                eventBriefing: '朝廷疑外镇将借乱坐大。',
+            },
+            updateNpcFeedbackOmenEcho,
+            chatCompletionImpl,
+            getAiModeImpl: () => 'kimi',
+            selectSpeakerImpl: () => ({
+                speakerNpc,
+                candidateCount: 1,
+                selectionReason: '朝中发声最稳。',
+                relationSummary: null,
+                candidateScores: [],
+            }),
+            buildFallbackTextImpl,
+        })
+
+        expect(buildFallbackTextImpl).toHaveBeenCalledTimes(1)
+        expect(updateNpcFeedbackOmenEcho).toHaveBeenCalledWith(
+            'scheme-omen',
+            expect.objectContaining({
+                speakerNpcId: 'speaker',
+                text: '太后断言此兆不可纵容，须即刻收束军权。',
+                source: 'fallback',
+            }),
+        )
+        expect(result).toEqual(
+            expect.objectContaining({
+                text: '太后断言此兆不可纵容，须即刻收束军权。',
+                source: 'fallback',
+            }),
+        )
     })
 })
 
@@ -412,9 +592,9 @@ describe('SchemeFeedback', () => {
         const markup = renderToStaticMarkup(<SchemeFeedback />)
 
         expect(markup).toContain('What do you mean by that?')
-        expect(markup).toContain('Send Reply')
+        expect(markup).toContain('发送回应')
         expect(markup).toContain('feedback-follow-up')
-        expect(markup).toContain('Send Reply')
+        expect(markup).toContain('发送回应')
     })
 })
 

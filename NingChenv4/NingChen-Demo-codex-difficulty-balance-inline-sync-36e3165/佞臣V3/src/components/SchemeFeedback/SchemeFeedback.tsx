@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+﻿import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_FOLLOW_UP_TEACHING_CONTENT, FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput, parseSchemeFollowUpInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
-import { buildNpcFollowUpFinalPrompt, buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
+import { buildNpcFollowUpFinalPrompt, buildNpcPrompt, buildOmenEchoPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
+import { buildOmenEchoFallbackText, buildOmenEchoFeedbackPayload, selectOmenEchoSpeaker } from '../../game/omenEcho'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
 import { isSchemeReplyPrefetchInFlight } from '../../game/schemeReplyPrefetch'
 import {
@@ -16,7 +17,7 @@ import {
     selectRequiredSchemeFollowUpCandidateId,
     shouldBlockSettlementForFollowUp,
 } from '../../game/schemeFollowUp'
-import type { SchemeFollowUp, SchemeFollowUpParseResult, SchemeType } from '../../game/types'
+import type { NPC, NorthSchemeParseResult, OmenEchoFeedback, RelationshipEdge, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeType } from '../../game/types'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
@@ -24,18 +25,18 @@ import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
 import './SchemeFeedback.css'
 
 const SCHEME_NAMES: Record<string, string> = {
-    probe: '试探',
-    advise: '献策',
-    slander: '谗言',
-    alienate: '离间',
-    frame: '设局嫁祸',
-    proxy: '借刀',
-    appeal: '求援',
-    omen: '谶纬',
+    probe: '璇曟帰',
+    advise: '鐚瓥',
+    slander: '璋楄█',
+    alienate: '绂婚棿',
+    frame: '璁惧眬瀚佺ジ',
+    proxy: '鍊熷垁',
+    appeal: '姹傛彺',
+    omen: '璋剁含',
 }
 
-const LOCAL_REPLY_FALLBACK = 'It seems to answer, but the meaning is still hazy.'
-const FOLLOW_UP_REPLY_FALLBACK = 'It settles back into a calm reply.'
+const LOCAL_REPLY_FALLBACK = '似有回应，却一时听不分明。'
+const FOLLOW_UP_REPLY_FALLBACK = '他收起锋芒，只留一句平静的回应。'
 const ZERO_DELTA_FOLLOW_UP_PARSE: SchemeFollowUpParseResult = {
     clarificationFit: 0,
     npcInterestFit: 0,
@@ -57,7 +58,7 @@ function sanitizeFollowUpReplyText(reply: string): string {
 
     if (!cleaned) return ''
     if (/[{}\[\]`]/.test(cleaned)) return ''
-    if (/[?]/.test(cleaned)) return ''
+    if (/[?？]/.test(cleaned)) return ''
 
     return cleaned
 }
@@ -69,28 +70,136 @@ function buildFollowUpReplyFallback(targetNpcName: string): string {
 function buildFallbackFollowUpQuestion(schemeType: SchemeType): string {
     switch (schemeType) {
         case 'probe':
-            return 'What exactly are you trying to hear from me?'
+            return '你这番试探，究竟想听我吐哪一句真话？'
         case 'advise':
-            return 'Do you want me to help you plan, or pull someone else into the scheme?'
+            return '你这番献策，究竟是替我谋利，还是想借我去动旁人的局？'
         case 'slander':
-            return 'Who are you trying to turn my suspicion toward?'
+            return '你今日把这话递到我耳边，究竟想让我先疑谁？'
         case 'alienate':
-            return 'Who do you want me to grow wary of first?'
+            return '你把话锋引到这里，究竟想叫我与谁先起嫌隙？'
         case 'frame':
-            return 'Who should carry the blame if this collapses?'
+            return '你把局铺成这样，究竟想让谁先背上这层嫌疑？'
         case 'proxy':
-            return 'Whom are you asking me to pressure on your behalf?'
+            return '你劝我借势出手，究竟想让我替你压谁？'
         case 'appeal':
-            return 'Which danger are you asking me to shield you from?'
+            return '你来求援，到底想让我替你担哪一道险？'
         case 'omen':
-            return 'Who do you want me to warn with this omen?'
+            return '你借这一句谶言敲我，究竟想叫我提防谁？'
         case 'secession':
-            return 'Do you want me to keep watch, or start protecting myself first?'
+            return '你把话说到这一步，究竟是想叫我先观望，还是先自保？'
         case 'rebellion':
-            return 'Do you truly mean to strike, or just test the court\'s depth?'
+            return '你把路逼到这一步，究竟是真想起事，还是想借我试朝廷深浅？'
         default:
-            return 'What do you want me to do with this line?'
+            return '你这番话，究竟真正想让我做什么？'
     }
+}
+
+function buildOmenEchoParseSummary(parsed: Pick<NorthSchemeParseResult, 'omenPolarity' | 'omenAnchorStrength' | 'legitimacyCrack' | 'suspicionDirection' | 'evidence'>): string {
+    const evidenceLine = parsed.evidence.slice(0, 2).join('；') || '暂无'
+    return `omenPolarity=${parsed.omenPolarity}; omenAnchorStrength=${parsed.omenAnchorStrength}; legitimacyCrack=${parsed.legitimacyCrack}; suspicionDirection=${parsed.suspicionDirection}; evidence=${evidenceLine}`
+}
+
+export async function orchestrateOmenEchoFeedback(params: {
+    feedbackId: string
+    action: Pick<SchemeAction, 'schemeType' | 'omenSpeechInput'>
+    targetNpc: NPC
+    parsed: Pick<NorthSchemeParseResult, 'omenPolarity' | 'omenAnchorStrength' | 'legitimacyCrack' | 'suspicionDirection' | 'evidence'>
+    npcs: NPC[]
+    relationships: RelationshipEdge[]
+    round: number
+    roundEvent: {
+        eventName: string
+        eventBriefing: string
+    }
+    updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => void
+    hasExistingOmenEcho?: boolean
+    chatCompletionImpl?: typeof chatCompletion
+    getAiModeImpl?: typeof getAiMode
+    selectSpeakerImpl?: typeof selectOmenEchoSpeaker
+    buildFallbackTextImpl?: typeof buildOmenEchoFallbackText
+}): Promise<OmenEchoFeedback | null> {
+    if (params.action.schemeType !== 'omen' || !params.action.omenSpeechInput || params.hasExistingOmenEcho) {
+        return null
+    }
+
+    const selectSpeaker = params.selectSpeakerImpl ?? selectOmenEchoSpeaker
+    const selection = selectSpeaker({
+        targetNpc: params.targetNpc,
+        npcs: params.npcs,
+        relationships: params.relationships,
+    })
+
+    if (!selection) return null
+
+    const chatCompletionImpl = params.chatCompletionImpl ?? chatCompletion
+    const getAiModeImpl = params.getAiModeImpl ?? getAiMode
+    const buildFallbackText = params.buildFallbackTextImpl ?? buildOmenEchoFallbackText
+    const parseSummary = buildOmenEchoParseSummary(params.parsed)
+
+    let text = ''
+    let source: OmenEchoFeedback['source'] = 'fallback'
+
+    try {
+        const aiReply = await chatCompletionImpl(
+            buildOmenEchoPrompt({
+                speakerNpc: selection.speakerNpc,
+                targetNpc: params.targetNpc,
+                omenText: params.action.omenSpeechInput.omenText,
+                interpretationText: params.action.omenSpeechInput.interpretationText,
+                roundEvent: {
+                    round: params.round,
+                    eventName: params.roundEvent.eventName,
+                    eventBriefing: params.roundEvent.eventBriefing,
+                },
+                parseSummary,
+            }),
+            {
+                temperature: 0.72,
+                maxTokens: 260,
+                tag: `omen_echo_${params.targetNpc.id}`,
+            },
+        )
+
+        const cleanedAiReply = sanitizeNpcReplyText(aiReply.trim())
+        if (cleanedAiReply && getAiModeImpl() !== 'fallback') {
+            text = cleanedAiReply
+            source = 'ai'
+        }
+    } catch {
+        // Fall through to the local omen-echo builder.
+    }
+
+    if (!text) {
+        text = buildFallbackText({
+            speakerNpc: selection.speakerNpc,
+            targetNpc: params.targetNpc,
+            round: params.round,
+            eventName: params.roundEvent.eventName,
+            eventBriefing: params.roundEvent.eventBriefing,
+            omenText: params.action.omenSpeechInput.omenText,
+            interpretationText: params.action.omenSpeechInput.interpretationText,
+            parseSummary,
+        })
+        source = 'fallback'
+    }
+
+    const payload = buildOmenEchoFeedbackPayload({
+        speakerNpc: selection.speakerNpc,
+        targetNpc: params.targetNpc,
+        text,
+        source,
+        round: params.round,
+        eventName: params.roundEvent.eventName,
+        eventBriefing: params.roundEvent.eventBriefing,
+        omenText: params.action.omenSpeechInput.omenText,
+        interpretationText: params.action.omenSpeechInput.interpretationText,
+        parseSummary,
+        selectionReason: selection.selectionReason,
+        candidateCount: selection.candidateCount,
+    })
+
+    params.updateNpcFeedbackOmenEcho(params.feedbackId, payload.feedback)
+    return payload.feedback
 }
 
 export function shouldQueueRecoveryParse(params: {
@@ -145,6 +254,7 @@ export function SchemeFeedback() {
         currentSchemes,
         npcs,
         factions,
+        relationships,
         intelProgress,
         recentBacklash,
         roundHistory,
@@ -153,6 +263,7 @@ export function SchemeFeedback() {
         pendingStructuredSchemeIds,
         addNpcFeedback,
         updateNpcFeedback,
+        updateNpcFeedbackOmenEcho,
         updateSchemeParse,
         markSchemeParsePending,
         setSchemeFollowUp,
@@ -206,6 +317,7 @@ export function SchemeFeedback() {
         currentSchemes: typeof currentSchemes
         npcs: typeof npcs
         factions: typeof factions
+        relationships: typeof relationships
         intelProgress: typeof intelProgress
         recentBacklash: typeof recentBacklash
         roundHistory: typeof roundHistory
@@ -215,6 +327,7 @@ export function SchemeFeedback() {
         currentRoundEvent: typeof currentRoundEvent
         addNpcFeedback: typeof addNpcFeedback
         updateNpcFeedback: typeof updateNpcFeedback
+        updateNpcFeedbackOmenEcho: typeof updateNpcFeedbackOmenEcho
         updateSchemeParse: typeof updateSchemeParse
         markSchemeParsePending: typeof markSchemeParsePending
         setSchemeFollowUp: typeof setSchemeFollowUp
@@ -225,6 +338,7 @@ export function SchemeFeedback() {
         currentSchemes,
         npcs,
         factions,
+        relationships,
         intelProgress,
         recentBacklash,
         roundHistory,
@@ -234,6 +348,7 @@ export function SchemeFeedback() {
         currentRoundEvent,
         addNpcFeedback,
         updateNpcFeedback,
+        updateNpcFeedbackOmenEcho,
         updateSchemeParse,
         markSchemeParsePending,
         setSchemeFollowUp,
@@ -417,6 +532,22 @@ export function SchemeFeedback() {
                         snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, existingFeedback.source)
                     }
 
+                    await orchestrateOmenEchoFeedback({
+                        feedbackId: item.feedbackId,
+                        action: item.action,
+                        targetNpc: item.targetNpc,
+                        parsed: item.parsed,
+                        npcs: snapshot.npcs,
+                        relationships: snapshot.relationships,
+                        round: currentRound,
+                        roundEvent: {
+                            eventName: snapshot.currentRoundEvent.eventName,
+                            eventBriefing: snapshot.currentRoundEvent.eventBriefing,
+                        },
+                        updateNpcFeedbackOmenEcho: snapshot.updateNpcFeedbackOmenEcho,
+                        hasExistingOmenEcho: Boolean(existingFeedback.omenEcho),
+                    })
+
                     if (isFollowUpCandidate && item.action.id) {
                         snapshot.setSchemeFollowUp(item.action.id, {
                             questionText: extractTerminalQuestion(normalizedReply) ?? fallbackQuestion,
@@ -466,9 +597,24 @@ export function SchemeFeedback() {
 
                     if (cancelled) return
 
-                    const source = getAiMode() === 'fallback' ? '本地兜底' : getAiModeLabel()
+                    const source = getAiMode() === 'fallback' ? '鏈湴鍏滃簳' : getAiModeLabel()
                     const normalizedReply = normalizeReply(reply)
                     snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, source)
+                    await orchestrateOmenEchoFeedback({
+                        feedbackId: item.feedbackId,
+                        action: item.action,
+                        targetNpc: item.targetNpc,
+                        parsed: item.parsed,
+                        npcs: snapshot.npcs,
+                        relationships: snapshot.relationships,
+                        round: currentRound,
+                        roundEvent: {
+                            eventName: snapshot.currentRoundEvent.eventName,
+                            eventBriefing: snapshot.currentRoundEvent.eventBriefing,
+                        },
+                        updateNpcFeedbackOmenEcho: snapshot.updateNpcFeedbackOmenEcho,
+                        hasExistingOmenEcho: Boolean(existingFeedback?.omenEcho),
+                    })
 
                     if (isFollowUpCandidate && item.action.id) {
                         snapshot.setSchemeFollowUp(item.action.id, {
@@ -479,7 +625,22 @@ export function SchemeFeedback() {
                 } catch {
                     if (cancelled) return
                     const normalizedReply = normalizeReply(`${item.targetNpc.name}${LOCAL_REPLY_FALLBACK}`)
-                    snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, '本地兜底')
+                    snapshot.updateNpcFeedback(item.feedbackId, normalizedReply, '鏈湴鍏滃簳')
+                    await orchestrateOmenEchoFeedback({
+                        feedbackId: item.feedbackId,
+                        action: item.action,
+                        targetNpc: item.targetNpc,
+                        parsed: item.parsed,
+                        npcs: snapshot.npcs,
+                        relationships: snapshot.relationships,
+                        round: currentRound,
+                        roundEvent: {
+                            eventName: snapshot.currentRoundEvent.eventName,
+                            eventBriefing: snapshot.currentRoundEvent.eventBriefing,
+                        },
+                        updateNpcFeedbackOmenEcho: snapshot.updateNpcFeedbackOmenEcho,
+                        hasExistingOmenEcho: Boolean(existingFeedback?.omenEcho),
+                    })
                     if (isFollowUpCandidate && item.action.id) {
                         snapshot.setSchemeFollowUp(item.action.id, {
                             questionText: extractTerminalQuestion(normalizedReply) ?? fallbackQuestion,
@@ -668,7 +829,7 @@ export function SchemeFeedback() {
             </div>
 
             <div className="scheme-feedback-header animate-slide-up">
-                <h2 className="page-title">计谋回报</h2>
+                <h2 className="page-title">璁¤皨鍥炴姤</h2>
             </div>
 
             <div className="feedback-list">
@@ -699,21 +860,21 @@ export function SchemeFeedback() {
                         >
                             <NpcPortrait
                                 name={fb.npcName}
-                                alt={`${fb.npcName}虚影`}
+                                alt={`${fb.npcName}铏氬奖`}
                                 className="feedback-ghost-portrait"
                                 positionY="18%"
                             />
                             <div className="feedback-header">
                                 <div className="feedback-meta">
-                                    <span className="feedback-order">Reply {index + 1}</span>
+                                    <span className="feedback-order">第{index + 1} 封回报</span>
                                     <span className="feedback-npc-name">{fb.npcName}</span>
                                     <span className="feedback-scheme-label">
-                                        Scheme: {fb.schemeName}
-                                        {fb.playerSpeech && <span className="feedback-speech"> �� "{fb.playerSpeech}"</span>}
+                                        计谋：{fb.schemeName}
+                                        {fb.playerSpeech && <span className="feedback-speech"> · “{fb.playerSpeech}”</span>}
                                     </span>
                                 </div>
                                 <span className={`feedback-status ${fb.isLoading ? 'loading' : 'done'}`}>
-                                    {fb.isLoading ? 'Loading' : 'Delivered'}
+                                    {fb.isLoading ? '未揭晓' : '已揭晓'}
                                 </span>
                             </div>
 
@@ -721,27 +882,27 @@ export function SchemeFeedback() {
                                 {fb.isLoading ? (
                                     <div className="loading-state">
                                         <div className="ai-ripple" />
-                                        <p className="loading-hint">{fb.npcName} is still weighing your move...</p>
+                                        <p className="loading-hint">{fb.npcName}正在思量你的这一步棋……</p>
                                     </div>
                                 ) : (
                                     <div className="feedback-text-area animate-fade-in">
-                                        <div className="quote-mark">"</div>
+                                        <div className="quote-mark">“</div>
                                         <p className="feedback-text">{sanitizeNpcReplyText(fb.feedback)}</p>
-                                        <div className="quote-mark end">"</div>
+                                        <div className="quote-mark end">”</div>
                                     </div>
                                 )}
 
                                 {showOmenEcho && omenEcho && (
                                     <div className="feedback-omen-echo animate-fade-in">
-                                        <div className="feedback-omen-echo-label">����</div>
+                                        <div className="feedback-omen-echo-label">余音</div>
                                         <div className="feedback-omen-echo-speaker">
-                                            {omenEcho.speakerNpcName} �� {omenEcho.speakerTitle}
+                                            {omenEcho.speakerNpcName} · {omenEcho.speakerTitle}
                                         </div>
                                         <div className="feedback-omen-echo-text">
                                             {sanitizeNpcReplyText(omenEcho.text)}
                                         </div>
                                         <div className="feedback-omen-echo-source">
-                                            {omenEcho.source === 'ai' ? 'AI echo' : '���ض���'}
+                                            {omenEcho.source === 'ai' ? 'AI 回声' : '本地兜底'}
                                         </div>
                                     </div>
                                 )}
@@ -749,17 +910,17 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'available' && actionId === visibleAvailableFollowUpId && (
                                 <div className="feedback-follow-up glass-panel">
-                                    <div className="feedback-follow-up-label">追问</div>
+                                    <div className="feedback-follow-up-label">杩介棶</div>
                                     <div className="feedback-follow-up-question">{followUp.questionText}</div>
                                     <label className="feedback-follow-up-input-label" htmlFor={`follow-up-${actionId}`}>
-                                        你的回应
+                                        浣犵殑鍥炲簲
                                     </label>
                                     <textarea
                                         id={`follow-up-${actionId}`}
                                         className="feedback-follow-up-input"
                                         value={draftValue}
                                         onChange={event => handleFollowUpDraftChange(actionId, event.target.value)}
-                                        placeholder="写下你的补充说明"
+                                        placeholder="鍐欎笅浣犵殑琛ュ厖璇存槑"
                                         rows={4}
                                         disabled={isSubmitting}
                                     />
@@ -770,7 +931,7 @@ export function SchemeFeedback() {
                                             onClick={() => handleSkipFollowUp(actionId)}
                                             disabled={isSubmitting}
                                         >
-                                            跳过追问
+                                            璺宠繃杩介棶
                                         </button>
                                         <button
                                             type="button"
@@ -778,7 +939,7 @@ export function SchemeFeedback() {
                                             onClick={() => handleSubmitFollowUp(actionId)}
                                             disabled={isSubmitting || draftValue.trim().length === 0}
                                         >
-                                            {isSubmitting ? 'Submitting' : 'Send Reply'}
+                                            {isSubmitting ? '正在回应' : '发送回应'}
                                         </button>
                                     </div>
                                 </div>
@@ -786,7 +947,7 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'answered' && (
                                 <div className="feedback-follow-up feedback-follow-up--final">
-                                    <div className="feedback-follow-up-label">追问回批</div>
+                                    <div className="feedback-follow-up-label">杩介棶鍥炴壒</div>
                                     <div className="feedback-follow-up-final">
                                         {sanitizeFollowUpReplyText(followUp.finalNpcReply ?? '')}
                                     </div>
@@ -795,7 +956,7 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'skipped' && (
                                 <div className="feedback-follow-up feedback-follow-up--skipped">
-                                    已跳过追问，结算将按原始说辞继续推进�?
+                                    宸茶烦杩囪拷闂紝缁撶畻灏嗘寜鍘熷璇磋緸缁х画鎺ㄨ繘銆?
                                 </div>
                             )}
                         </div>
@@ -809,12 +970,13 @@ export function SchemeFeedback() {
                     onClick={nextPhase}
                     disabled={!canProceed}
                 >
-                    {allDone ? (allParsed ? '查看结算' : '等待解析完成') : '等待计谋回报'}
+                    {allDone ? (allParsed ? '鏌ョ湅缁撶畻' : '绛夊緟瑙ｆ瀽瀹屾垚') : '绛夊緟璁¤皨鍥炴姤'}
                 </button>
             </div>
         </div>
     )
 }
+
 
 
 
