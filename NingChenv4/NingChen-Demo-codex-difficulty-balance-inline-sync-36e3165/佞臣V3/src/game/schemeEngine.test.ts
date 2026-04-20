@@ -87,6 +87,59 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(getAvailableSchemesForNpc(yuwendi, { round: 13, unlockedSecrets: 1 })).toContain('omen')
     })
 
+    it('keeps omen success independent of target trust while still responding to parse quality', () => {
+        const parse = makeNorthParse({
+            omenAnchorStrength: 0.22,
+            legitimacyCrack: 0.18,
+            suspicionDirection: 0.16,
+            eventFit: 0.22,
+            exposureRisk: 0.2,
+        })
+
+        const lowTrust = calculateParsedSuccessRate('omen', 20, 0, false, parse, 'normal')
+        const highTrust = calculateParsedSuccessRate('omen', 88, 0, false, parse, 'normal')
+        const strongerParse = calculateParsedSuccessRate('omen', 20, 0, false, makeNorthParse({
+            omenAnchorStrength: 0.7,
+            legitimacyCrack: 0.66,
+            suspicionDirection: 0.52,
+            eventFit: 0.62,
+            exposureRisk: 0.08,
+        }), 'normal')
+
+        expect(highTrust).toBeCloseTo(lowTrust, 5)
+        expect(strongerParse).toBeGreaterThan(lowTrust)
+    })
+
+    it('keeps omen difficulty-sensitive without reintroducing trust bonuses', () => {
+        const parse = makeNorthParse({
+            omenAnchorStrength: 0.58,
+            legitimacyCrack: 0.54,
+            suspicionDirection: 0.42,
+            eventFit: 0.46,
+            exposureRisk: 0.12,
+        })
+
+        const easy = calculateParsedSuccessRate('omen', 18, 0, false, parse, 'easy')
+        const hard = calculateParsedSuccessRate('omen', 18, 0, false, parse, 'hard')
+
+        expect(easy).toBeGreaterThan(hard)
+    })
+
+    it('still lets non-omen schemes benefit from higher trust', () => {
+        const parse = makeNorthParse({
+            characterFit: 0.34,
+            eventFit: 0.3,
+            structuralPenetration: 0.26,
+            executability: 0.28,
+            exposureRisk: 0.18,
+        })
+
+        const lowTrust = calculateParsedSuccessRate('advise', 22, 30, false, parse, 'normal')
+        const highTrust = calculateParsedSuccessRate('advise', 82, 30, false, parse, 'normal')
+
+        expect(highTrust).toBeGreaterThan(lowTrust)
+    })
+
     it('does not offer proxy to external warlords even at high trust', () => {
         const ansiming = { ...INITIAL_NPCS.find(npc => npc.name === '安思明')!, trust: 82 }
 
