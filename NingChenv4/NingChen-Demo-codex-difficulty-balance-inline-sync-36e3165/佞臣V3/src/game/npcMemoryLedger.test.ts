@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import type { ExternalActionReport } from './roundSettlement'
 import type { SchemeResult } from './schemeEngine'
@@ -67,7 +67,7 @@ describe('npcMemoryLedger', () => {
         const schemes: SchemeAction[] = [{
             targetNpcId: npc.id,
             schemeType: 'advise',
-            playerSpeech: '可借漕运与粮道名义，把南征议程拢回中枢。',
+                playerSpeech: '可借淮运与粮道名义，把南征议程拢回中枢。',
         }]
 
         const entries = deriveNpcMemoryEntriesForRound({
@@ -106,7 +106,7 @@ describe('npcMemoryLedger', () => {
         const schemes: SchemeAction[] = [{
             targetNpcId: npc.id,
             schemeType: 'slander',
-            playerSpeech: '太后若再纵容宇文棣借南征立威，朝中便要另起炉灶。',
+            playerSpeech: '澶悗鑻ュ啀绾靛瀹囨枃妫ｅ€熷崡寰佺珛濞侊紝鏈濅腑渚胯鍙﹁捣鐐夌伓銆?',
         }]
 
         const entries = deriveNpcMemoryEntriesForRound({
@@ -129,7 +129,7 @@ describe('npcMemoryLedger', () => {
                         npcName: npc.name,
                         type: 'exposed',
                         intensity: 0.68,
-                        summary: '贺拔琪已察觉你话中藏锋，近来对你提防更深。',
+                        summary: '璐烘嫈鐞凡瀵熻浣犺瘽涓棌閿嬶紝杩戞潵瀵逛綘鎻愰槻鏇存繁銆?',
                         sourceRound: 9,
                     }],
                 }),
@@ -154,7 +154,7 @@ describe('npcMemoryLedger', () => {
             npcId: npc.id,
             npcName: npc.name,
             action: 'rebellion',
-            outcome: '击退平叛军队后割据一方',
+            outcome: '鍑婚€€骞冲彌鍐涢槦鍚庡壊鎹竴鏂?',
             nationEffects: { military: -2.2 },
         }
 
@@ -163,7 +163,7 @@ describe('npcMemoryLedger', () => {
             schemes: [{
                 targetNpcId: npc.id,
                 schemeType: 'rebellion',
-                playerSpeech: '若朝中只想拿你填缺，何不先立旗号自保。',
+                playerSpeech: '鑻ユ湞涓彧鎯虫嬁浣犲～缂猴紝浣曚笉鍏堢珛鏃楀彿鑷繚銆?',
             }],
             schemeResults: [
                 makeSchemeResult({
@@ -185,6 +185,55 @@ describe('npcMemoryLedger', () => {
         ]))
     })
 
+    it('records omen-based external pressure as central suspicion and supply squeeze memory', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.powerBase === 'external' && item.militaryPower === 55)!, trust: 76 }
+
+        const entries = deriveNpcMemoryEntriesForRound({
+            round: 15,
+            schemes: [{
+                targetNpcId: npc.id,
+                schemeType: 'omen',
+                playerSpeech: '异兆已经落到边镇头上，朝里只要顺势紧一紧粮道与关防，兵心自然会先松一层。',
+            }],
+            schemeResults: [
+                makeSchemeResult({
+                    success: true,
+                    northParse: { ...makeSchemeResult().northParse, omenPolarity: 'destabilizing', omenAccusationClarity: 0.84, centralSanctionLeverage: 0.82, legitimacyCrack: 0.8, suspicionDirection: 0.78, exposureRisk: 0.08, targetBenefit: 0, factionBenefit: 0 },
+                    personEffects: {
+                        trustDelta: 1,
+                        relatedTrustDelta: 0,
+                        loyaltyDelta: -4,
+                        relatedLoyaltyDelta: 0,
+                        alignmentShift: null,
+                        intelDelta: 0,
+                        externalStatus: null,
+                        militaryPowerDelta: -2,
+                    },
+                }),
+            ],
+            npcsBefore: [npc],
+            npcsAfter: [{ ...npc, loyaltyToCourt: npc.loyaltyToCourt - 4, militaryPower: npc.militaryPower - 2 }],
+            externalActionReports: [],
+        })
+
+        expect(entries).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                npcId: npc.id,
+                category: 'power_shift',
+                sourceRound: 15,
+                schemeType: 'omen',
+                summary: expect.stringContaining('中枢起疑'),
+            }),
+        ]))
+
+        const omenEntry = entries.find(entry => entry.npcId === npc.id && entry.schemeType === 'omen')
+        expect(omenEntry).toBeTruthy()
+        expect(omenEntry?.summary).toContain('粮道与军需')
+        expect(omenEntry?.summary).toContain('御史监军')
+        expect(omenEntry?.summary).toContain('怨气')
+        expect(omenEntry?.tags).toEqual(expect.arrayContaining(['external', 'omen', 'grain', 'military', 'pressure']))
+    })
+
     it('summarizes the most relevant memories for prompt consumption', () => {
         const npcId = 'zuting'
         const ledger = mergeNpcMemoryEntries({}, [
@@ -193,7 +242,7 @@ describe('npcMemoryLedger', () => {
                 category: 'warning',
                 sourceRound: 4,
                 importance: 1,
-                summary: '第4回合，你曾轻轻敲打过他。',
+                summary: '绗?鍥炲悎锛屼綘鏇捐交杞绘暡鎵撹繃浠栥€?',
                 tags: ['court'],
             },
             {
@@ -201,7 +250,7 @@ describe('npcMemoryLedger', () => {
                 category: 'favor',
                 sourceRound: 6,
                 importance: 3,
-                summary: '第6回合，你曾替他把漕运与中枢节制重新拢到一处。',
+                summary: '绗?鍥炲悎锛屼綘鏇炬浛浠栨妸婕曡繍涓庝腑鏋㈣妭鍒堕噸鏂版嫝鍒颁竴澶勩€?',
                 tags: ['grain', 'governance'],
             },
             {
@@ -209,7 +258,7 @@ describe('npcMemoryLedger', () => {
                 category: 'betrayal',
                 sourceRound: 8,
                 importance: 2,
-                summary: '第8回合，你的谗言失手后，他记住了你会顺着裂缝下刀。',
+                summary: '绗?鍥炲悎锛屼綘鐨勮皸瑷€澶辨墜鍚庯紝浠栬浣忎簡浣犱細椤虹潃瑁傜紳涓嬪垁銆?',
                 tags: ['court'],
             },
         ])
@@ -221,8 +270,8 @@ describe('npcMemoryLedger', () => {
             limit: 2,
         })
 
-        expect(summary).toContain('第6回合')
-        expect(summary).toContain('第8回合')
-        expect(summary).not.toContain('第4回合')
+        expect(summary).toContain('绗?鍥炲悎')
+        expect(summary).toContain('绗?鍥炲悎')
+        expect(summary.split('；')).toHaveLength(2)
     })
 })

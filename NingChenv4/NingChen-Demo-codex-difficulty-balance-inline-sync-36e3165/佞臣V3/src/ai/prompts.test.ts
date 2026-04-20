@@ -123,6 +123,29 @@ describe('buildNpcPrompt', () => {
     })
 })
 
+    it('adds omen reply guidance that distinguishes panic, anger, reinterpretation, and rumor control', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.powerBase === 'external' && item.militaryPower === 55)!, trust: 34 }
+
+        const prompt = buildNpcPrompt({
+            npc,
+            schemeType: 'omen',
+            speech: '铁人夜鸣，西镇军旗忽动。',
+            success: true,
+            round: 13,
+            eventName: '铁骑异动',
+            eventBriefing: '朝中正在议论外镇军头是否会借乱自重。',
+        })[1].content
+
+        expect(prompt).toContain('谶纬应答')
+        expect(prompt).toContain('中枢是否起疑')
+        expect(prompt).toContain('粮道军需')
+        expect(prompt).toContain('御史监军')
+        expect(prompt).toContain('惊惶自辩')
+        expect(prompt).toContain('怒斥有人借兆栽赃')
+        expect(prompt).toContain('顺势改口借兆压人')
+        expect(prompt).toContain('封口压谣')
+    })
+
 describe('buildNpcFollowUpMode prompts', () => {
     it('lets question_candidate mode ask only when the situation justifies it', () => {
         const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')!, trust: 44 }

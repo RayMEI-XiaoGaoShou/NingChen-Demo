@@ -1161,6 +1161,51 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(Math.abs(result.personEffects.militaryPowerDelta)).toBeLessThanOrEqual(3)
     })
 
+    it('writes external omen settlement feedback as a central suspicion and supply squeeze chain', () => {
+        const externalNpc = {
+            ...INITIAL_NPCS.find(npc => npc.powerBase === 'external')!,
+            trust: 76,
+        }
+
+        const result = settleScheme(
+            {
+                id: 'external-omen-feedback',
+                targetNpcId: externalNpc.id,
+                schemeType: 'omen',
+                playerSpeech: '异兆已经落到边镇头上，朝里只要顺势紧一紧粮道与关防，兵心自然会先松一层。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.82,
+                    eventFit: 0.8,
+                    structuralPenetration: 0.78,
+                    executability: 0.74,
+                    exposureRisk: 0.08,
+                    militaryRelevance: 0.74,
+                    socialOrderRelevance: 0.7,
+                    governanceRelevance: 0.76,
+                    omenAccusationClarity: 0.84,
+                    centralSanctionLeverage: 0.82,
+                    legitimacyCrack: 0.8,
+                    suspicionDirection: 0.78,
+                    omenPolarity: 'destabilizing',
+                    evidence: [],
+                }),
+            },
+            externalNpc,
+            null,
+            0,
+            { round: 15, unlockedSecrets: 2 },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.feedbackText).toContain('中枢')
+        expect(result.feedbackText).toContain('粮道')
+        expect(result.feedbackText).toContain('军需')
+        expect(result.feedbackText).toContain('御史监军')
+        expect(result.feedbackText).toContain('兵势')
+        expect(result.feedbackText).toContain('怨气')
+    })
+
     it('keeps a vague external omen from applying the same military pressure as a strong one', () => {
         const externalNpc = {
             ...INITIAL_NPCS.find(npc => npc.powerBase === 'external')!,
