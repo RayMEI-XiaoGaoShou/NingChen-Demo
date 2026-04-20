@@ -255,6 +255,14 @@ export interface OmenSpeechInput {
     interpretationText: string
 }
 
+export interface OmenEchoFeedback {
+    speakerNpcId: string
+    speakerNpcName: string
+    speakerTitle: string
+    text: string
+    source: 'ai' | 'fallback'
+}
+
 export interface FengDaozhiDraftRequest {
     round: number
     difficulty: GameDifficulty
@@ -335,7 +343,9 @@ export interface NorthSchemeParseResult {
     socialOrderRelevance: number
     governanceRelevance: number
     dominantIntent: NorthDominantIntent
-  stateBenefit?: number
+    omenAccusationClarity?: number
+    centralSanctionLeverage?: number
+    stateBenefit?: number
     targetBenefit?: number
     factionBenefit?: number
     advicePolarity?: AdvicePolarity
