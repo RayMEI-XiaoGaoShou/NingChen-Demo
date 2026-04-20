@@ -401,35 +401,39 @@ describe('buildFengDaozhiDraftPrompt', () => {
     })
 })
 
-describe.skip('buildOmenEchoPrompt', () => {
-    it('includes speaker perspective, omen text, interpretation, and central reaction guidance', () => {
-        const speakerNpc = INITIAL_NPCS.find(item => item.id === 'linghuelvguang')!
-        const targetNpc = INITIAL_NPCS.find(item => item.id === 'hebabogu矛')!
+describe('buildOmenEchoPrompt', () => {
+    it('includes court-target prompt context and internal central guidance', () => {
+        const speakerNpc = INITIAL_NPCS.find(item => item.id === 'yuwendi')!
+        const targetNpc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
         const prompt = buildOmenEchoPrompt({
             speakerNpc,
             targetNpc,
-            omenText: '石马夜鸣，西镇军旗忽动。',
-            interpretationText: '此非独天灾，恐是外镇借兵自重之兆。',
+            omenText: '\u77f3\u4eba\u72ec\u76ee\uff0c\u53f0\u9636\u6709\u9634\u3002',
+            interpretationText: '\u6b64\u975e\u8fb9\u60a3\uff0c\u4e43\u662f\u671d\u4e2d\u540d\u5206\u88c2\u7f1d\u5916\u6f0f\u4e4b\u5146\u3002',
             roundEvent: {
-                round: 13,
-                eventName: '铁骑异动',
-                eventBriefing: '朝中正议论外镇是否会借乱自重。',
+                round: 14,
+                eventName: '\u5f52\u653f\u8bae\u8d77',
+                eventBriefing: '\u671d\u4e2d\u6b63\u4e3a\u6444\u653f\u4f53\u7cfb\u4e0e\u76f8\u6743\u8fb9\u754c\u76f8\u4e92\u8bd5\u63a2\u3002',
             },
-            parseSummary: 'omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77',
+            parseSummary: 'omenPolarity=destabilizing; legitimacyCrack=0.81; suspicionDirection=0.74',
         })[1].content
 
-        expect(prompt).toContain(`以${speakerNpc.name}的口吻`)
-        expect(prompt).toContain('谶辞 / 征兆：石马夜鸣，西镇军旗忽动。')
-        expect(prompt).toContain('解释 / 指向：此非独天灾，恐是外镇借兵自重之兆。')
-        expect(prompt).toContain('第13回合')
-        expect(prompt).toContain('局势摘要：朝中正议论外镇是否会借乱自重。')
-        expect(prompt).toContain('parseSummary：omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77')
-        expect(prompt).toContain('中枢')
-        expect(prompt).toContain('截断粮道')
-        expect(prompt).toContain('御史监督')
+        expect(prompt).toContain(`\u4ee5${speakerNpc.name}\uff08${speakerNpc.title}\uff09\u7684\u53e3\u543b`)
+        expect(prompt).toContain(`\u76ee\u6807\u4eba\u7269\uff1a${targetNpc.name}\uff08${targetNpc.title}`)
+        expect(prompt).toContain('\u671d\u4e2d\u4eba\u7269')
+        expect(prompt).toContain('\u9635\u8425\u504f\u5411')
+        expect(prompt).toContain('\u7b2c14\u56de\u5408')
+        expect(prompt).toContain('\u5c40\u52bf\u6458\u8981\uff1a\u671d\u4e2d\u6b63\u4e3a\u6444\u653f\u4f53\u7cfb\u4e0e\u76f8\u6743\u8fb9\u754c\u76f8\u4e92\u8bd5\u63a2\u3002')
+        expect(prompt).toContain('\u8c36\u8f9e / \u5f81\u5146')
+        expect(prompt).toContain('\u89e3\u91ca / \u6307\u5411')
+        expect(prompt).toContain('parseSummary\uff1aomenPolarity=destabilizing; legitimacyCrack=0.81; suspicionDirection=0.74')
+        expect(prompt).toContain('\u4e2d\u67a2\u52a8\u4f5c\u63d0\u793a\uff1a\u6536\u675f\u8bcf\u4ee4\u3001\u6838\u67e5\u8d26\u518c\u3001\u538b\u4f4f\u65c1\u652f\u3001\u7ec6\u7a76\u540d\u5206\u3002')
+        expect(prompt).not.toContain('\u622a\u65ad\u7cae\u9053')
+        expect(prompt).not.toContain('\u5fa1\u53f2\u76d1\u7763')
     })
 })
+
 describe('buildOmenEchoPrompt', () => {
     it('includes speaker perspective, omen text, interpretation, and central reaction guidance', () => {
         const speakerNpc = INITIAL_NPCS.find(item => item.id === 'linghuelvguang')!
