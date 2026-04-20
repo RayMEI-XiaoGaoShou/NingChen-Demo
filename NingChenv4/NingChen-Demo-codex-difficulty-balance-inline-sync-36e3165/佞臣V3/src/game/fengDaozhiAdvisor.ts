@@ -65,6 +65,7 @@ export function buildFengDaozhiDraftContext(params: {
         shuCampaign,
         huainanCampaign,
         npcMemoryLedger,
+        schemeType: request.schemeType,
     })
 
     return {

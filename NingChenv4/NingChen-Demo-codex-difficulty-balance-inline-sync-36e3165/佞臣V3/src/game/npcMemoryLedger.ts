@@ -1,10 +1,23 @@
 import type { ExternalActionReport } from './roundSettlement'
 import type { SchemeResult } from './schemeEngine'
-import type { NPC, NpcMemoryEntry, NpcMemoryLedger, SchemeAction, SchemeType } from './types'
+import type {
+    NPC,
+    NpcMemoryEntry,
+    NpcMemoryLedger,
+    NpcMemoryTag,
+    SchemeAction,
+    SchemeType,
+} from './types'
 
 const SOFT_SCHEMES = new Set<SchemeType>(['probe', 'advise', 'appeal'])
 const HARD_SCHEMES = new Set<SchemeType>(['slander', 'alienate', 'frame', 'proxy', 'omen', 'secession', 'rebellion'])
 const TERMINAL_EXTERNAL_STATUSES = new Set(['secession', 'rebellion'])
+const ADVISE_CATEGORIES = new Set(['favor', 'saved_face'] satisfies NpcMemoryEntry['category'][])
+const HARDSCHEME_CATEGORIES = new Set(['warning', 'betrayal'] satisfies NpcMemoryEntry['category'][])
+const OMEN_TAGS = new Set<NpcMemoryTag>(['legitimacy', 'pressure', 'court'])
+const ADVISE_TAGS = new Set<NpcMemoryTag>(['trust', 'soft', 'face', 'benefit'])
+const HARD_TAGS = new Set<NpcMemoryTag>(['pressure', 'hard', 'exposed', 'fallout'])
+const OMEN_CATEGORY = 'power_shift' as const
 
 export function deriveNpcMemoryEntriesForRound(params: {
     round: number
@@ -137,6 +150,16 @@ export function mergeNpcMemoryEntries(
     return merged
 }
 
+export function rankNpcMemoryEntriesForScheme(params: {
+    entries: NpcMemoryEntry[]
+    schemeType?: SchemeType
+    currentRound?: number
+    limit?: number
+}): NpcMemoryEntry[] {
+    const ranked = rankEntries(params.entries, params.currentRound ?? Number.MAX_SAFE_INTEGER, params.schemeType)
+    return params.limit ? ranked.slice(0, params.limit) : ranked
+}
+
 export function buildNpcLongTermMemorySummary(params: {
     npcId: string
     ledger: NpcMemoryLedger
@@ -158,17 +181,52 @@ function dedupeEntries(entries: NpcMemoryEntry[]): NpcMemoryEntry[] {
     })
 }
 
-function rankEntries(entries: NpcMemoryEntry[], currentRound = Number.MAX_SAFE_INTEGER): NpcMemoryEntry[] {
+function rankEntries(
+    entries: NpcMemoryEntry[],
+    currentRound = Number.MAX_SAFE_INTEGER,
+    schemeType?: SchemeType,
+): NpcMemoryEntry[] {
     return [...entries].sort((left, right) => {
-        const leftScore = scoreEntry(left, currentRound)
-        const rightScore = scoreEntry(right, currentRound)
+        const leftScore = scoreEntry(left, currentRound, schemeType)
+        const rightScore = scoreEntry(right, currentRound, schemeType)
         if (rightScore !== leftScore) return rightScore - leftScore
         return right.sourceRound - left.sourceRound
     })
 }
 
-function scoreEntry(entry: NpcMemoryEntry, currentRound: number): number {
+function scoreEntry(entry: NpcMemoryEntry, currentRound: number, schemeType?: SchemeType): number {
     const age = Math.max(0, currentRound - entry.sourceRound)
     const freshness = Math.max(0, 12 - age)
-    return entry.importance * 100 + freshness
+    return entry.importance * 100 + freshness + getSchemeRelevanceScore(entry, schemeType)
+}
+
+function getSchemeRelevanceScore(entry: NpcMemoryEntry, schemeType?: SchemeType): number {
+    if (!schemeType) return 0
+
+    if (schemeType === 'advise') {
+        return getCategoryBonus(entry, ADVISE_CATEGORIES, 300) + getTagBonus(entry, ADVISE_TAGS, 180)
+    }
+
+    if (schemeType === 'slander' || schemeType === 'alienate' || schemeType === 'frame') {
+        return getCategoryBonus(entry, HARDSCHEME_CATEGORIES, 300) + getTagBonus(entry, HARD_TAGS, 180)
+    }
+
+    if (schemeType === 'omen') {
+        return getCategoryBonus(entry, new Set([OMEN_CATEGORY]), 120) + getTagBonus(entry, OMEN_TAGS, 260)
+    }
+
+    return 0
+}
+
+function getCategoryBonus(
+    entry: NpcMemoryEntry,
+    categories: Set<NpcMemoryEntry['category']>,
+    bonus: number,
+): number {
+    return categories.has(entry.category) ? bonus : 0
+}
+
+function getTagBonus(entry: NpcMemoryEntry, tags: Set<NpcMemoryTag>, bonus: number): number {
+    const entryTags = entry.tags ?? []
+    return entryTags.some(tag => tags.has(tag)) ? bonus : 0
 }

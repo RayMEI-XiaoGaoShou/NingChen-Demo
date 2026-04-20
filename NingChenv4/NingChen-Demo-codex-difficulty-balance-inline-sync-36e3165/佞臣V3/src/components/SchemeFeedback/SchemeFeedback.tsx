@@ -304,6 +304,7 @@ export function SchemeFeedback() {
                         recentBacklash: snapshot.recentBacklash,
                         npcMemoryLedger: snapshot.npcMemoryLedger,
                         currentRound,
+                        schemeType: action.schemeType,
                     })
 
                     if (!existingFeedbackMap.has(feedbackId)) {
