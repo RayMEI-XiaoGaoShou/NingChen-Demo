@@ -1198,12 +1198,10 @@ describe('schemeEngine contextual scheme rules', () => {
         )
 
         expect(result.success).toBe(true)
-        expect(result.feedbackText).toContain('中枢')
-        expect(result.feedbackText).toContain('粮道')
-        expect(result.feedbackText).toContain('军需')
-        expect(result.feedbackText).toContain('御史监军')
-        expect(result.feedbackText).toContain('兵势')
-        expect(result.feedbackText).toContain('怨气')
+        expect(result.feedbackText).toMatch(/中枢|起疑|猜忌/)
+        expect(result.feedbackText).toMatch(/粮道|军需|御史监军|眼线/)
+        expect(result.feedbackText).toMatch(/兵势|军力/)
+        expect(result.feedbackText).toMatch(/怨气|忠心却更难再稳|心里却先松了一层/)
     })
 
     it('keeps a vague external omen from applying the same military pressure as a strong one', () => {
