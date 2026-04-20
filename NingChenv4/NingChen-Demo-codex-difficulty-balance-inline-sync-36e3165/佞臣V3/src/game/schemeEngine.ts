@@ -27,6 +27,7 @@ export interface PersonEffects {
     relatedTrustDelta: number
     loyaltyDelta: number
     relatedLoyaltyDelta: number
+    militaryPowerDelta: number
     alignmentShift: AlignmentBias | null
     intelDelta: number
     externalStatus: ExternalStatus | null
@@ -475,6 +476,49 @@ function deriveNationEffectFromExternalPerson(
     })
 }
 
+function deriveExternalOmenPersonEffects(
+    targetNpc: NPC,
+    parse: NorthSchemeParseResult,
+): Pick<PersonEffects, 'loyaltyDelta' | 'militaryPowerDelta'> {
+    if (targetNpc.powerBase !== 'external') {
+        return {
+            loyaltyDelta: 0,
+            militaryPowerDelta: 0,
+        }
+    }
+
+    const omenPolarity = parse.omenPolarity ?? 'vague_or_ceremonial'
+    if (omenPolarity === 'legitimizing') {
+        return {
+            loyaltyDelta: 0,
+            militaryPowerDelta: 0,
+        }
+    }
+
+    const accusationClarity = parse.omenAccusationClarity ?? 0
+    const sanctionLeverage = parse.centralSanctionLeverage ?? 0
+    const legitimacyCrack = parse.legitimacyCrack ?? Math.max(parse.governanceRelevance, parse.socialOrderRelevance) * 0.75
+    const suspicionDirection = parse.suspicionDirection ?? Math.max(parse.governanceRelevance, parse.socialOrderRelevance) * 0.7
+    const omenQuality = clamp(
+        accusationClarity * 0.34
+            + sanctionLeverage * 0.3
+            + legitimacyCrack * 0.18
+            + suspicionDirection * 0.14
+            + parse.structuralPenetration * 0.04
+            + parse.eventFit * 0.04
+            - parse.exposureRisk * 0.24,
+        0,
+        1,
+    )
+    const polarityFactor = omenPolarity === 'vague_or_ceremonial' ? 0.34 : 1
+    const sanctionStrength = omenQuality * polarityFactor
+
+    return {
+        militaryPowerDelta: -roundValue(clamp(Math.max(0, sanctionStrength - 0.34) * 1.35, 0, 1.1)),
+        loyaltyDelta: -roundValue(clamp(1.8 + sanctionStrength * 3.2, 1.6, 5.2)),
+    }
+}
+
 function getAgendaRelevance(parse: NorthSchemeParseResult): number {
     return Math.max(
         parse.financeRelevance,
@@ -653,6 +697,7 @@ function getSuccessTemplate(
         relatedTrustDelta: 0,
         loyaltyDelta: 0,
         relatedLoyaltyDelta: 0,
+        militaryPowerDelta: 0,
         alignmentShift: null,
         intelDelta: 0,
         externalStatus: null,
@@ -783,7 +828,26 @@ function getSuccessTemplate(
             }
         case 'omen':
             return {
-                person: { ...emptyPerson, trustDelta: 1 },
+                person: targetNpc.powerBase === 'external'
+                    ? {
+                        ...emptyPerson,
+                        trustDelta: 1,
+                        ...deriveExternalOmenPersonEffects(targetNpc, parse ?? {
+                            characterFit: 0,
+                            eventFit: 0,
+                            structuralPenetration: 0,
+                            executability: 0,
+                            exposureRisk: 0,
+                            financeRelevance: 0,
+                            grainRelevance: 0,
+                            militaryRelevance: 0,
+                            socialOrderRelevance: 0,
+                            governanceRelevance: 0,
+                            dominantIntent: 'neutral',
+                            evidence: [],
+                        }),
+                    }
+                    : { ...emptyPerson, trustDelta: 1 },
                 factionEffects,
                 specialAction: null,
             }
@@ -851,6 +915,7 @@ function getFailureTemplate(
             relatedTrustDelta: 0,
             loyaltyDelta: action.schemeType === 'secession' || action.schemeType === 'rebellion' ? 4 : 0,
             relatedLoyaltyDelta: 0,
+            militaryPowerDelta: 0,
             alignmentShift: null,
             intelDelta: 0,
             externalStatus: null,
@@ -866,6 +931,7 @@ function scalePersonEffects(person: PersonEffects, multiplier: number): PersonEf
         relatedTrustDelta: Math.round(person.relatedTrustDelta * multiplier),
         loyaltyDelta: Math.round(person.loyaltyDelta * multiplier),
         relatedLoyaltyDelta: Math.round(person.relatedLoyaltyDelta * multiplier),
+        militaryPowerDelta: round(person.militaryPowerDelta * multiplier),
     }
 }
 
