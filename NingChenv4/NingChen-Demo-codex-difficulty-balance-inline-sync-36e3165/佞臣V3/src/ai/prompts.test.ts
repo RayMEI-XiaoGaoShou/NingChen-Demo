@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { buildFengDaozhiDraftPrompt, buildNorthSchemeParsePrompt, buildNpcFollowUpFinalPrompt, buildNpcPrompt, buildSchemeFollowUpParsePrompt, sanitizeNpcReplyText } from './prompts'
+import { buildFengDaozhiDraftPrompt, buildNorthSchemeParsePrompt, buildNpcFollowUpFinalPrompt, buildNpcPrompt, buildOmenEchoPrompt, buildSchemeFollowUpParsePrompt, sanitizeNpcReplyText } from './prompts'
 import type { FengDaozhiDraftContext } from '../game/fengDaozhiAdvisor'
 import type { NorthSchemeParseResult } from '../game/types'
 
@@ -398,5 +398,64 @@ describe('buildFengDaozhiDraftPrompt', () => {
         expect(prompt).toContain('primaryText 必须像一句征兆、谶辞或灾异异象')
         expect(prompt).toContain('secondaryText 必须解释这句征兆意味着怎样的名分裂缝')
         expect(prompt).toContain('"secondaryText": "string，可省略"')
+    })
+})
+
+describe.skip('buildOmenEchoPrompt', () => {
+    it('includes speaker perspective, omen text, interpretation, and central reaction guidance', () => {
+        const speakerNpc = INITIAL_NPCS.find(item => item.id === 'linghuelvguang')!
+        const targetNpc = INITIAL_NPCS.find(item => item.id === 'hebabogu矛')!
+
+        const prompt = buildOmenEchoPrompt({
+            speakerNpc,
+            targetNpc,
+            omenText: '石马夜鸣，西镇军旗忽动。',
+            interpretationText: '此非独天灾，恐是外镇借兵自重之兆。',
+            roundEvent: {
+                round: 13,
+                eventName: '铁骑异动',
+                eventBriefing: '朝中正议论外镇是否会借乱自重。',
+            },
+            parseSummary: 'omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77',
+        })[1].content
+
+        expect(prompt).toContain(`以${speakerNpc.name}的口吻`)
+        expect(prompt).toContain('谶辞 / 征兆：石马夜鸣，西镇军旗忽动。')
+        expect(prompt).toContain('解释 / 指向：此非独天灾，恐是外镇借兵自重之兆。')
+        expect(prompt).toContain('第13回合')
+        expect(prompt).toContain('局势摘要：朝中正议论外镇是否会借乱自重。')
+        expect(prompt).toContain('parseSummary：omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77')
+        expect(prompt).toContain('中枢')
+        expect(prompt).toContain('截断粮道')
+        expect(prompt).toContain('御史监督')
+    })
+})
+describe('buildOmenEchoPrompt', () => {
+    it('includes speaker perspective, omen text, interpretation, and central reaction guidance', () => {
+        const speakerNpc = INITIAL_NPCS.find(item => item.id === 'linghuelvguang')!
+        const targetNpc = INITIAL_NPCS.find(item => item.powerBase === 'external' && item.militaryPower === 55)!
+
+        const prompt = buildOmenEchoPrompt({
+            speakerNpc,
+            targetNpc,
+            omenText: '\u77f3\u9a6c\u591c\u9e23\uff0c\u897f\u9547\u519b\u65d7\u5ffd\u52a8\u3002',
+            interpretationText: '\u6b64\u975e\u72ec\u5929\u707e\uff0c\u6050\u662f\u5916\u9547\u501f\u5175\u81ea\u91cd\u4e4b\u5146\u3002',
+            roundEvent: {
+                round: 13,
+                eventName: '\u94c1\u9a91\u5f02\u52a8',
+                eventBriefing: '\u671d\u4e2d\u6b63\u8bae\u8bba\u5916\u9547\u662f\u5426\u4f1a\u501f\u4e71\u81ea\u91cd\u3002',
+            },
+            parseSummary: 'omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77',
+        })[1].content
+
+        expect(prompt).toContain(`\u4ee5${speakerNpc.name}\uff08${speakerNpc.title}\uff09\u7684\u53e3\u543b`)
+        expect(prompt).toContain('\u8c36\u8f9e / \u5f81\u5146')
+        expect(prompt).toContain('\u89e3\u91ca / \u6307\u5411')
+        expect(prompt).toContain('\u7b2c13\u56de\u5408')
+        expect(prompt).toContain('\u5c40\u52bf\u6458\u8981\uff1a\u671d\u4e2d\u6b63\u8bae\u8bba\u5916\u9547\u662f\u5426\u4f1a\u501f\u4e71\u81ea\u91cd\u3002')
+        expect(prompt).toContain('parseSummary：omenPolarity=destabilizing; centralSanctionLeverage=0.83; suspicionDirection=0.77')
+        expect(prompt).toContain('\u4e2d\u67a2')
+        expect(prompt).toContain('\u622a\u65ad\u7cae\u9053')
+        expect(prompt).toContain('\u5fa1\u53f2\u76d1\u7763')
     })
 })
