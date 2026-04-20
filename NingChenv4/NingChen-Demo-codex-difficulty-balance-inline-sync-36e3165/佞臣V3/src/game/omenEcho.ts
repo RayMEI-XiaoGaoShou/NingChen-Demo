@@ -194,10 +194,10 @@ function scoreOmenEchoSpeakerCandidate(params: {
     score += params.candidate.militaryPower / 40
 
     if (params.targetNpc.powerBase === 'external') {
-        score += titleAuthorityScore(params.candidate) * 0.8
+        score += titleAuthorityScore(params.candidate.title) * 0.8
         score += stanceAuthorityScore(params.candidate.publicStance) * 0.45
     } else {
-        score += titleAuthorityScore(params.candidate) * 0.55
+        score += titleAuthorityScore(params.candidate.title) * 0.55
         score += stanceAuthorityScore(params.candidate.publicStance) * 0.35
     }
 

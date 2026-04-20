@@ -1,6 +1,6 @@
 // ========================================
-// 核心游戏状�?Store �?P4 更新
-// 异步流水线：施计→密信→NPC反馈→结�?
+// Core game state store
+// Async flow: schemes -> empress letter -> NPC feedback -> settlement
 // ========================================
 
 import { create } from 'zustand'
@@ -49,7 +49,7 @@ export interface NpcFeedback {
 }
 
 interface GameState {
-    // 回合状�?
+    // ????
     currentRound: number
     currentPhase: RoundPhase
     difficulty: GameDifficulty
@@ -81,17 +81,17 @@ interface GameState {
     relationships: RelationshipEdge[]
     intelProgress: Record<string, number>
 
-    // 本回合操作记�?
+    // ???????
     currentSchemes: SchemeAction[]
     selectedPolicyOption: number | null
     policyReason: string
     selectedPolicyParse: PolicyReasonParseResult | null
 
-    // NPC反馈（异步流水线�?
+    // NPC ?????????
     npcFeedbacks: NpcFeedback[]
     pendingStructuredSchemeIds: string[]
 
-    // 最近一次结算结果（�?Settlement 页面显示�?
+    // ?????????? Settlement ?????
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
@@ -294,12 +294,12 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
 
             case 'EMPRESS_LETTER':
-                // 女帝来信完成后进�?NPC 反馈集中展示�?
+                // ????????? NPC ???????
                 set({ currentPhase: 'SCHEME_FEEDBACK' })
                 break
 
             case 'SCHEME_FEEDBACK':
-                // NPC 反馈阅读完毕后执行结�?
+                // NPC ???????????
                 {
                     const s = get()
                     const result = settleRound({
@@ -339,7 +339,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     const processedSchemes = result.processedSchemes
                     const historyEntry = buildRoundHistoryEntry({
                         round: s.currentRound,
-                        eventName: ROUND_EVENTS[s.currentRound - 1]?.eventName ?? `�?${s.currentRound} 回合`,
+                        eventName: ROUND_EVENTS[s.currentRound - 1]?.eventName ?? `? ${s.currentRound} ??`,
                         schemeCount: result.schemeResults.length,
                         schemeSuccessCount: result.schemeResults.filter(item => item.success).length,
                         keyTargets: result.schemeResults
@@ -387,7 +387,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         }),
                     )
 
-                    // 检查是否游戏结�?
+                    // ????????
                     if (result.gameResult !== 'NONE') {
                         const endingReport = buildEndingReport({
                             gameResult: result.gameResult,

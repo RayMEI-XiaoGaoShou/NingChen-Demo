@@ -24,6 +24,7 @@ function makeSchemeResult(overrides: Partial<SchemeResult> = {}): SchemeResult {
             alignmentShift: null,
             intelDelta: 0,
             externalStatus: null,
+            militaryPowerDelta: 0,
         },
         factionEffects: {},
         nationEffects: {},
@@ -84,6 +85,7 @@ describe('npcMemoryLedger', () => {
                         alignmentShift: null,
                         intelDelta: 0,
                         externalStatus: null,
+                        militaryPowerDelta: 0,
                     },
                 }),
             ],
@@ -123,6 +125,7 @@ describe('npcMemoryLedger', () => {
                         alignmentShift: null,
                         intelDelta: 0,
                         externalStatus: null,
+                        militaryPowerDelta: 0,
                     },
                     delayedBacklash: [{
                         npcId: npc.id,
