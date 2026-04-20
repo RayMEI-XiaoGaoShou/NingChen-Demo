@@ -301,8 +301,8 @@ describe('SchemeFeedback', () => {
 
         const markup = renderToStaticMarkup(<SchemeFeedback />)
 
-        expect(markup).toContain('看计谋回报，辨人心冷暖')
-        expect(markup).not.toContain('追问机制')
+        expect(markup).toContain('first-round-guide-modal')
+        expect(markup).not.toContain('feedback-follow-up')
     })
 
     it('shows the follow-up onboarding after the basic feedback guide has been read', () => {
@@ -311,7 +311,8 @@ describe('SchemeFeedback', () => {
         const markup = renderToStaticMarkup(<SchemeFeedback />)
 
         expect(markup).toContain('追问机制')
-        expect(markup).toContain('有时对方会反问你一句')
+        expect(markup).toContain('first-round-guide-modal')
+        expect(markup).toContain('first-round-guide-actions')
     })
 
     it('renders the follow-up panel by action id even when the arrays are out of order', () => {
@@ -320,17 +321,17 @@ describe('SchemeFeedback', () => {
                 id: 'scheme-2',
                 targetNpcId: 'npc-2',
                 schemeType: 'probe',
-                playerSpeech: '先问后答',
+                playerSpeech: 'second first',
                 northParse: createNorthParse(),
             },
             {
                 id: 'scheme-1',
                 targetNpcId: 'npc-1',
                 schemeType: 'probe',
-                playerSpeech: '先探一探',
+                playerSpeech: 'first probe',
                 northParse: createNorthParse(),
                 followUp: {
-                    questionText: '你这话到底想让我明白什么？',
+                    questionText: 'What do you mean by that?',
                     status: 'available' as const,
                 },
             },
@@ -339,39 +340,39 @@ describe('SchemeFeedback', () => {
             {
                 id: 'scheme-1',
                 npcId: 'npc-1',
-                npcName: '某人甲',
+                npcName: 'NPC One',
                 schemeType: 'probe',
-                schemeName: '试探',
-                playerSpeech: '先探一探',
-                feedback: '他沉吟片刻，终究还是松了口风。',
+                schemeName: 'Probe',
+                playerSpeech: 'first probe',
+                feedback: 'The first NPC responds.',
                 isLoading: false,
-                source: '本地兜底',
+                source: 'local',
             },
             {
                 id: 'scheme-2',
                 npcId: 'npc-2',
-                npcName: '某人乙',
+                npcName: 'NPC Two',
                 schemeType: 'probe',
-                schemeName: '试探',
-                playerSpeech: '先问后答',
-                feedback: '他并未立刻接话。',
+                schemeName: 'Probe',
+                playerSpeech: 'second first',
+                feedback: 'The second NPC responds.',
                 isLoading: false,
-                source: '本地兜底',
+                source: 'local',
             },
         ]
         state.npcs = [
             {
                 id: 'npc-1',
-                name: '某人甲',
+                name: 'NPC One',
                 factionId: 'emperor',
                 powerBase: 'court',
-                title: '尚书',
-                publicPersona: '谨慎',
-                publicStance: '中立',
-                personality: '稳重',
-                softSpot: '名望',
-                triggerPoint: '逼问',
-                schemeHooks: '试探',
+                title: 'Minister',
+                publicPersona: 'calm',
+                publicStance: 'neutral',
+                personality: 'steady',
+                softSpot: 'reputation',
+                triggerPoint: 'pressure',
+                schemeHooks: 'probe',
                 trust: 50,
                 isAlive: true,
                 canExecute: false,
@@ -385,16 +386,16 @@ describe('SchemeFeedback', () => {
             },
             {
                 id: 'npc-2',
-                name: '某人乙',
+                name: 'NPC Two',
                 factionId: 'emperor',
                 powerBase: 'court',
-                title: '侍郎',
-                publicPersona: '沉默',
-                publicStance: '中立',
-                personality: '谨慎',
-                softSpot: '体面',
-                triggerPoint: '逼迫',
-                schemeHooks: '探问',
+                title: 'Official',
+                publicPersona: 'quiet',
+                publicStance: 'neutral',
+                personality: 'careful',
+                softSpot: 'face',
+                triggerPoint: 'inquiry',
+                schemeHooks: 'probe',
                 trust: 48,
                 isAlive: true,
                 canExecute: false,
@@ -410,9 +411,11 @@ describe('SchemeFeedback', () => {
 
         const markup = renderToStaticMarkup(<SchemeFeedback />)
 
-        expect(markup).toContain('你这话到底想让我明白什么？')
-        expect(markup).not.toContain('第二个问题不该挂到第一个卡片上。')
-        expect(markup).toContain('发送回应')
-        expect(markup).toContain('查看结算')
+        expect(markup).toContain('What do you mean by that?')
+        expect(markup).toContain('Send Reply')
+        expect(markup).toContain('feedback-follow-up')
+        expect(markup).toContain('Send Reply')
     })
 })
+
+

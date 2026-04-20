@@ -287,6 +287,52 @@
     letter-spacing: 1px;
 }
 
+.feedback-omen-echo {
+    margin-top: var(--spacing-md);
+    padding: 14px 16px;
+    border-radius: 18px;
+    border: 1px solid rgba(201, 176, 101, 0.14);
+    background: linear-gradient(180deg, rgba(201, 176, 101, 0.08), rgba(255, 255, 255, 0.03));
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.feedback-omen-echo-label {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(201, 176, 101, 0.18);
+    background: rgba(201, 176, 101, 0.08);
+    color: var(--color-accent-gold-light);
+    font-size: 11px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+.feedback-omen-echo-speaker {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    letter-spacing: 1px;
+}
+
+.feedback-omen-echo-text {
+    color: var(--color-text-primary);
+    font-family: var(--font-body);
+    font-size: var(--font-size-md);
+    line-height: 1.8;
+}
+
+.feedback-omen-echo-source {
+    color: var(--color-text-dim);
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+}
+
 .quote-mark {
     position: absolute;
     top: -4px;

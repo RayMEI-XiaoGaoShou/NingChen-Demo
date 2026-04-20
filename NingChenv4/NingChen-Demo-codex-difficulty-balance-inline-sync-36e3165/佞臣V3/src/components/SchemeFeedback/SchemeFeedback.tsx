@@ -34,8 +34,8 @@ const SCHEME_NAMES: Record<string, string> = {
     omen: '谶纬',
 }
 
-const LOCAL_REPLY_FALLBACK = '似有回应，却一时听不分明。'
-const FOLLOW_UP_REPLY_FALLBACK = '他收起锋芒，只留一句平静的回应。'
+const LOCAL_REPLY_FALLBACK = 'It seems to answer, but the meaning is still hazy.'
+const FOLLOW_UP_REPLY_FALLBACK = 'It settles back into a calm reply.'
 const ZERO_DELTA_FOLLOW_UP_PARSE: SchemeFollowUpParseResult = {
     clarificationFit: 0,
     npcInterestFit: 0,
@@ -56,8 +56,8 @@ function sanitizeFollowUpReplyText(reply: string): string {
         .trim()
 
     if (!cleaned) return ''
-    if (/[{}[\]`]/.test(cleaned)) return ''
-    if (/[?？]/.test(cleaned)) return ''
+    if (/[{}\[\]`]/.test(cleaned)) return ''
+    if (/[?]/.test(cleaned)) return ''
 
     return cleaned
 }
@@ -69,27 +69,27 @@ function buildFollowUpReplyFallback(targetNpcName: string): string {
 function buildFallbackFollowUpQuestion(schemeType: SchemeType): string {
     switch (schemeType) {
         case 'probe':
-            return '你这番试探，究竟想听我吐哪一句真话？'
+            return 'What exactly are you trying to hear from me?'
         case 'advise':
-            return '你这番献策，究竟是替我谋利，还是想借我去动旁人的局？'
+            return 'Do you want me to help you plan, or pull someone else into the scheme?'
         case 'slander':
-            return '你今日把这话递到我耳边，究竟想让我先疑谁？'
+            return 'Who are you trying to turn my suspicion toward?'
         case 'alienate':
-            return '你把话锋引到这里，究竟想叫我与谁先起嫌隙？'
+            return 'Who do you want me to grow wary of first?'
         case 'frame':
-            return '你把局铺成这样，究竟想让谁先背上这层嫌疑？'
+            return 'Who should carry the blame if this collapses?'
         case 'proxy':
-            return '你劝我借势出手，究竟想让我替你压谁？'
+            return 'Whom are you asking me to pressure on your behalf?'
         case 'appeal':
-            return '你来求援，到底想让我替你担哪一道险？'
+            return 'Which danger are you asking me to shield you from?'
         case 'omen':
-            return '你借这一句谶言敲我，究竟想叫我提防谁？'
+            return 'Who do you want me to warn with this omen?'
         case 'secession':
-            return '你把话说到这一步，究竟是想叫我先观望，还是先自保？'
+            return 'Do you want me to keep watch, or start protecting myself first?'
         case 'rebellion':
-            return '你把路逼到这一步，究竟是真想起事，还是想借我试朝廷深浅？'
+            return 'Do you truly mean to strike, or just test the court\'s depth?'
         default:
-            return '你这番话，究竟真正想让我做什么？'
+            return 'What do you want me to do with this line?'
     }
 }
 
@@ -676,7 +676,7 @@ export function SchemeFeedback() {
                     <div className="feedback-item glass-panel decree-panel done">
                         <div className="feedback-body">
                             <div className="feedback-text-area">
-                                <p className="feedback-text">本回合暂未收到计谋回报。若再次出现，请记下回合与目标，我会继续追查。</p>
+                                <p className="feedback-text">No feedback has arrived this round yet. If it appears again, note the round and target and I will keep tracing it.</p>
                             </div>
                         </div>
                     </div>
@@ -688,6 +688,8 @@ export function SchemeFeedback() {
                     const actionId = action?.id ?? fb.id
                     const isSubmitting = submittingFollowUpId === actionId
                     const draftValue = followUpDrafts[actionId] ?? followUp?.playerReply ?? ''
+                    const omenEcho = fb.schemeType === 'omen' ? fb.omenEcho : undefined
+                    const showOmenEcho = Boolean(omenEcho)
 
                     return (
                         <div
@@ -703,15 +705,15 @@ export function SchemeFeedback() {
                             />
                             <div className="feedback-header">
                                 <div className="feedback-meta">
-                                    <span className="feedback-order">第{index + 1} 封回报</span>
+                                    <span className="feedback-order">Reply {index + 1}</span>
                                     <span className="feedback-npc-name">{fb.npcName}</span>
                                     <span className="feedback-scheme-label">
-                                        计谋：{fb.schemeName}
-                                        {fb.playerSpeech && <span className="feedback-speech"> · “{fb.playerSpeech}”</span>}
+                                        Scheme: {fb.schemeName}
+                                        {fb.playerSpeech && <span className="feedback-speech"> �� "{fb.playerSpeech}"</span>}
                                     </span>
                                 </div>
                                 <span className={`feedback-status ${fb.isLoading ? 'loading' : 'done'}`}>
-                                    {fb.isLoading ? '未揭晓' : '已揭晓'}
+                                    {fb.isLoading ? 'Loading' : 'Delivered'}
                                 </span>
                             </div>
 
@@ -719,13 +721,28 @@ export function SchemeFeedback() {
                                 {fb.isLoading ? (
                                     <div className="loading-state">
                                         <div className="ai-ripple" />
-                                        <p className="loading-hint">{fb.npcName}正在思量你的这一步棋……</p>
+                                        <p className="loading-hint">{fb.npcName} is still weighing your move...</p>
                                     </div>
                                 ) : (
                                     <div className="feedback-text-area animate-fade-in">
-                                        <div className="quote-mark">“</div>
+                                        <div className="quote-mark">"</div>
                                         <p className="feedback-text">{sanitizeNpcReplyText(fb.feedback)}</p>
-                                        <div className="quote-mark end">”</div>
+                                        <div className="quote-mark end">"</div>
+                                    </div>
+                                )}
+
+                                {showOmenEcho && omenEcho && (
+                                    <div className="feedback-omen-echo animate-fade-in">
+                                        <div className="feedback-omen-echo-label">����</div>
+                                        <div className="feedback-omen-echo-speaker">
+                                            {omenEcho.speakerNpcName} �� {omenEcho.speakerTitle}
+                                        </div>
+                                        <div className="feedback-omen-echo-text">
+                                            {sanitizeNpcReplyText(omenEcho.text)}
+                                        </div>
+                                        <div className="feedback-omen-echo-source">
+                                            {omenEcho.source === 'ai' ? 'AI echo' : '���ض���'}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -761,7 +778,7 @@ export function SchemeFeedback() {
                                             onClick={() => handleSubmitFollowUp(actionId)}
                                             disabled={isSubmitting || draftValue.trim().length === 0}
                                         >
-                                            {isSubmitting ? '正在回应' : '发送回应'}
+                                            {isSubmitting ? 'Submitting' : 'Send Reply'}
                                         </button>
                                     </div>
                                 </div>
@@ -778,7 +795,7 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'skipped' && (
                                 <div className="feedback-follow-up feedback-follow-up--skipped">
-                                    已跳过追问，结算将按原始说辞继续推进。
+                                    已跳过追问，结算将按原始说辞继续推进�?
                                 </div>
                             )}
                         </div>
@@ -798,3 +815,8 @@ export function SchemeFeedback() {
         </div>
     )
 }
+
+
+
+
+
