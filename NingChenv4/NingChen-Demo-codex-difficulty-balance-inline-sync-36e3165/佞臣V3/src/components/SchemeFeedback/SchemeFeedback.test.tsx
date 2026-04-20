@@ -265,6 +265,62 @@ describe('orchestrateOmenEchoFeedback', () => {
         expect(updateNpcFeedbackOmenEcho).not.toHaveBeenCalled()
     })
 
+    it('skips AI omen echo generation when the app is already in fallback mode', async () => {
+        const targetNpc = createNpc({ id: 'target', name: '贺拔岳', title: '节度使', powerBase: 'external' })
+        const speakerNpc = createNpc({ id: 'speaker', name: '太后', title: '皇太后' })
+        const updateNpcFeedbackOmenEcho = vi.fn()
+        const chatCompletionImpl = vi.fn()
+        const buildFallbackTextImpl = vi.fn().mockReturnValue('太后断言先收军权，再待星象后效。')
+
+        const result = await orchestrateOmenEchoFeedback({
+            feedbackId: 'scheme-omen',
+            action: {
+                schemeType: 'omen',
+                omenSpeechInput: {
+                    omenText: '紫微掩星',
+                    interpretationText: '外镇归权之心更露',
+                },
+            },
+            targetNpc,
+            parsed: createNorthParse(),
+            npcs: [targetNpc, speakerNpc],
+            relationships: [],
+            round: 5,
+            roundEvent: {
+                eventName: '边军调动',
+                eventBriefing: '朝中担心外镇借机扩权。',
+            },
+            updateNpcFeedbackOmenEcho,
+            chatCompletionImpl,
+            getAiModeImpl: () => 'fallback',
+            selectSpeakerImpl: () => ({
+                speakerNpc,
+                candidateCount: 1,
+                selectionReason: '朝中发声最稳。',
+                relationSummary: null,
+                candidateScores: [],
+            }),
+            buildFallbackTextImpl,
+        })
+
+        expect(chatCompletionImpl).not.toHaveBeenCalled()
+        expect(buildFallbackTextImpl).toHaveBeenCalledTimes(1)
+        expect(updateNpcFeedbackOmenEcho).toHaveBeenCalledWith(
+            'scheme-omen',
+            expect.objectContaining({
+                speakerNpcId: 'speaker',
+                text: '太后断言先收军权，再待星象后效。',
+                source: 'fallback',
+            }),
+        )
+        expect(result).toEqual(
+            expect.objectContaining({
+                text: '太后断言先收军权，再待星象后效。',
+                source: 'fallback',
+            }),
+        )
+    })
+
     it('falls back to the local omen echo builder when AI generation fails', async () => {
         const targetNpc = createNpc({ id: 'target', name: '贺拔岳', title: '节度使', powerBase: 'external' })
         const speakerNpc = createNpc({ id: 'speaker', name: '太后', title: '皇太后' })
