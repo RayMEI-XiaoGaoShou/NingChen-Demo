@@ -135,38 +135,41 @@ export async function orchestrateOmenEchoFeedback(params: {
     const getAiModeImpl = params.getAiModeImpl ?? getAiMode
     const buildFallbackText = params.buildFallbackTextImpl ?? buildOmenEchoFallbackText
     const parseSummary = buildOmenEchoParseSummary(params.parsed)
+    const aiMode = getAiModeImpl()
 
     let text = ''
     let source: OmenEchoFeedback['source'] = 'fallback'
 
-    try {
-        const aiReply = await chatCompletionImpl(
-            buildOmenEchoPrompt({
-                speakerNpc: selection.speakerNpc,
-                targetNpc: params.targetNpc,
-                omenText: params.action.omenSpeechInput.omenText,
-                interpretationText: params.action.omenSpeechInput.interpretationText,
-                roundEvent: {
-                    round: params.round,
-                    eventName: params.roundEvent.eventName,
-                    eventBriefing: params.roundEvent.eventBriefing,
+    if (aiMode !== 'fallback') {
+        try {
+            const aiReply = await chatCompletionImpl(
+                buildOmenEchoPrompt({
+                    speakerNpc: selection.speakerNpc,
+                    targetNpc: params.targetNpc,
+                    omenText: params.action.omenSpeechInput.omenText,
+                    interpretationText: params.action.omenSpeechInput.interpretationText,
+                    roundEvent: {
+                        round: params.round,
+                        eventName: params.roundEvent.eventName,
+                        eventBriefing: params.roundEvent.eventBriefing,
+                    },
+                    parseSummary,
+                }),
+                {
+                    temperature: 0.72,
+                    maxTokens: 260,
+                    tag: `omen_echo_${params.targetNpc.id}`,
                 },
-                parseSummary,
-            }),
-            {
-                temperature: 0.72,
-                maxTokens: 260,
-                tag: `omen_echo_${params.targetNpc.id}`,
-            },
-        )
+            )
 
-        const cleanedAiReply = sanitizeNpcReplyText(aiReply.trim())
-        if (cleanedAiReply && getAiModeImpl() !== 'fallback') {
-            text = cleanedAiReply
-            source = 'ai'
+            const cleanedAiReply = sanitizeNpcReplyText(aiReply.trim())
+            if (cleanedAiReply) {
+                text = cleanedAiReply
+                source = 'ai'
+            }
+        } catch {
+            // Fall through to the local omen-echo builder.
         }
-    } catch {
-        // Fall through to the local omen-echo builder.
     }
 
     if (!text) {
@@ -837,7 +840,7 @@ export function SchemeFeedback() {
                     <div className="feedback-item glass-panel decree-panel done">
                         <div className="feedback-body">
                             <div className="feedback-text-area">
-                                <p className="feedback-text">No feedback has arrived this round yet. If it appears again, note the round and target and I will keep tracing it.</p>
+                                <p className="feedback-text">本回合暂未收到计谋回报。若再次出现，请记下回合与目标，我会继续追查。</p>
                             </div>
                         </div>
                     </div>
