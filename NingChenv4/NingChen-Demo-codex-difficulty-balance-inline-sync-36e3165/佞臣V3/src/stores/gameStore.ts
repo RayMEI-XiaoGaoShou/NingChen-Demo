@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -19,6 +19,7 @@ import { getAvailableSchemesForNpc } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
 import { deriveNpcMemoryEntriesForRound, mergeNpcMemoryEntries } from '../game/npcMemoryLedger'
+import { deriveRelationMemoryEntriesForRound, mergeRelationMemoryEntries } from '../game/npcRelationshipMemory'
 import {
     buildPersistedSnapshot,
     buildRoundStartSnapshot,
@@ -97,6 +98,7 @@ interface GameState {
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
     npcMemoryLedger: NpcMemoryLedger
+    relationMemoryLedger: RelationMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -161,6 +163,7 @@ const initialOmenGuideSeen: OmenGuideSeenMap = {
     first_omen_modal: false,
 }
 const initialNpcMemoryLedger: NpcMemoryLedger = {}
+const initialRelationMemoryLedger: RelationMemoryLedger = {}
 const initialSchemeOnboardingSeen: SchemeOnboardingSeenMap = {
     scheme_master_guide: false,
     first_omen_teaching: false,
@@ -169,6 +172,14 @@ const initialSchemeOnboardingSeen: SchemeOnboardingSeenMap = {
 }
 const getAssistQuotaForDifficulty = (difficulty: GameDifficulty) =>
     getDifficultyProfile(difficulty).onboarding.fengDaozhiAssistsPerRound
+
+function cloneRelationMemoryLedger(ledger: RelationMemoryLedger): RelationMemoryLedger {
+    const cloned: RelationMemoryLedger = {}
+    for (const [holderNpcId, entries] of Object.entries(ledger)) {
+        cloned[holderNpcId] = entries.map(entry => ({ ...entry }))
+    }
+    return cloned
+}
 
 function normalizeFirstRoundGuideSeen(
     value?: FirstRoundGuideSeenMap | boolean,
@@ -246,6 +257,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     recentBacklash: [],
     roundHistory: [],
     npcMemoryLedger: initialNpcMemoryLedger,
+    relationMemoryLedger: initialRelationMemoryLedger,
     endingReport: null,
     battleReport: null,
     shuCampaign: { ...initialCampaignState },
@@ -322,20 +334,21 @@ export const useGameStore = create<GameState>((set, get) => ({
                             unlockedSecrets: updatedIntelProgress[npc.id] ?? 0,
                         }),
                     }))
+                    const processedSchemes = result.processedSchemes
                     const historyEntry = buildRoundHistoryEntry({
                         round: s.currentRound,
                         eventName: ROUND_EVENTS[s.currentRound - 1]?.eventName ?? `第 ${s.currentRound} 回合`,
                         schemeCount: result.schemeResults.length,
                         schemeSuccessCount: result.schemeResults.filter(item => item.success).length,
                         keyTargets: result.schemeResults
-                            .map((_, index) => s.npcs.find(npc => npc.id === s.currentSchemes[index]?.targetNpcId)?.name)
+                            .map((_, index) => s.npcs.find(npc => npc.id === processedSchemes[index]?.targetNpcId)?.name)
                             .filter((name): name is string => Boolean(name)),
                         schemeDetails: result.schemeResults.map((item, index) => {
-                            const targetNpcId = s.currentSchemes[index]?.targetNpcId ?? ''
+                            const targetNpcId = processedSchemes[index]?.targetNpcId ?? ''
                             return {
                                 targetNpcId,
                                 targetNpcName: s.npcs.find(npc => npc.id === targetNpcId)?.name ?? '',
-                                schemeType: s.currentSchemes[index]?.schemeType ?? 'probe',
+                                schemeType: processedSchemes[index]?.schemeType ?? 'probe',
                                 success: item.success,
                             }
                         }).filter(item => item.targetNpcId && item.targetNpcName),
@@ -354,11 +367,21 @@ export const useGameStore = create<GameState>((set, get) => ({
                         s.npcMemoryLedger,
                         deriveNpcMemoryEntriesForRound({
                             round: s.currentRound,
-                            schemes: s.currentSchemes,
+                            schemes: processedSchemes,
                             schemeResults: result.schemeResults,
                             npcsBefore: s.npcs,
                             npcsAfter: updatedNpcs,
                             externalActionReports: result.externalActionReports,
+                        }),
+                    )
+                    const relationMemoryLedger = mergeRelationMemoryEntries(
+                        s.relationMemoryLedger,
+                        deriveRelationMemoryEntriesForRound({
+                            round: s.currentRound,
+                            schemes: processedSchemes,
+                            schemeResults: result.schemeResults,
+                            npcsBefore: s.npcs,
+                            npcsAfter: updatedNpcs,
                         }),
                     )
 
@@ -395,6 +418,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
                             npcMemoryLedger,
+                            relationMemoryLedger,
                             endingReport,
                             battleReport,
                             shuCampaign: result.shuCampaign,
@@ -421,6 +445,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
                             npcMemoryLedger,
+                            relationMemoryLedger,
                             shuCampaign: result.shuCampaign,
                             huainanCampaign: result.huainanCampaign,
                             shuMomentum: result.shuMomentum,
@@ -644,6 +669,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             shuCampaign: state.shuCampaign,
             huainanCampaign: state.huainanCampaign,
             npcMemoryLedger: state.npcMemoryLedger,
+            relationMemoryLedger: state.relationMemoryLedger,
         })
 
         try {
@@ -709,6 +735,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             recentBacklash: state.recentBacklash.map(item => ({ ...item })),
             roundHistory: state.roundHistory.map(item => ({ ...item })),
             npcMemoryLedger: state.npcMemoryLedger,
+            relationMemoryLedger: cloneRelationMemoryLedger(state.relationMemoryLedger),
             endingReport: null,
             battleReport: null,
             shuCampaign: {
@@ -770,6 +797,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             recentBacklash: snapshot.recentBacklash,
             roundHistory: snapshot.roundHistory,
             npcMemoryLedger: snapshot.npcMemoryLedger,
+            relationMemoryLedger: cloneRelationMemoryLedger(snapshot.relationMemoryLedger ?? {}),
             endingReport: null,
             battleReport: null,
             shuCampaign: snapshot.shuCampaign,
@@ -817,6 +845,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             recentBacklash: [],
             roundHistory: [],
             npcMemoryLedger: initialNpcMemoryLedger,
+            relationMemoryLedger: cloneRelationMemoryLedger(initialRelationMemoryLedger),
             endingReport: null,
             battleReport: null,
             shuCampaign: { ...initialCampaignState },
@@ -970,6 +999,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         ...(snapshot.roundStartSnapshot.schemeOnboardingSeen ?? {}),
                     },
                     npcMemoryLedger: snapshot.roundStartSnapshot.npcMemoryLedger ?? {},
+                    relationMemoryLedger: cloneRelationMemoryLedger(snapshot.roundStartSnapshot.relationMemoryLedger ?? {}),
                     npcs: attachAvailableSchemes(
                         snapshot.roundStartSnapshot.npcs,
                         snapshot.roundStartSnapshot.currentRound,
@@ -998,6 +1028,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             recentBacklash: snapshot.recentBacklash ?? [],
             roundHistory: snapshot.roundHistory,
             npcMemoryLedger: snapshot.npcMemoryLedger ?? {},
+            relationMemoryLedger: cloneRelationMemoryLedger(snapshot.relationMemoryLedger ?? {}),
             endingReport: snapshot.endingReport,
             battleReport: snapshot.battleReport,
             shuCampaign: snapshot.shuCampaign ?? { ...initialCampaignState },

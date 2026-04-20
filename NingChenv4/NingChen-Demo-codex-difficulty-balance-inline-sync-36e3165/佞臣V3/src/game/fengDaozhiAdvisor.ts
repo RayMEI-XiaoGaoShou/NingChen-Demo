@@ -8,6 +8,7 @@ import type {
     FengDaozhiDraftResult,
     NPC,
     NpcMemoryLedger,
+    RelationMemoryLedger,
     PlayerDangerStage,
     RoundHistoryEntry,
 } from './types'
@@ -28,6 +29,7 @@ export interface FengDaozhiDraftContext {
     recentCourtFortune: string
     factionPressure: string
     longTermMemorySummary?: string
+    relationMemorySummary?: string
     relationshipSummary?: string
     courtSituationSummary?: string
     playerDangerStage: PlayerDangerStage
@@ -43,6 +45,7 @@ export function buildFengDaozhiDraftContext(params: {
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
+    relationMemoryLedger?: RelationMemoryLedger
 }): FengDaozhiDraftContext {
     const {
         request,
@@ -54,6 +57,7 @@ export function buildFengDaozhiDraftContext(params: {
         shuCampaign,
         huainanCampaign,
         npcMemoryLedger,
+        relationMemoryLedger,
     } = params
     const situationSummary = buildFengDaozhiSituationSummary({
         round: request.round,
@@ -65,6 +69,8 @@ export function buildFengDaozhiDraftContext(params: {
         shuCampaign,
         huainanCampaign,
         npcMemoryLedger,
+        relationMemoryLedger,
+        relatedNpcId: request.relatedNpcId,
     })
 
     return {
@@ -83,6 +89,7 @@ export function buildFengDaozhiDraftContext(params: {
         recentCourtFortune: situationSummary.recentCourtFortune,
         factionPressure: situationSummary.factionPressure,
         longTermMemorySummary: situationSummary.longTermMemorySummary,
+        relationMemorySummary: situationSummary.relationMemorySummary,
         relationshipSummary: situationSummary.relationshipSummary,
         courtSituationSummary: situationSummary.courtSituationSummary,
         playerDangerStage: request.playerDangerStage,

@@ -3,6 +3,7 @@ import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import type { CampaignState, DelayedBacklash, RoundHistoryEntry } from './types'
 import { buildFengDaozhiSituationSummary } from './fengDaozhiSituationSummary'
+import { createRelationMemoryEntry, mergeRelationMemoryEntries } from './npcRelationshipMemory'
 
 function makeCampaignState(overrides: Partial<CampaignState> = {}): CampaignState {
     return {
@@ -114,5 +115,54 @@ describe('fengDaozhiSituationSummary', () => {
         expect(summary.relationshipTemperature).toContain('时而拉拢、时而敲打')
         expect(summary.relationshipSummary).toContain('上回往来：')
         expect(summary.relationshipSummary).toContain('近两回合关系温度：')
+    })
+
+    it('surfaces only the selected A-to-B relation memory as a separate old-debt line', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const relatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'duguwenyue')! }
+        const unrelatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'yuwendi')! }
+        const relationMemoryLedger = mergeRelationMemoryEntries({}, [
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 4,
+                importance: 2,
+                summary: 'old suspicion on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 7,
+                importance: 3,
+                summary: 'fresh evidence on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: unrelatedNpc.id,
+                stance: 'fear',
+                sourceRound: 8,
+                importance: 3,
+                summary: 'unrelated fear memory',
+            }),
+        ])
+
+        const summary = buildFengDaozhiSituationSummary({
+            round: 9,
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
+            relatedNpcId: relatedNpc.id,
+            relationMemoryLedger,
+        })
+
+        expect(summary.relationMemorySummary).toContain('fresh evidence on the grain route')
+        expect(summary.relationMemorySummary).toContain('x2')
+        expect(summary.relationMemorySummary).not.toContain('unrelated fear memory')
     })
 })

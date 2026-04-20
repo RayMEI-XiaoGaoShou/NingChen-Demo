@@ -20,6 +20,7 @@ describe('buildFengDaozhiDraftPrompt summary wiring', () => {
             recentCourtFortune: '帝后两党都想借西线再扩口子。',
             factionPressure: '后党担心兵权旁落，帝党则想借机再压中枢。',
             relationshipSummary: '上回往来：上一回合你曾以试探探他的口风。近两回合关系温度：近两回合你多以稳字开口，他对你仍在衡量。',
+            relationMemorySummary: '旧账：old suspicion on the grain route x2；fresh evidence on the grain route',
             courtSituationSummary: '本回合局势：朝中正在争论谁来统筹西线兵权与后续接管。战局走向：西线的用兵与收权已把帝后两党都推到了台前。公开表态：孤以为，西线兵权不可再散落于诸司之手。近来得失：帝后两党都想借西线再扩口子。派系压力：后党担心兵权旁落，帝党则想借机再压中枢。',
             playerDangerStage: 'under_watch',
         }
@@ -33,6 +34,7 @@ describe('buildFengDaozhiDraftPrompt summary wiring', () => {
         expect(prompt).toContain('战局摘要：西线的用兵与收权已把帝后两党都推到了台前。')
         expect(prompt).toContain('本回合公开表态：孤以为，西线兵权不可再散落于诸司之手。')
         expect(prompt).toContain('关系摘要：上回往来：上一回合你曾以试探探他的口风。')
+        expect(prompt).toContain('关系旧账：旧账：old suspicion on the grain route x2；fresh evidence on the grain route')
         expect(prompt).toContain('朝局摘要：本回合局势：朝中正在争论谁来统筹西线兵权与后续接管。')
     })
 })
