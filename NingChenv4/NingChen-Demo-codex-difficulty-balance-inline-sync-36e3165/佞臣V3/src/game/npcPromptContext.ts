@@ -1,6 +1,9 @@
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
-import { buildNpcLongTermMemorySummary } from './npcMemoryLedger'
+import {
+    buildNpcLongTermMemorySummary as buildGenericNpcLongTermMemorySummary,
+    rankNpcMemoryEntriesForScheme,
+} from './npcMemoryLedger'
 import { isCourtDispositionTarget, normalizeCourtDispositionNpc } from './courtDisposition'
 import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
 
@@ -38,6 +41,7 @@ export function buildNpcPromptDynamicContext(params: {
     recentBacklash?: DelayedBacklash[]
     npcMemoryLedger?: NpcMemoryLedger
     currentRound?: number
+    schemeType?: SchemeType
 }): NpcPromptDynamicContext {
     const {
         npc,
@@ -46,6 +50,7 @@ export function buildNpcPromptDynamicContext(params: {
         recentBacklash = [],
         npcMemoryLedger = {},
         currentRound = (roundHistory[roundHistory.length - 1]?.round ?? 0) + 1,
+        schemeType,
     } = params
 
     return {
@@ -53,12 +58,43 @@ export function buildNpcPromptDynamicContext(params: {
         relationshipTemperature: describeRelationshipTemperature(npc, roundHistory),
         recentCourtFortune: describeRecentCourtFortune(npc, factions, recentBacklash),
         factionPressure: describeFactionPressure(npc, factions),
-        longTermMemorySummary: buildNpcLongTermMemorySummary({
+        longTermMemorySummary: buildNpcLongTermMemorySummaryForPrompt({
             npcId: npc.id,
             ledger: npcMemoryLedger,
             currentRound,
+            schemeType,
         }),
     }
+}
+
+function buildNpcLongTermMemorySummaryForPrompt(params: {
+    npcId: string
+    ledger: NpcMemoryLedger
+    currentRound: number
+    schemeType?: SchemeType
+    limit?: number
+}): string {
+    const limit = params.limit ?? 3
+    const entries = params.ledger[params.npcId] ?? []
+    if (entries.length === 0) return ''
+
+    if (!params.schemeType) {
+        return buildGenericNpcLongTermMemorySummary({
+            npcId: params.npcId,
+            ledger: params.ledger,
+            currentRound: params.currentRound,
+            limit,
+        })
+    }
+
+    const ranked = rankNpcMemoryEntriesForScheme({
+        entries,
+        schemeType: params.schemeType,
+        currentRound: params.currentRound,
+        limit,
+    })
+
+    return ranked.map(entry => entry.summary).join('；')
 }
 
 function describePreviousDealings(npc: NPC, roundHistory: RoundHistoryEntry[]): string {

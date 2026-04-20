@@ -416,6 +416,7 @@ export function SchemePanel() {
             recentBacklash,
             npcMemoryLedger,
             currentRound,
+            schemeType: action.schemeType,
         })
 
         const generatePreliminaryReply = async (parsed: SchemeAction['northParse']) => {

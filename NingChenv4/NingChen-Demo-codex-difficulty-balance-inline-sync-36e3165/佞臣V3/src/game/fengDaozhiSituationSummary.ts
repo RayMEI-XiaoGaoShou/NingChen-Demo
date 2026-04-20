@@ -1,7 +1,7 @@
 import { getRoundCampaignEventContext, getRoundStartCampaignDisplay } from './campaignDisplayEngine'
 import { buildNpcPromptDynamicContext } from './npcPromptContext'
 import { getNpcRoundReaction } from './roundIntelEngine'
-import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry } from './types'
+import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
 
 export interface FengDaozhiSituationSummary {
     eventName: string
@@ -27,6 +27,7 @@ export function buildFengDaozhiSituationSummary(params: {
     shuCampaign: CampaignState
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
+    schemeType?: SchemeType
 }): FengDaozhiSituationSummary {
     const {
         round,
@@ -38,6 +39,7 @@ export function buildFengDaozhiSituationSummary(params: {
         shuCampaign,
         huainanCampaign,
         npcMemoryLedger = {},
+        schemeType,
     } = params
 
     const roundEvent = getRoundCampaignEventContext(round, shuCampaign, huainanCampaign)
@@ -49,6 +51,7 @@ export function buildFengDaozhiSituationSummary(params: {
         recentBacklash,
         npcMemoryLedger,
         currentRound: round,
+        schemeType,
     })
     const currentPublicStatement = getNpcRoundReaction(round, npc, unlockedSecrets, {
         shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
@@ -69,7 +72,6 @@ export function buildFengDaozhiSituationSummary(params: {
         relationshipSummary: compactJoin([
             `上回往来：${dynamicContext.previousDealings}`,
             `近两回合关系温度：${dynamicContext.relationshipTemperature}`,
-            dynamicContext.longTermMemorySummary ? `长期旧账：${dynamicContext.longTermMemorySummary}` : null,
         ]),
         courtSituationSummary: compactJoin([
             `本回合局势：${roundEvent.eventBriefing}`,
@@ -77,7 +79,6 @@ export function buildFengDaozhiSituationSummary(params: {
             currentPublicStatement ? `公开表态：${currentPublicStatement}` : null,
             `近来得失：${dynamicContext.recentCourtFortune}`,
             `派系压力：${dynamicContext.factionPressure}`,
-            dynamicContext.longTermMemorySummary ? `长期旧账：${dynamicContext.longTermMemorySummary}` : null,
         ]),
     }
 }

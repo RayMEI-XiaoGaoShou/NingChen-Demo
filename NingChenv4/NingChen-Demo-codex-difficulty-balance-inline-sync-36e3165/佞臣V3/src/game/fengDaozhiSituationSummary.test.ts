@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
-import type { CampaignState, DelayedBacklash, RoundHistoryEntry } from './types'
+import type { CampaignState, DelayedBacklash, NpcMemoryLedger, RoundHistoryEntry } from './types'
 import { buildFengDaozhiSituationSummary } from './fengDaozhiSituationSummary'
 
 function makeCampaignState(overrides: Partial<CampaignState> = {}): CampaignState {
@@ -114,5 +114,54 @@ describe('fengDaozhiSituationSummary', () => {
         expect(summary.relationshipTemperature).toContain('时而拉拢、时而敲打')
         expect(summary.relationshipSummary).toContain('上回往来：')
         expect(summary.relationshipSummary).toContain('近两回合关系温度：')
+    })
+
+    it('selects different old debts for different scheme types', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const npcMemoryLedger: NpcMemoryLedger = {
+            [npc.id]: [
+                {
+                    npcId: npc.id,
+                    category: 'favor',
+                    sourceRound: 6,
+                    importance: 1,
+                    summary: 'advise memory',
+                    tags: ['trust', 'soft'],
+                },
+                {
+                    npcId: npc.id,
+                    category: 'betrayal',
+                    sourceRound: 7,
+                    importance: 1,
+                    summary: 'slander memory',
+                    tags: ['pressure', 'hard'],
+                },
+                {
+                    npcId: npc.id,
+                    category: 'power_shift',
+                    sourceRound: 8,
+                    importance: 1,
+                    summary: 'omen memory',
+                    tags: ['legitimacy', 'pressure'],
+                },
+            ],
+        }
+
+        const makeParams = (schemeType: 'advise' | 'slander' | 'omen') => ({
+            round: 9,
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
+            npcMemoryLedger,
+            schemeType,
+        } as any)
+
+        expect(buildFengDaozhiSituationSummary(makeParams('advise')).longTermMemorySummary.startsWith('advise memory')).toBe(true)
+        expect(buildFengDaozhiSituationSummary(makeParams('slander')).longTermMemorySummary.startsWith('slander memory')).toBe(true)
+        expect(buildFengDaozhiSituationSummary(makeParams('omen')).longTermMemorySummary.startsWith('omen memory')).toBe(true)
     })
 })
