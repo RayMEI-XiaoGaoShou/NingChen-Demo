@@ -28,7 +28,7 @@ describe('npc long-term memory context', () => {
                     category: 'favor',
                     sourceRound: 6,
                     importance: 3,
-                    summary: '第6回合，你曾替他把漕运与中枢节制重新拢到一处。',
+                    summary: 'round 6 favor memory',
                     tags: ['grain'],
                 },
             ],
@@ -42,7 +42,53 @@ describe('npc long-term memory context', () => {
             currentRound: 7,
         })
 
-        expect(context.longTermMemorySummary).toContain('第6回合')
+        expect(context.longTermMemorySummary).toContain('round 6 favor memory')
+    })
+
+    it('selects different long-term memories for different scheme types', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const npcMemoryLedger: NpcMemoryLedger = {
+            [npc.id]: [
+                {
+                    npcId: npc.id,
+                    category: 'betrayal',
+                    sourceRound: 8,
+                    importance: 1,
+                    summary: 'betrayal memory',
+                    tags: ['court'],
+                },
+                {
+                    npcId: npc.id,
+                    category: 'favor',
+                    sourceRound: 6,
+                    importance: 1,
+                    summary: 'favor memory',
+                    tags: ['trust'],
+                },
+            ],
+        }
+
+        const adviseContext = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            npcMemoryLedger,
+            currentRound: 9,
+            schemeType: 'advise',
+        })
+
+        const slanderContext = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            npcMemoryLedger,
+            currentRound: 9,
+            schemeType: 'slander',
+        })
+
+        expect(adviseContext.longTermMemorySummary).toContain('favor memory')
+        expect(slanderContext.longTermMemorySummary).toContain('betrayal memory')
+        expect(adviseContext.longTermMemorySummary).not.toBe(slanderContext.longTermMemorySummary)
     })
 
     it('adds long-term memory summary to Feng Daozhi draft context', () => {
@@ -54,7 +100,7 @@ describe('npc long-term memory context', () => {
                     category: 'betrayal',
                     sourceRound: 8,
                     importance: 2,
-                    summary: '第8回合，你的谗言失手后，他记住了你会顺着裂缝下刀。',
+                    summary: 'round 8 betrayal memory',
                     tags: ['court'],
                 },
             ],
@@ -78,6 +124,6 @@ describe('npc long-term memory context', () => {
             npcMemoryLedger,
         })
 
-        expect(context.longTermMemorySummary).toContain('第8回合')
+        expect(context.longTermMemorySummary).toContain('round 8 betrayal memory')
     })
 })

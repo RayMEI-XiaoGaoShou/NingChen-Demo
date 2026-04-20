@@ -10,29 +10,53 @@ describe('long-term memory prompt injection', () => {
         const prompt = buildNpcPrompt({
             npc,
             schemeType: 'advise',
-            speech: '可借漕运与粮道名义，把南征议程拢回中枢。',
+            speech: 'Use the grain route and the central ministries to steady the court.',
             success: true,
-            longTermMemorySummary: '第6回合，你曾替他把漕运与中枢节制重新拢到一处。',
+            longTermMemorySummary: 'round 6 favor memory',
         })[1].content
 
-        expect(prompt).toContain('长期旧账：第6回合，你曾替他把漕运与中枢节制重新拢到一处。')
+        expect(prompt).toContain('长期旧账：round 6 favor memory')
+    })
+
+    it('renders different long-term memory summaries for different scheme choices', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')!, trust: 36 }
+
+        const advisePrompt = buildNpcPrompt({
+            npc,
+            schemeType: 'advise',
+            speech: 'Steady the court through policy and restraint.',
+            success: true,
+            longTermMemorySummary: 'round 6 favor memory',
+        })[1].content
+
+        const slanderPrompt = buildNpcPrompt({
+            npc,
+            schemeType: 'slander',
+            speech: 'Turn the rumor toward his rivals.',
+            success: false,
+            longTermMemorySummary: 'round 8 betrayal memory',
+        })[1].content
+
+        expect(advisePrompt).toContain('round 6 favor memory')
+        expect(slanderPrompt).toContain('round 8 betrayal memory')
+        expect(advisePrompt).not.toBe(slanderPrompt)
     })
 
     it('injects long-term memory into Feng Daozhi draft prompt text', () => {
         const context: FengDaozhiDraftContext = {
             round: 9,
-            eventName: '西线兵权再议',
-            eventBriefing: '朝中正在争论谁来统筹西线兵权与后续接管。',
-            schemeLabel: '献策',
-            targetNpcName: '祖珽',
-            targetNpcTitle: '尚书左仆射',
-            targetPersona: '性急而善理政，记怨极深。',
+            eventName: 'Western campaign renegotiation',
+            eventBriefing: 'The court is arguing over who should control the western line.',
+            schemeLabel: 'advice',
+            targetNpcName: 'Zuting',
+            targetNpcTitle: 'Senior Minister',
+            targetPersona: 'calculating and pragmatic',
             visibleSecrets: [],
-            previousDealings: '上一回合你曾以试探探他的口风。',
-            relationshipTemperature: '近两回合你多以稳字开口，他对你仍在掂量。',
-            recentCourtFortune: '帝后两党都想借西线再撕开口子。',
-            factionPressure: '后党担心兵权旁落，帝党则想借机再压中枢。',
-            longTermMemorySummary: '第8回合，你的谗言失手后，他记住了你会顺着裂缝下刀。',
+            previousDealings: 'You tested his tone in the previous round.',
+            relationshipTemperature: 'He is still weighing your intent.',
+            recentCourtFortune: 'The opposing faction has started to push back.',
+            factionPressure: 'Both sides are trying to use him as leverage.',
+            longTermMemorySummary: 'round 8 betrayal memory',
             playerDangerStage: 'under_watch',
         }
 
@@ -41,6 +65,6 @@ describe('long-term memory prompt injection', () => {
             schemeType: 'advise',
         })[1].content
 
-        expect(prompt).toContain('长期旧账：第8回合，你的谗言失手后，他记住了你会顺着裂缝下刀。')
+        expect(prompt).toContain('长期旧账：round 8 betrayal memory')
     })
 })

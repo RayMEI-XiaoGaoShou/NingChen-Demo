@@ -309,6 +309,7 @@ export function SchemeFeedback() {
                         relationMemoryLedger: snapshot.relationMemoryLedger,
                         relatedNpcId: relatedNpc?.id,
                         currentRound,
+                        schemeType: action.schemeType,
                     })
 
                     if (!existingFeedbackMap.has(feedbackId)) {
