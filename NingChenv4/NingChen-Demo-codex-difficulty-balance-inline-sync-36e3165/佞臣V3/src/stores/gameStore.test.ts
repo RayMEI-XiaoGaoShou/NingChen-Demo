@@ -235,6 +235,55 @@ describe('gameStore addScheme', () => {
         expect(state.currentSchemes[0]?.followUp?.parse?.successRateDelta).toBe(0.05)
     })
 
+    it('stores and updates omen echo data without clobbering the main feedback reply', () => {
+        const feedbackId = 'scheme-omen'
+
+        useGameStore.getState().addNpcFeedback({
+            id: feedbackId,
+            npcId: INITIAL_NPCS[0]!.id,
+            npcName: INITIAL_NPCS[0]!.name,
+            schemeType: 'omen',
+            schemeName: '璋剁含',
+            playerSpeech: 'omen speech',
+            feedback: 'main reply',
+            isLoading: false,
+            source: 'AI',
+        })
+
+        const initialEcho = {
+            speakerNpcId: INITIAL_NPCS[1]!.id,
+            speakerNpcName: INITIAL_NPCS[1]!.name,
+            speakerTitle: INITIAL_NPCS[1]!.title,
+            text: 'first omen echo',
+            source: 'ai' as const,
+        }
+
+        useGameStore.getState().updateNpcFeedbackOmenEcho(feedbackId, initialEcho)
+
+        let state = useGameStore.getState()
+        expect(state.npcFeedbacks[0]?.feedback).toBe('main reply')
+        expect(state.npcFeedbacks[0]?.omenEcho).toEqual(initialEcho)
+
+        useGameStore.getState().updateNpcFeedback(feedbackId, 'updated main reply', 'local fallback')
+
+        state = useGameStore.getState()
+        expect(state.npcFeedbacks[0]?.feedback).toBe('updated main reply')
+        expect(state.npcFeedbacks[0]?.source).toBe('local fallback')
+        expect(state.npcFeedbacks[0]?.omenEcho).toEqual(initialEcho)
+
+        const updatedEcho = {
+            ...initialEcho,
+            text: 'updated omen echo',
+            source: 'fallback' as const,
+        }
+
+        useGameStore.getState().updateNpcFeedbackOmenEcho(feedbackId, updatedEcho)
+
+        state = useGameStore.getState()
+        expect(state.npcFeedbacks[0]?.feedback).toBe('updated main reply')
+        expect(state.npcFeedbacks[0]?.omenEcho).toEqual(updatedEcho)
+    })
+
     it('keeps only one unhandled scheme follow-up available in a round', () => {
         useGameStore.setState({
             currentPhase: 'SCHEME_PHASE',

@@ -1,10 +1,10 @@
 // ========================================
-// 核心游戏状态 Store — P4 更新
-// 异步流水线：施计→密信→NPC反馈→结算
+// 核心游戏状�?Store �?P4 更新
+// 异步流水线：施计→密信→NPC反馈→结�?
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenEchoFeedback, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -43,12 +43,13 @@ export interface NpcFeedback {
     schemeName: string
     playerSpeech: string
     feedback: string   // AI生成的NPC反馈文本
+    omenEcho?: OmenEchoFeedback
     isLoading: boolean
     source: string
 }
 
 interface GameState {
-    // 回合状态
+    // 回合状�?
     currentRound: number
     currentPhase: RoundPhase
     difficulty: GameDifficulty
@@ -80,17 +81,17 @@ interface GameState {
     relationships: RelationshipEdge[]
     intelProgress: Record<string, number>
 
-    // 本回合操作记录
+    // 本回合操作记�?
     currentSchemes: SchemeAction[]
     selectedPolicyOption: number | null
     policyReason: string
     selectedPolicyParse: PolicyReasonParseResult | null
 
-    // NPC反馈（异步流水线）
+    // NPC反馈（异步流水线�?
     npcFeedbacks: NpcFeedback[]
     pendingStructuredSchemeIds: string[]
 
-    // 最近一次结算结果（供 Settlement 页面显示）
+    // 最近一次结算结果（�?Settlement 页面显示�?
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
@@ -130,6 +131,7 @@ interface GameState {
     selectPolicy: (optionIndex: number, reason: string, policyParse?: PolicyReasonParseResult | null) => void
     addNpcFeedback: (feedback: NpcFeedback) => void
     updateNpcFeedback: (feedbackId: string, text: string, source?: string) => void
+    updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => void
     markSchemeParsePending: (actionId: string) => void
     updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => void
     setSchemeFollowUp: (actionId: string, followUp: SchemeFollowUp) => void
@@ -292,12 +294,12 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
 
             case 'EMPRESS_LETTER':
-                // 女帝来信完成后进入 NPC 反馈集中展示页
+                // 女帝来信完成后进�?NPC 反馈集中展示�?
                 set({ currentPhase: 'SCHEME_FEEDBACK' })
                 break
 
             case 'SCHEME_FEEDBACK':
-                // NPC 反馈阅读完毕后执行结算
+                // NPC 反馈阅读完毕后执行结�?
                 {
                     const s = get()
                     const result = settleRound({
@@ -337,7 +339,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     const processedSchemes = result.processedSchemes
                     const historyEntry = buildRoundHistoryEntry({
                         round: s.currentRound,
-                        eventName: ROUND_EVENTS[s.currentRound - 1]?.eventName ?? `第 ${s.currentRound} 回合`,
+                        eventName: ROUND_EVENTS[s.currentRound - 1]?.eventName ?? `�?${s.currentRound} 回合`,
                         schemeCount: result.schemeResults.length,
                         schemeSuccessCount: result.schemeResults.filter(item => item.success).length,
                         keyTargets: result.schemeResults
@@ -385,7 +387,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         }),
                     )
 
-                    // 检查是否游戏结束
+                    // 检查是否游戏结�?
                     if (result.gameResult !== 'NONE') {
                         const endingReport = buildEndingReport({
                             gameResult: result.gameResult,
@@ -887,6 +889,14 @@ export const useGameStore = create<GameState>((set, get) => ({
         })
     },
 
+    updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => {
+        set({
+            npcFeedbacks: get().npcFeedbacks.map(f =>
+                f.id === feedbackId ? { ...f, omenEcho } : f
+            ),
+        })
+    },
+
     markSchemeParsePending: (actionId: string) => {
         set(state => ({
             pendingStructuredSchemeIds: state.pendingStructuredSchemeIds.includes(actionId)
@@ -1038,3 +1048,5 @@ export const useGameStore = create<GameState>((set, get) => ({
         })
     },
 }))
+
+
