@@ -3,6 +3,7 @@ import { settleRound } from './roundSettlement'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_FACTIONS } from '../data/factions'
+import { deriveRelationMemoryEntriesForRound } from './npcRelationshipMemory'
 
 describe('settleRound layered settlement', () => {
     const idleCampaign = {
@@ -61,6 +62,59 @@ describe('settleRound layered settlement', () => {
         expect(result.schemeResults[0]?.personEffects?.trustDelta).toBeGreaterThan(0)
         expect(Math.abs(result.schemeResults[0]?.nationEffects?.governance ?? 0)).toBeGreaterThan(0)
         expect(result.northStatsAfter.governance).toBeLessThan(NORTH_INITIAL.governance + 0.2)
+    })
+
+    it('keeps later relation memories attached to the processed scheme when an earlier one is skipped', () => {
+        const hebaqi = INITIAL_NPCS.find(npc => npc.id === 'hebaqí')!
+        const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+        const npcsBefore = INITIAL_NPCS.map(npc => ({ ...npc, trust: npc.id === yuwendi.id ? 72 : npc.trust }))
+
+        const result = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'skip-me',
+                    targetNpcId: hebaqi.id,
+                    schemeType: 'slander',
+                    playerSpeech: '先让他自己开口。',
+                },
+                {
+                    id: 'keep-me',
+                    targetNpcId: yuwendi.id,
+                    relatedNpcId: zuting.id,
+                    schemeType: 'slander',
+                    playerSpeech: '这个口风必须传到祖廷耳中。',
+                    resolutionRoll: 0.01,
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: npcsBefore,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        expect(result.processedSchemes).toHaveLength(1)
+        expect(result.processedSchemes[0]?.targetNpcId).toBe(yuwendi.id)
+
+        const entries = deriveRelationMemoryEntriesForRound({
+            round: 12,
+            schemes: result.processedSchemes,
+            schemeResults: result.schemeResults,
+            npcsBefore,
+            npcsAfter: result.updatedNpcs,
+        })
+
+        expect(entries).toEqual([
+            expect.objectContaining({
+                holderNpcId: yuwendi.id,
+                subjectNpcId: zuting.id,
+                stance: 'suspicion',
+            }),
+        ])
     })
 
     it('resolves secession or rebellion for eligible external figures in the same round', () => {
