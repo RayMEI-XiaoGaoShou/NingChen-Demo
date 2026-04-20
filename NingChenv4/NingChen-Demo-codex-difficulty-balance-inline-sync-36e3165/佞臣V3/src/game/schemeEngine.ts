@@ -171,6 +171,44 @@ function calculateSuccessRate(
     return clamp(rate + schemeModifiers[schemeType], 0.08, 0.96)
 }
 
+function calculateOmenSuccessRate(
+    sameNpcSameRound: boolean,
+    parse: NorthSchemeParseResult,
+    difficulty: GameDifficulty = 'normal',
+): number {
+    const profile = getDifficultyProfile(difficulty)
+    let rate = profile.scheme.baseRate + 0.08
+    const anchorStrength = clamp(
+        parse.omenAnchorStrength ?? (parse.structuralPenetration * 0.7 + parse.eventFit * 0.3),
+        0,
+        1,
+    )
+    const legitimacyCrack = clamp(
+        parse.legitimacyCrack ?? Math.max(parse.governanceRelevance, parse.socialOrderRelevance) * 1.05,
+        0,
+        1,
+    )
+    const suspicionDirection = clamp(
+        parse.suspicionDirection ?? (Math.max(parse.governanceRelevance, parse.socialOrderRelevance) * 0.9),
+        0,
+        1,
+    )
+
+    if (sameNpcSameRound) {
+        rate -= 0.12
+    }
+
+    const omenSignal =
+        anchorStrength * 0.16
+        + legitimacyCrack * 0.14
+        + suspicionDirection * 0.1
+        + parse.eventFit * 0.08
+        + parse.structuralPenetration * 0.06
+        - parse.exposureRisk * 0.16
+
+    return clamp(rate + omenSignal, 0.14, 0.94)
+}
+
 function getNorthParse(
     action: SchemeAction,
     targetNpc: NPC,
@@ -838,13 +876,12 @@ export function previewSchemeSuccess(
     roll: number,
     context: Partial<SchemeContext> = {},
 ): boolean {
-    const trustThreshold = getTrustThreshold(action.schemeType)
     const rawParse = getNorthParse(action, targetNpc, context.round ?? 1, null, context.northParse)
     const parse = applySchemeFollowUpToNorthParse(rawParse, action.followUp)
     const successRate = calculateParsedSuccessRate(
         action.schemeType,
         targetNpc.trust,
-        trustThreshold,
+        getTrustThreshold(action.schemeType),
         existingActionsOnTarget > 0,
         parse,
         context.difficulty ?? 'normal',
@@ -1146,6 +1183,10 @@ export function calculateParsedSuccessRate(
     parse: NorthSchemeParseResult,
     difficulty: GameDifficulty = 'normal',
 ): number {
+    if (schemeType === 'omen') {
+        return calculateOmenSuccessRate(sameNpcSameRound, parse, difficulty)
+    }
+
     const profile = getDifficultyProfile(difficulty)
     const baseRate = calculateSuccessRate(
         schemeType,
