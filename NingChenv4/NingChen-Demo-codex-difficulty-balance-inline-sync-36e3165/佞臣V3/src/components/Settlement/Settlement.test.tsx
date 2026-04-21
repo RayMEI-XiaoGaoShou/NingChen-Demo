@@ -33,16 +33,16 @@ describe('Settlement helpers', () => {
                 sourceRound: 3,
                 summary: '贺拔琪表面仍循旧章，然近来言语间已多了一层提防。',
             }),
-        ).toBe('贺拔琪开始对你多了一层提防，下回合信任可能下降。')
+        ).toBe('贺拔琪 虽未当面翻脸，心里却已记下了这笔账。下回合再试探他时，恐怕不会像今日这般好说话。')
     })
 
     it('prefers the guided policy aftereffect line when it would otherwise repeat the same idea', () => {
         expect(
             selectSettlementPolicyAftereffectText(
-                '你的附言切中此议的真正关节，新政的收益也会延续到下一回合。',
+                '你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。',
                 '你上回合的奏对收益延续到了这一回合。',
             ),
-        ).toEqual(['你的附言切中此议的真正关节，新政的收益也会延续到下一回合。'])
+        ).toEqual(['你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。'])
     })
 })
 
@@ -68,5 +68,14 @@ describe('Settlement source contract', () => {
         expect(settlementSource).toContain('朝堂收网')
         expect(settlementSource).toContain('lastSettlement.borrowedBladeReports.map')
         expect(roundSettlementSource).toContain('朝堂收网${borrowedBladeReports.length}次')
+    })
+
+    it('renders three-part explainability rows for each settled scheme and a momentum surface', () => {
+        expect(settlementSource).toContain('lastSettlement?.schemeOutcomeExplanations?.[i]')
+        expect(settlementSource).toContain('直接伤国')
+        expect(settlementSource).toContain('结构施压')
+        expect(settlementSource).toContain('推进阈值')
+        expect(settlementSource).toContain('战役动量')
+        expect(roundSettlementSource).toContain('schemeOutcomeExplanations')
     })
 })

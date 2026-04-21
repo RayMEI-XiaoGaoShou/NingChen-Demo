@@ -15,7 +15,12 @@ import {
 import { applyRelationshipShock, combineStructureEffects } from './relationshipEngine'
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
-import { deriveCampaignMomentumGain } from './campaignMomentum'
+import {
+    deriveCampaignMomentumGain,
+    getCampaignMomentumSurface,
+    type CampaignMomentumContributionSnapshot,
+    type CampaignMomentumSurface,
+} from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
 import { getRoundCampaignEventContext } from './campaignDisplayEngine'
@@ -27,6 +32,7 @@ import {
 } from './courtDispositionEngine'
 import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
+import { buildSchemeOutcomeExplanation, type SchemeOutcomeExplanation } from './schemeOutcomeExplanation'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
@@ -85,6 +91,7 @@ export interface JudgeFacts {
 export interface RoundSettlementResult {
     processedSchemes: SchemeAction[]
     schemeResults: SchemeResult[]
+    schemeOutcomeExplanations: SchemeOutcomeExplanation[]
     updatedNpcs: NPC[]
     factionsAfter: Faction[]
     relationshipsAfter: RelationshipEdge[]
@@ -114,6 +121,7 @@ export interface RoundSettlementResult {
     campaignReports: string[]
     shuMomentum: number
     huainanMomentum: number
+    campaignMomentumSurface: CampaignMomentumSurface
 }
 
 function hasPolicyReasonText(reason: string): boolean {
@@ -196,6 +204,7 @@ export function settleRound(params: {
     }
 
     const schemeResults: SchemeResult[] = []
+    const schemeOutcomeExplanations: SchemeOutcomeExplanation[] = []
     const processedSchemes: SchemeAction[] = []
     const actionsPerNpc: Record<string, number> = {}
 
@@ -210,6 +219,12 @@ export function settleRound(params: {
         const schemeNeedsSecondTarget = action.schemeType === 'slander' || action.schemeType === 'alienate' || action.schemeType === 'proxy'
         if (schemeNeedsSecondTarget && (!relatedNpc || isTerminalCourtDispositionNpc(relatedNpc))) continue
         const activeRelatedNpc = relatedNpc && !isTerminalCourtDispositionNpc(relatedNpc) ? relatedNpc : null
+        const targetBefore = { ...targetNpc }
+        const relatedBefore = activeRelatedNpc ? { ...activeRelatedNpc } : null
+        const factionsBeforeAction = factionsAfter.map(faction => ({ ...faction }))
+        const unlockedSecretsBefore = (intelProgress[action.targetNpcId] ?? 0) + (intelUnlocks[action.targetNpcId] ?? 0)
+        const shuMomentumBefore = shuMomentum
+        const huainanMomentumBefore = huainanMomentum
 
         const result = settleScheme(
             action,
@@ -388,6 +403,30 @@ export function settleRound(params: {
         })
         shuMomentum = Math.round((shuMomentum + momentumGain.shuMomentumGain) * 10) / 10
         huainanMomentum = Math.round((huainanMomentum + momentumGain.huainanMomentumGain) * 10) / 10
+        schemeOutcomeExplanations.push(buildSchemeOutcomeExplanation({
+            round,
+            difficulty,
+            action,
+            result,
+            targetBefore,
+            targetAfter: { ...targetNpc },
+            relatedBefore,
+            relatedAfter: activeRelatedNpc ? { ...activeRelatedNpc } : null,
+            factionsBefore: factionsBeforeAction,
+            factionsAfter: factionsAfter.map(faction => ({ ...faction })),
+            unlockedSecretsBefore,
+            unlockedSecretsAfter: (intelProgress[action.targetNpcId] ?? 0) + (intelUnlocks[action.targetNpcId] ?? 0),
+            campaignMomentum: buildSchemeMomentumSnapshot({
+                round,
+                action,
+                result,
+                shuMomentumBefore,
+                shuMomentumAfter: shuMomentum,
+                huainanMomentumBefore,
+                huainanMomentumAfter: huainanMomentum,
+                momentumGain,
+            }),
+        }))
 
         actionsPerNpc[action.targetNpcId] = (actionsPerNpc[action.targetNpcId] ?? 0) + 1
     }
@@ -581,10 +620,12 @@ export function settleRound(params: {
         shuCampaign,
         huainanCampaign,
     })
+    const campaignMomentumSurface = getCampaignMomentumSurface(round, shuMomentum, huainanMomentum)
 
     return {
         processedSchemes,
         schemeResults,
+        schemeOutcomeExplanations,
         updatedNpcs,
         factionsAfter,
         relationshipsAfter,
@@ -614,6 +655,42 @@ export function settleRound(params: {
         campaignReports,
         shuMomentum,
         huainanMomentum,
+        campaignMomentumSurface,
+    }
+}
+
+function buildSchemeMomentumSnapshot(params: {
+    round: number
+    action: SchemeAction
+    result: SchemeResult
+    shuMomentumBefore: number
+    shuMomentumAfter: number
+    huainanMomentumBefore: number
+    huainanMomentumAfter: number
+    momentumGain: { shuMomentumGain: number; huainanMomentumGain: number }
+}): CampaignMomentumContributionSnapshot | null {
+    const theater = params.round <= 10 ? 'shu' : 'huainan'
+    const gain = theater === 'shu' ? params.momentumGain.shuMomentumGain : params.momentumGain.huainanMomentumGain
+    const before = theater === 'shu' ? params.shuMomentumBefore : params.huainanMomentumBefore
+    const after = theater === 'shu' ? params.shuMomentumAfter : params.huainanMomentumAfter
+
+    if (theater === 'shu' && params.shuMomentumBefore === params.shuMomentumAfter && !params.result.success) {
+        return null
+    }
+
+    if (theater === 'huainan' && params.huainanMomentumBefore === params.huainanMomentumAfter && !params.result.success) {
+        return null
+    }
+
+    return {
+        round: params.round,
+        schemeType: params.action.schemeType,
+        success: params.result.success,
+        parse: params.result.northParse ?? null,
+        before,
+        gain,
+        after,
+        theater,
     }
 }
 

@@ -1,8 +1,37 @@
+import { getCampaignMomentumLabel } from './explainability'
 import type { NorthSchemeParseResult, SchemeType } from './types'
 
 export interface CampaignMomentumGainResult {
     shuMomentumGain: number
     huainanMomentumGain: number
+}
+
+export type CampaignMomentumTheater = 'shu' | 'huainan'
+
+export interface CampaignMomentumSurface {
+    theater: CampaignMomentumTheater
+    theaterLabel: string
+    value: number
+    label: string
+    summary: string
+}
+
+export interface CampaignMomentumContributionSnapshot {
+    round: number
+    schemeType: SchemeType
+    success?: boolean
+    parse?: NorthSchemeParseResult | null
+    before?: number
+    gain: number
+    after: number
+    theater?: CampaignMomentumTheater | null
+}
+
+const MOMENTUM_SUMMARIES: Record<string, string> = {
+    '筹势未成': '这一步更像是在朝中造势，还没真正推动到前线战局。',
+    '局势微动': '这一步已让前线的战备稍有松动，局势开始微微倾斜。',
+    '已见成势': '这一步切中了当前战局的要害，战役风向已经出现明显偏转。',
+    '得手在即': '前线局势已大幅倾斜，只差最后的契机便可收局。',
 }
 
 export function deriveCampaignMomentumGain(params: {
@@ -86,6 +115,79 @@ export function deriveCampaignMomentumGain(params: {
     }
 
     return { shuMomentumGain: 0, huainanMomentumGain: 0 }
+}
+
+export function getCampaignMomentumSurface(
+    round: number,
+    shuMomentum: number,
+    huainanMomentum: number,
+): CampaignMomentumSurface {
+    const theater = getCampaignMomentumTheater(round)
+    const value = theater === 'shu' ? shuMomentum : huainanMomentum
+    const label = getCampaignMomentumLabel(normalizeMomentumValue(value))
+
+    return {
+        theater,
+        theaterLabel: theater === 'shu' ? '蜀地方向' : '淮南方向',
+        value,
+        label,
+        summary: getCampaignMomentumSummary(label),
+    }
+}
+
+export function explainCampaignMomentumContribution(
+    input: CampaignMomentumContributionSnapshot,
+): string {
+    const theater = input.theater ?? getCampaignMomentumTheater(input.round)
+    const theaterLabel = theater === 'shu' ? '蜀地方向' : '淮南方向'
+    const success = input.success ?? input.gain > 0
+
+    if (!success || input.gain <= 0) {
+        const reasons = buildMomentumReasons(input.parse, theater)
+        const prefix = reasons.length > 0 ? `${reasons.join('，')}，` : ''
+        return `${theaterLabel}：${prefix}但没有真正触及当前战局的关键，战役动量未变。`
+    }
+
+    const surfaceLabel = getCampaignMomentumLabel(normalizeMomentumValue(input.after))
+    const reasons = buildMomentumReasons(input.parse, theater)
+    const prefix = reasons.length > 0 ? `${reasons.join('，')}，` : ''
+    return `${theaterLabel}：${prefix}因此战役动量来到「${surfaceLabel}」——${getCampaignMomentumSummary(surfaceLabel)}`
+}
+
+export function getCampaignMomentumSummary(label: string): string {
+    return MOMENTUM_SUMMARIES[label] ?? '这一步虽然说动了人，但没有真正触及当前战局的关键，战役动量未变。'
+}
+
+function getCampaignMomentumTheater(round: number): CampaignMomentumTheater {
+    return round <= 10 ? 'shu' : 'huainan'
+}
+
+function normalizeMomentumValue(value: number): number {
+    return Math.max(0, Math.min(1, value))
+}
+
+function buildMomentumReasons(
+    parse: NorthSchemeParseResult | null | undefined,
+    theater: CampaignMomentumTheater,
+): string[] {
+    if (!parse) return []
+
+    const reasons: string[] = []
+
+    if (theater === 'shu') {
+        if (parse.grainRelevance >= 0.55) reasons.push('粮道与战备被真正撬动')
+        if (parse.governanceRelevance >= 0.55) reasons.push('中枢调度与接管线被说到了')
+        if (parse.militaryRelevance >= 0.55) reasons.push('前线军令也被带了起来')
+    } else {
+        if (parse.militaryRelevance >= 0.55) reasons.push('前线军令与渡口攻守被说到了')
+        if (parse.grainRelevance >= 0.55) reasons.push('粮道与转运节次被真正撬动')
+        if (parse.governanceRelevance >= 0.55) reasons.push('州郡接管与战后稳控也被顾到了')
+    }
+
+    if (parse.eventFit >= 0.6) reasons.push('又正对着当前时局')
+    if (parse.structuralPenetration >= 0.6) reasons.push('话头也穿到了战局关键处')
+
+    return reasons.slice(0, 3)
 }
 
 function roundValue(value: number): number {

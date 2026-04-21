@@ -159,4 +159,54 @@ describe('campaignMomentum', () => {
 
         expect(result.huainanMomentumGain).toBeGreaterThan(0.8)
     })
+
+    it('describes campaign momentum surfaces with the shared four-band labels', async () => {
+        const { getCampaignMomentumSurface } = await import('./campaignMomentum')
+
+        expect(getCampaignMomentumSurface(7, 0.56, 0)).toEqual(
+            expect.objectContaining({
+                theater: 'shu',
+                theaterLabel: '蜀地方向',
+                label: '已见成势',
+                summary: '这一步切中了当前战局的要害，战役风向已经出现明显偏转。',
+            }),
+        )
+
+        expect(getCampaignMomentumSurface(14, 0.2, 0.88)).toEqual(
+            expect.objectContaining({
+                theater: 'huainan',
+                theaterLabel: '淮南方向',
+                label: '得手在即',
+                summary: '前线局势已大幅倾斜，只差最后的契机便可收局。',
+            }),
+        )
+    })
+
+    it('explains when a successful scheme did not truly move the active theater', async () => {
+        const { explainCampaignMomentumContribution } = await import('./campaignMomentum')
+
+        expect(
+            explainCampaignMomentumContribution({
+                round: 8,
+                schemeType: 'slander',
+                success: true,
+                parse: {
+                    characterFit: 0.62,
+                    eventFit: 0.4,
+                    structuralPenetration: 0.28,
+                    executability: 0.22,
+                    exposureRisk: 0.4,
+                    financeRelevance: 0.08,
+                    grainRelevance: 0.1,
+                    militaryRelevance: 0.12,
+                    socialOrderRelevance: 0.3,
+                    governanceRelevance: 0.2,
+                    dominantIntent: 'divide',
+                    evidence: [],
+                },
+                gain: 0,
+                after: 0.18,
+            }),
+        ).toContain('战役动量未变')
+    })
 })

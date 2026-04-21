@@ -7,6 +7,12 @@ import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/exte
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import {
+    explainExternalActionUnlock,
+    getExternalMilitaryPostureLabel,
+    getFactionConditionLabel,
+    getFavorPressureLabel,
+} from '../../game/explainability'
+import {
     getCourtDispositionOpportunity as getCoreCourtDispositionOpportunity,
     getCourtStatusLabel as getCoreCourtStatusLabel,
     isCourtDispositionTarget as isCourtDispositionTargetId,
@@ -77,10 +83,11 @@ function getDisplayedNpcTitle(npc: NPC): string {
     return titleMap[npc.id] ?? npc.title
 }
 
-const LOYALTY_TOOLTIP = '忠诚度表示此人对北周朝廷的服从与归附程度，越低越容易离心。'
-const TRUST_TOOLTIP = '信任度表示此人对你的个人信任程度，越高越容易被你说动。'
-const WAR_TREND_TOOLTIP = '南征风向由帝党与后党在本回合的势力对比推导而来。帝党越强，朝中越容易转向主战。'
-const SAFETY_RISK_TOOLTIP = '自身安危由低信任且有朝堂影响力的可执行角色共同决定。越多人戒备你、位置越高，风险越重。'
+const LOYALTY_TOOLTIP = '忠诚度——此人还甘不甘心替北周朝廷卖命。越低，他越容易离心、割据，甚至在你推波助澜之下公然举起反旗。'
+const TRUST_TOOLTIP = '信任度——此人是否真把你当成能替他谋后路的人。越高，他越甘愿听你的话，你也越容易推动他走出下一步。'
+const MILITARY_TOOLTIP = '军力——此人手里还能调动多少兵马与武备。兵势越重，他若割据或造反便闹得越大；兵势越轻，中枢便越不拿他当回事。你既可以替他壮大兵势，也可以借朝廷之手消磨他的实力。'
+const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
+const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & {
     emperorFavor: number
@@ -110,6 +117,40 @@ function getCourtFavor(npc: NPC) {
 
 function getCourtDispositionOpportunity(npc: NPC): 'safe' | 'dismissible' | 'executable' {
     return getCoreCourtDispositionOpportunity(normalizeCourtDispositionNpc(npc))
+}
+
+function buildExternalWhisper(
+    npc: NPC,
+    progress: NonNullable<ReturnType<typeof buildExternalLineProgress>>,
+    unlockedSecrets: number,
+): string {
+    const unlock = explainExternalActionUnlock({
+        trustGap: progress.trustGap,
+        loyaltyGap: progress.loyaltyGap,
+        secretsGap: progress.secretsGap,
+        roundWindowOpen: progress.windowOpen,
+    })
+
+    if (unlock.unlocked) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「可动之时」。条件已齐：信任够了、忠心已冷、暗线已明。眼下正是逼他走向 ${progress.targetLabel} 的时候——再拖下去，变数只会更多。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.trustGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「养信」。离 ${progress.targetLabel} 还卡在第一步：信任尚差 ${progress.trustGap} 点。暗线已明 ${unlockedSecrets}/${unlockedSecrets + progress.secretsGap}，路还长。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.secretsGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「探暗线」。信任已够，但底牌还没摸透——还差 ${progress.secretsGap} 条暗线。${npc.name} 最不肯明说的那层心思，不挖出来，${progress.targetLabel} 便无从谈起。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.loyaltyGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「离心」。${npc.name} 已肯听你，底牌也露了大半，唯独对朝廷还没冷透。再压 ${progress.loyaltyGap} 点忠诚，才到试 ${progress.targetLabel} 的时候。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (!progress.windowOpen) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「等窗口」。信任已够，忠心已冷，底牌已摸清——万事俱备，只差一个能逼他摊牌的时局窗口。下一手宜 ${progress.nextMoveLabel}。`
+    }
+    return `冯道之密语：${npc.name} 这条线，眼下卡在「等窗口」。信任已够，忠心已冷，底牌已摸清——万事俱备，只差一个能逼他摊牌的时局窗口。下一手宜 ${progress.nextMoveLabel}。`
 }
 
 export function CourtView() {
@@ -270,9 +311,21 @@ export function CourtView() {
                                         />
                                     </div>
                                     <div className="faction-metrics">
-                                        <span>朝堂影响 {group.faction?.courtInfluence ?? 0}</span>
-                                        <span>军事实力 {group.faction?.militaryPower ?? 0}</span>
-                                        <span>内部稳定 {group.faction?.internalStability ?? 0}</span>
+                                        <span>
+                                            朝堂影响 {group.faction?.courtInfluence ?? 0}
+                                            {' · '}
+                                            {getFactionConditionLabel('courtInfluence', group.faction?.courtInfluence ?? 0)}
+                                        </span>
+                                        <span>
+                                            军事实力 {group.faction?.militaryPower ?? 0}
+                                            {' · '}
+                                            {getFactionConditionLabel('militaryPower', group.faction?.militaryPower ?? 0)}
+                                        </span>
+                                        <span>
+                                            内部稳定 {group.faction?.internalStability ?? 0}
+                                            {' · '}
+                                            {getFactionConditionLabel('internalStability', group.faction?.internalStability ?? 0)}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -317,10 +370,10 @@ export function CourtView() {
                                                     {isCourtDispositionTarget(npc) && courtStatus === 'active' && (
                                                         <div className="npc-favor-row">
                                                             <span className="npc-meta-chip npc-favor-chip">
-                                                                皇帝恩宠 {courtFavor.emperorFavor}
+                                                                皇帝恩宠 {courtFavor.emperorFavor} · {getFavorPressureLabel('emperorFavor', courtFavor.emperorFavor)}
                                                             </span>
                                                             <span className="npc-meta-chip npc-favor-chip">
-                                                                太后眷顾 {courtFavor.empressDowagerFavor}
+                                                                太后眷顾 {courtFavor.empressDowagerFavor} · {getFavorPressureLabel('empressDowagerFavor', courtFavor.empressDowagerFavor)}
                                                             </span>
                                                             {opportunity === 'dismissible' && (
                                                                 <span className="npc-meta-chip npc-meta-chip-warning">可罢黜</span>
@@ -383,6 +436,7 @@ export function CourtView() {
                             <div className="external-grid">
                                 {group.members.map((npc, index) => {
                                     const progress = externalProgressMap[npc.id]
+                                    const unlockedSecrets = intelProgress[npc.id] ?? 0
                                     const displayedTitle = getDisplayedNpcTitle(npc)
                                     const isTerminal = isTerminalExternalNpc(npc)
                                     return (
@@ -405,9 +459,15 @@ export function CourtView() {
                                                     <div className="external-title npc-title">{displayedTitle}</div>
                                                 </div>
                                                 <div className="external-kpi-row">
-                                                    <div className="external-kpi">
+                                                    <div
+                                                        className="external-kpi external-kpi-explained"
+                                                        title={MILITARY_TOOLTIP}
+                                                        aria-label={MILITARY_TOOLTIP}
+                                                    >
                                                         <span className="external-kpi-label">军力</span>
-                                                        <strong className="external-kpi-value">{npc.militaryPower}</strong>
+                                                        <strong className="external-kpi-value">
+                                                            {npc.militaryPower} · {getExternalMilitaryPostureLabel(npc.militaryPower)}
+                                                        </strong>
                                                     </div>
                                                     <div
                                                         className="external-kpi external-kpi-explained"
@@ -440,7 +500,7 @@ export function CourtView() {
                                                 )}
                                                 {!isTerminal && progress && (
                                                     <span className="npc-reaction external-reaction external-progress-copy">
-                                                        {progress.gapText}
+                                                        {buildExternalWhisper(npc, progress, unlockedSecrets)}
                                                     </span>
                                                 )}
                                             </div>

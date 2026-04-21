@@ -14,15 +14,17 @@ import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettleme
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
 
-const COURT_BACKLASH_TOOLTIP = '朝局反噬是你在北周施计留下的延迟后果。它通常会在下一回合表现为某位权臣更提防你，或北周治理、秩序、军事等维度继续受损。'
-const POLICY_AFTEREFFECT_TOOLTIP = '问政余波来自你在女帝问政页写下的附言。附言越切中当回合题目，新政越容易在下一回合继续转化为南陈国力收益。'
-const WAR_TREND_TOOLTIP = '南征风向由帝党与后党在本回合的势力对比推导而来。帝党越强，朝中越容易转向主战。'
-const SAFETY_RISK_TOOLTIP = '自身安危由当前回合结算后的生存风险推导而来。越多高位朝臣戒备你，越容易进入被盯上或被审查的危险状态。'
+const COURT_BACKLASH_TOOLTIP = '朝局反噬，是你每一手计谋在暗中留下的余毒。它未必当回合便发作，却会在下一回合悄然显形：或是某位权臣多了一层防你的心思，或是某条关系链继续朝坏处走，或是某一派的调度与秩序再失一寸。'
+const POLICY_AFTEREFFECT_TOOLTIP = '问政余波，来自你在女帝问政页写下的附言。附言若真切中当回合议题，当回合得利自不必说，还会在下一回合继续带来好处。'
+const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
+const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
+const CAMPAIGN_MOMENTUM_TOOLTIP = '战役动量，是你这一步究竟有没有把朝中造势真正推到前线战局上。它不是单纯的战报，而是局势偏转到哪一步的半显性标记。'
+const SCHEME_OUTCOME_LABEL_ORDER = ['直接伤国', '结构施压', '推进阈值'] as const
 
 export function getSettlementPolicyFollowupText(focusMatched: boolean): string {
     return focusMatched
-        ? '你的附言切中此议的真正关节，新政的收益也会延续到下一回合。'
-        : '你的附言尚嫌宽泛，但新政的收益仍会延续到下一回合。'
+        ? '你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。'
+        : '你的附言尚嫌隔靴搔痒，余波因此不会太强——不过这道新政的后效仍会留到下一回合，只是分量轻了。'
 }
 
 export function getBacklashExplanation(backlash: DelayedBacklash): string {
@@ -141,28 +143,31 @@ function shouldKeepSettlementSupplement(
 
 export function getSettlementBacklashText(backlash: DelayedBacklash): string {
     if (backlash.type === 'guarded') {
-        const primary = `${backlash.npcName}开始对你多了一层提防，下回合信任可能下降。`
+        const primary = `${backlash.npcName} 虽未当面翻脸，心里却已记下了这笔账。下回合再试探他时，恐怕不会像今日这般好说话。`
+        if (backlash.summary.includes('提防')) {
+            return primary
+        }
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['提防', '信任', '戒备'])
             ? `${primary}${backlash.summary}`
             : primary
     }
 
     if (backlash.type === 'shock') {
-        const primary = `${backlash.npcName}已被你的话锋惊动，并牵动朝议转烈；下回合他对你的信任与北周治理、秩序、军事都会承压。`
+        const primary = `${backlash.npcName} 已被这一步真正惊动，朝议也随之转烈。下回合不只他会更防你——北周在治理、秩序或军政上，也可能顺着这道裂口继续失血。`
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '转烈', '承压', '惊动'])
             ? `${primary}${backlash.summary}`
             : primary
     }
 
     if (backlash.type === 'exposed') {
-        const primary = `你的行止已被${backlash.npcName}暗中记下，下回合他对你的信任可能下降。`
+        const primary = `你这一步看似不露声色，${backlash.npcName} 却已暗暗记在心上。下回合若再起风波，他未必不会沿着今日的痕迹追查过来。`
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['记下', '注目', '审查', '信任'])
             ? `${primary}${backlash.summary}`
             : primary
     }
 
     if (backlash.type === 'misdirected') {
-        const primary = `你的说辞让${backlash.npcName}所在的朝议方向被带偏，下回合北周治理、秩序或军事可能继续受损。`
+        const primary = `你的说辞没有当场引发波澜，却把 ${backlash.npcName} 身边的朝议风向轻轻带偏了。下一回合，这股偏移很可能继续在治理、秩序或军政上结出苦果。`
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '方向', '带偏', '受损'])
             ? `${primary}${backlash.summary}`
             : primary
@@ -182,7 +187,7 @@ export function selectSettlementPolicyAftereffectText(
     if (!primary) return [secondary]
     if (!secondary) return [primary]
 
-    return shouldKeepSettlementSupplement(primary, secondary, ['收益', '延续', '回合', '后效'], 2)
+    return shouldKeepSettlementSupplement(primary, secondary, ['收益', '延续', '回合', '后效'], 1)
         ? [primary, secondary]
         : [primary]
 }
@@ -223,6 +228,7 @@ export function Settlement() {
     const courtBacklashTexts = lastSettlement?.delayedBacklash?.length
         ? lastSettlement.delayedBacklash.map(getSettlementBacklashText)
         : backlashHints
+    const campaignMomentumSurface = lastSettlement?.campaignMomentumSurface ?? null
 
     useEffect(() => {
         let cancelled = false
@@ -251,17 +257,20 @@ export function Settlement() {
                     return `${npc?.name ?? id} ${delta > 0 ? '+' : ''}${delta}`
                 })
                 .join('；') || '无变化'
+            const processedSchemes = lastSettlement.processedSchemes.length > 0
+                ? lastSettlement.processedSchemes
+                : currentSchemes
 
             const messages = buildJudgePrompt({
                 round: currentRound,
                 eventName: event.eventName,
                 eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
-                    schemeName: schemeName(currentSchemes[i]?.schemeType ?? ''),
-                    targetName: npcs.find(n => n.id === currentSchemes[i]?.targetNpcId)?.name ?? '',
+                    schemeName: schemeName(processedSchemes[i]?.schemeType ?? ''),
+                    targetName: npcs.find(n => n.id === processedSchemes[i]?.targetNpcId)?.name ?? '',
                     success: r.success,
                     feedback: r.feedbackText,
-                    playerSpeech: currentSchemes[i]?.playerSpeech ?? '',
+                    playerSpeech: processedSchemes[i]?.playerSpeech ?? '',
                 })),
                 trustChangeSummary: trustSummary,
                 northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
@@ -358,8 +367,12 @@ export function Settlement() {
                     <h3 className="section-title">计谋筹算结果</h3>
                     <div className="results-list scheme-results-list">
                         {lastSettlement?.schemeResults.map((result, i) => {
-                            const action = currentSchemes[i]
+                            const action = lastSettlement?.processedSchemes?.[i] ?? currentSchemes[i]
                             const npc = npcs.find(n => n.id === action?.targetNpcId)
+                            const explanation = lastSettlement?.schemeOutcomeExplanations?.[i]
+                            const orderedExplanationSegments = SCHEME_OUTCOME_LABEL_ORDER
+                                .map(label => explanation?.segments.find(segment => segment.label === label))
+                                .filter((segment): segment is NonNullable<typeof explanation>['segments'][number] => Boolean(segment))
                             return (
                                 <div
                                     key={i}
@@ -384,6 +397,17 @@ export function Settlement() {
                                         </div>
                                     </div>
                                     <p className="result-text">{result.feedbackText}</p>
+                                    {explanation && (
+                                        <div className="result-explanation-stack">
+                                            {orderedExplanationSegments.map(segment => (
+                                                <p key={`${i}-${segment.label}`} className="result-text">
+                                                    <strong>{segment.label}</strong>
+                                                    {'：'}
+                                                    {segment.text}
+                                                </p>
+                                            ))}
+                                        </div>
+                                    )}
                                     <div className="result-effects">
                                         {result.trustChange !== 0 && (
                                             <span className={`effect-tag ${result.trustChange > 0 ? 'positive' : 'negative'}`}>
@@ -489,6 +513,21 @@ export function Settlement() {
                             ))}
                         </div>
                     ) : null}
+                    {campaignMomentumSurface && (
+                        <div className="glass-panel subtle-hints">
+                            <p className="result-text">
+                                <span className="result-scheme">战役动量</span>
+                                {' · '}
+                                {campaignMomentumSurface.theaterLabel}
+                                {' · '}
+                                {campaignMomentumSurface.label}
+                                <span className="status-help status-help-seal" title={CAMPAIGN_MOMENTUM_TOOLTIP} aria-label={CAMPAIGN_MOMENTUM_TOOLTIP}>
+                                    ?
+                                </span>
+                            </p>
+                            <p className="result-text">{campaignMomentumSurface.summary}</p>
+                        </div>
+                    )}
 
                     <div className="summary-grid glass-panel settlement-status-bar">
                         <div className="summary-item status-item">

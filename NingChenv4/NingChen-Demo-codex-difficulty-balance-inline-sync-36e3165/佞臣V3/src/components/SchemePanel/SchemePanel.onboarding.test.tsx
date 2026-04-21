@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { EXTERNAL_LINE_TEACHING_CONTENT, FIRST_OMEN_TEACHING_CONTENT } from '../../data/prologueContent'
+import {
+    EXTERNAL_LINE_TEACHING_CONTENT,
+    FIRST_OMEN_TEACHING_CONTENT,
+    SCHEME_MASTER_GUIDE_CONTENT,
+} from '../../data/prologueContent'
 import { OmenTeachingModal } from './OmenTeachingModal'
-import { SchemePanel } from './SchemePanel'
+import { getSchemeUnlockHint, SchemePanel } from './SchemePanel'
 import { useGameStore } from '../../stores/gameStore'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 
@@ -22,8 +26,18 @@ describe('SchemePanel onboarding flows', () => {
         expect(markup).toContain('六种计谋，各有用处')
         expect(markup).toContain('献策')
         expect(markup).toContain('设局嫁祸')
-        expect(markup).toContain('削低两边庇护')
-        expect(markup).toContain('再借贺拔琪或宗艾收网')
+        expect(markup).toContain('皇帝恩宠和太后眷顾都压到足够低')
+        expect(markup).toContain('将嫌疑兑现为罢黜或处决')
+    })
+
+    it('adds direct / structural / threshold language to the scheme master guide', () => {
+        expect(SCHEME_MASTER_GUIDE_CONTENT.pages[1]?.bullets).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('直接削弱北周国力'),
+                expect.stringContaining('结构施压'),
+                expect.stringContaining('推进阈值'),
+            ]),
+        )
     })
 
     it('renders top-right buttons for reopening the scheme guide and gameplay guide', () => {
@@ -69,6 +83,28 @@ describe('SchemePanel onboarding flows', () => {
                 expect.stringContaining('第一步：交心'),
             ]),
         )
+        expect(EXTERNAL_LINE_TEACHING_CONTENT.pages[1]?.bullets).toEqual(
+            expect.arrayContaining([
+                expect.stringContaining('信任不够'),
+                expect.stringContaining('暗线不够'),
+                expect.stringContaining('忠诚仍高'),
+            ]),
+        )
+    })
+
+    it('uses helper-based external unlock copy for locked outside lines', () => {
+        const npc = useGameStore.getState().npcs.find(item => item.id === 'duguwenyue')!
+
+        const hint = getSchemeUnlockHint({
+            schemeType: 'rebellion',
+            npc,
+            round: 5,
+            unlockedSecrets: 0,
+        })
+
+        expect(hint).toContain('信任尚差')
+        expect(hint).toContain('此人对朝廷还没冷透')
+        expect(hint).toContain('暗线尚差')
     })
 
     it('renders the detailed omen teaching modal copy', () => {
