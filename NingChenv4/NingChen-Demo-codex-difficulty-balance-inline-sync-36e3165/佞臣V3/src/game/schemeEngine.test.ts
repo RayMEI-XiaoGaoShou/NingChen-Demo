@@ -600,6 +600,279 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(Math.abs(structural.nationEffects.grain ?? 0)).toBeGreaterThan(0)
     })
 
+    it('lets external advise quietly grow military power when the plan consolidates troops and supplies', () => {
+        const duguwenyue = { ...INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!, trust: 68 }
+
+        const result = settleScheme(
+            {
+                id: 'external-advise-military-build-up',
+                targetNpcId: duguwenyue.id,
+                schemeType: 'advise',
+                playerSpeech: '先把军粮、部曲和调度都收在你自己手里，朝里再怎么催，也只能认你这一路边镇已经坐大。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    eventFit: 0.76,
+                    structuralPenetration: 0.78,
+                    executability: 0.74,
+                    grainRelevance: 0.82,
+                    militaryRelevance: 0.86,
+                    governanceRelevance: 0.68,
+                    stateBenefit: -0.7,
+                    targetBenefit: 0.84,
+                    advicePolarity: 'pro_target_anti_state',
+                }),
+            },
+            duguwenyue,
+            null,
+            0,
+            { round: 12, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.personEffects.militaryPowerDelta).toBeGreaterThan(0)
+        expect(result.personEffects.loyaltyDelta).toBeLessThan(0)
+        expect(Math.abs(result.personEffects.militaryPowerDelta)).toBeLessThan(Math.abs(result.personEffects.loyaltyDelta))
+        expect((result.nationEffects.military ?? 0)).toBeLessThan(0)
+    })
+
+    it('lets external frame cut military power only when the trap can trigger sanction or command disorder', () => {
+        const ansiming = { ...INITIAL_NPCS.find(npc => npc.id === 'ansiming')!, trust: 70 }
+
+        const weakResult = settleScheme(
+            {
+                id: 'external-frame-weak',
+                targetNpcId: ansiming.id,
+                schemeType: 'frame',
+                playerSpeech: '只说他最近风声不好，未必真能把祸坐实。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    eventFit: 0.42,
+                    structuralPenetration: 0.34,
+                    executability: 0.38,
+                    grainRelevance: 0.18,
+                    militaryRelevance: 0.2,
+                    governanceRelevance: 0.34,
+                    selfTrapPotential: 0.22,
+                    scapegoatClarity: 0.18,
+                    centralSanctionLeverage: 0.18,
+                }),
+            },
+            ansiming,
+            null,
+            0,
+            { round: 12, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        const strongResult = settleScheme(
+            {
+                id: 'external-frame-strong',
+                targetNpcId: ansiming.id,
+                schemeType: 'frame',
+                playerSpeech: '只要把越权调兵和私留军需的口子钉死，中枢就会先卡他粮道，再逼得军中自己乱阵脚。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    eventFit: 0.78,
+                    structuralPenetration: 0.8,
+                    executability: 0.74,
+                    grainRelevance: 0.74,
+                    militaryRelevance: 0.82,
+                    governanceRelevance: 0.78,
+                    selfTrapPotential: 0.84,
+                    scapegoatClarity: 0.86,
+                    centralSanctionLeverage: 0.8,
+                }),
+            },
+            { ...ansiming },
+            null,
+            0,
+            { round: 12, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(weakResult.success).toBe(true)
+        expect(strongResult.success).toBe(true)
+        expect(strongResult.personEffects.militaryPowerDelta).toBeLessThan(0)
+        expect(Math.abs(strongResult.personEffects.militaryPowerDelta)).toBeGreaterThan(
+            Math.abs(weakResult.personEffects.militaryPowerDelta),
+        )
+        expect(Math.abs(strongResult.personEffects.militaryPowerDelta)).toBeLessThanOrEqual(
+            Math.abs(strongResult.personEffects.loyaltyDelta),
+        )
+    })
+
+    it('lets court slander shave military edge off an external second target when command panic truly transmits', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 62 }
+        const duguwenyue = { ...INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!, trust: 58 }
+
+        const generic = settleScheme(
+            {
+                id: 'external-second-target-generic-slander',
+                targetNpcId: zongai.id,
+                schemeType: 'slander',
+                relatedNpcId: duguwenyue.id,
+                playerSpeech: '他未必真会替你说话，到头来还是先保自己。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    grainRelevance: 0.14,
+                    militaryRelevance: 0.16,
+                    governanceRelevance: 0.36,
+                    suspicionTransmission: 0.24,
+                }),
+            },
+            zongai,
+            duguwenyue,
+            0,
+            { round: 12, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        const structural = settleScheme(
+            {
+                id: 'external-second-target-structural-slander',
+                targetNpcId: zongai.id,
+                schemeType: 'slander',
+                relatedNpcId: duguwenyue.id,
+                playerSpeech: '若把军令、粮道和担责口子都认到他头上，中枢先疑的就是这一路边镇还能不能照旧调度。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    grainRelevance: 0.78,
+                    militaryRelevance: 0.82,
+                    governanceRelevance: 0.74,
+                    suspicionTransmission: 0.84,
+                }),
+            },
+            { ...zongai },
+            { ...duguwenyue },
+            0,
+            { round: 12, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(generic.personEffects.relatedMilitaryPowerDelta ?? 0).toBe(0)
+        expect(structural.personEffects.relatedMilitaryPowerDelta ?? 0).toBeLessThan(0)
+        expect(structural.personEffects.militaryPowerDelta).toBe(0)
+    })
+
+    it('lets external alienate take military edge from only one side instead of transferring it symmetrically', () => {
+        const duguwenyue = { ...INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!, trust: 72 }
+        const hebabogui = { ...INITIAL_NPCS.find(npc => npc.name === '贺拔伯圭')!, trust: 60 }
+
+        const result = settleScheme(
+            {
+                id: 'external-one-sided-alienate',
+                targetNpcId: duguwenyue.id,
+                schemeType: 'alienate',
+                relatedNpcId: hebabogui.id,
+                playerSpeech: '若军令、粮道和补给口始终都捏在他手里，你这边越打越像替人垫兵、替人背责。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    eventFit: 0.76,
+                    structuralPenetration: 0.8,
+                    executability: 0.72,
+                    grainRelevance: 0.84,
+                    militaryRelevance: 0.82,
+                    governanceRelevance: 0.68,
+                    fractureTransmission: 0.86,
+                }),
+            },
+            duguwenyue,
+            hebabogui,
+            0,
+            { round: 16, unlockedSecrets: 2, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.personEffects.militaryPowerDelta).toBe(0)
+        expect(result.personEffects.relatedMilitaryPowerDelta ?? 0).toBeLessThan(0)
+    })
+
+    it('turns a high-relevance hit on 贺拔琪 into empress pressure led by court influence', () => {
+        const yuwendi = { ...INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!, trust: 72 }
+        const hebaqi = { ...INITIAL_NPCS.find(npc => npc.name === '贺拔琪')! }
+
+        const result = settleScheme(
+            {
+                id: 'hebaqi-pressure',
+                targetNpcId: yuwendi.id,
+                schemeType: 'alienate',
+                relatedNpcId: hebaqi.id,
+                playerSpeech: '太后既卡主战名分，又握诏令出口，真到东线出事时，后党只会先被认作压住了中枢调度。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    socialOrderRelevance: 0.74,
+                    governanceRelevance: 0.82,
+                    fractureTransmission: 0.84,
+                }),
+            },
+            yuwendi,
+            hebaqi,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.factionEffects.empress?.courtInfluence ?? 0).toBeLessThan(0)
+        expect(result.factionEffects.empress?.internalStability ?? 0).toBeLessThan(0)
+        expect(Math.abs(result.factionEffects.empress?.courtInfluence ?? 0)).toBeGreaterThan(
+            Math.abs(result.factionEffects.empress?.internalStability ?? 0),
+        )
+    })
+
+    it('turns a strong omen on 宗艾 into emperor-side pressure while keeping low-signal cases inert', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 62 }
+
+        const vague = settleScheme(
+            {
+                id: 'zongai-vague-omen-pressure',
+                targetNpcId: zongai.id,
+                schemeType: 'omen',
+                playerSpeech: '近来宫里风声不对，最好先低调些。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.28,
+                    socialOrderRelevance: 0.24,
+                    legitimacyCrack: 0.18,
+                    suspicionDirection: 0.16,
+                    omenPolarity: 'vague_or_ceremonial',
+                }),
+            },
+            zongai,
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        const strong = settleScheme(
+            {
+                id: 'zongai-strong-omen-pressure',
+                targetNpcId: zongai.id,
+                schemeType: 'omen',
+                playerSpeech: '灾异若压到诏令和军令出口上，人人都会先疑你这个御前接口还能不能替皇帝把局面压住。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    governanceRelevance: 0.76,
+                    socialOrderRelevance: 0.62,
+                    militaryRelevance: 0.58,
+                    legitimacyCrack: 0.86,
+                    suspicionDirection: 0.82,
+                    omenPolarity: 'destabilizing',
+                }),
+            },
+            { ...zongai },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(vague.factionEffects.emperor).toBeUndefined()
+        expect(strong.factionEffects.emperor?.courtInfluence ?? 0).toBeLessThan(0)
+        expect(strong.factionEffects.emperor?.internalStability ?? 0).toBeLessThan(0)
+        expect(Math.abs(strong.factionEffects.emperor?.courtInfluence ?? 0)).toBeGreaterThan(
+            Math.abs(strong.factionEffects.emperor?.internalStability ?? 0),
+        )
+    })
+
     it('keeps proxy personal at scheme-engine level and leaves public consequences to court disposition settlement', () => {
         const yuwendi = { ...INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!, trust: 64 }
         const zuting = { ...INITIAL_NPCS.find(npc => npc.id === 'zuting')!, trust: 58 }
