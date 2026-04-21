@@ -28,10 +28,10 @@ describe('explainability helpers', () => {
         expect(getFactionConditionLabel('courtInfluence', 32)).toBe('裂口已现')
         expect(getFactionConditionLabel('courtInfluence', 12)).toBe('将倾欲散')
 
-        expect(getFactionConditionLabel('militaryStrength', 78)).toBe('兵权尚整')
-        expect(getFactionConditionLabel('militaryStrength', 55)).toBe('兵势微损')
-        expect(getFactionConditionLabel('militaryStrength', 32)).toBe('军令不行')
-        expect(getFactionConditionLabel('militaryStrength', 12)).toBe('兵权将散')
+        expect(getFactionConditionLabel('militaryPower', 78)).toBe('兵权尚整')
+        expect(getFactionConditionLabel('militaryPower', 55)).toBe('兵势微损')
+        expect(getFactionConditionLabel('militaryPower', 32)).toBe('军令不行')
+        expect(getFactionConditionLabel('militaryPower', 12)).toBe('兵权将散')
 
         expect(getFactionConditionLabel('internalStability', 78)).toBe('上下一心')
         expect(getFactionConditionLabel('internalStability', 55)).toBe('暗流渐起')
@@ -53,23 +53,65 @@ describe('explainability helpers', () => {
         expect(getCampaignMomentumLabel(0.85)).toBe('得手在即')
     })
 
-    it('explains external action unlock blockers from trust, loyalty, secrets, and window state', async () => {
+    it('returns the final locked copy and structured gaps for external action unlock state', async () => {
         const { explainExternalActionUnlock } = await import('./explainability')
 
         const result = explainExternalActionUnlock({
-            trust: 60,
-            loyaltyToCourt: 46,
-            unlockedSecrets: 1,
+            trustGap: 12,
+            loyaltyGap: 11,
+            secretsGap: 1,
             roundWindowOpen: false,
-            thresholds: {
-                trust: 72,
-                loyalty: 35,
-                secrets: 2,
-            },
         })
 
         expect(result.unlocked).toBe(false)
-        expect(result.blockers).toEqual(['信任尚差 12 点', '忠诚尚差 11 点', '差 1 条暗线', '窗口尚闭'])
-        expect(result.reason).toBe('信任尚差 12 点，忠诚尚差 11 点，差 1 条暗线，窗口尚闭')
+        expect(result.summary).toBe('未解锁：人、心、底牌、时机——四样缺一不可。眼下还差 信任尚差 12 点、此人对朝廷还没冷透，差 11 点忠诚、暗线尚差 1 条、时局未到，窗口尚闭，急不得。')
+        expect(result.conditionText).toBe('信任尚差 12 点、此人对朝廷还没冷透，差 11 点忠诚、暗线尚差 1 条、时局未到，窗口尚闭')
+        expect(result.conditions).toEqual([
+            {
+                kind: 'trust',
+                gap: 12,
+                summary: '信任尚差 12 点',
+                text: '未解锁：信任尚差 12 点。他还没把你当自己人，这时候摊牌只会吓跑他。',
+            },
+            {
+                kind: 'loyalty',
+                gap: 11,
+                summary: '此人对朝廷还没冷透，差 11 点忠诚',
+                text: '未解锁：此人对朝廷还没冷透，差 11 点忠诚。心没凉，手就不会动。',
+            },
+            {
+                kind: 'secrets',
+                gap: 1,
+                summary: '暗线尚差 1 条',
+                text: '未解锁：暗线尚差 1 条。他最深的算盘你还没摸到，此时摊牌无异于赌。',
+            },
+            {
+                kind: 'window',
+                summary: '时局未到，窗口尚闭',
+                text: '未解锁：时局未到，窗口尚闭。再等一个能逼他明牌的回合。',
+            },
+        ])
+        expect(result.gaps).toEqual({
+            trustGap: 12,
+            loyaltyGap: 11,
+            secretsGap: 1,
+            roundWindowOpen: false,
+        })
+    })
+
+    it('marks the unlock as ready when no gaps remain and the window is open', async () => {
+        const { explainExternalActionUnlock } = await import('./explainability')
+
+        const result = explainExternalActionUnlock({
+            trustGap: 0,
+            loyaltyGap: 0,
+            secretsGap: 0,
+            roundWindowOpen: true,
+        })
+
+        expect(result.unlocked).toBe(true)
+        expect(result.summary).toBe('条件已齐：信任够了、忠心已冷、暗线已明。')
+        expect(result.conditionText).toBe('')
+        expect(result.conditions).toEqual([])
     })
 })
