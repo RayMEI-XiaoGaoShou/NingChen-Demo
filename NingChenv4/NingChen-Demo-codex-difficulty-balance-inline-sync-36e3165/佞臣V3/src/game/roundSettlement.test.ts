@@ -1044,6 +1044,223 @@ describe('settleRound layered settlement', () => {
         expect(updatedExternalNpc?.loyaltyToCourt).toBeLessThan(externalNpc.loyaltyToCourt)
     })
 
+    it('writes external advise military build-up onto the settled NPC', () => {
+        const duguwenyue = {
+            ...INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!,
+            trust: 68,
+        }
+
+        const result = settleRound({
+            round: 12,
+            schemes: [
+                {
+                    id: 'external-advise-settlement',
+                    targetNpcId: duguwenyue.id,
+                    schemeType: 'advise',
+                    playerSpeech: '先把军粮、部曲和调度都收在你自己手里，朝里再怎么催，也只能认你这一路边镇已经坐大。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.8,
+                        eventFit: 0.76,
+                        structuralPenetration: 0.78,
+                        executability: 0.74,
+                        exposureRisk: 0.12,
+                        financeRelevance: 0.32,
+                        grainRelevance: 0.82,
+                        militaryRelevance: 0.86,
+                        socialOrderRelevance: 0.18,
+                        governanceRelevance: 0.68,
+                        dominantIntent: 'strategize',
+                        stateBenefit: -0.7,
+                        targetBenefit: 0.84,
+                        advicePolarity: 'pro_target_anti_state',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === duguwenyue.id ? { ...npc, trust: duguwenyue.trust } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedNpc = result.updatedNpcs.find((npc: any) => npc.id === duguwenyue.id)
+        const schemeDelta = result.schemeResults[0]?.personEffects.militaryPowerDelta ?? 0
+
+        expect(schemeDelta).toBeGreaterThan(0)
+        expect(updatedNpc?.militaryPower).toBe(duguwenyue.militaryPower + schemeDelta)
+        expect(updatedNpc?.loyaltyToCourt).toBeLessThan(duguwenyue.loyaltyToCourt)
+    })
+
+    it('applies second-target external military losses without granting the speaker a matching gain', () => {
+        const duguwenyue = INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!
+        const hebabogui = INITIAL_NPCS.find(npc => npc.name === '贺拔伯圭')!
+
+        const result = settleRound({
+            round: 16,
+            schemes: [
+                {
+                    id: 'external-alienate-settlement',
+                    targetNpcId: duguwenyue.id,
+                    relatedNpcId: hebabogui.id,
+                    schemeType: 'alienate',
+                    playerSpeech: '若军令、粮道和补给口始终都捏在他手里，你这边越打越像替人垫兵、替人背责。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.76,
+                        eventFit: 0.76,
+                        structuralPenetration: 0.8,
+                        executability: 0.72,
+                        exposureRisk: 0.14,
+                        financeRelevance: 0.22,
+                        grainRelevance: 0.84,
+                        militaryRelevance: 0.82,
+                        socialOrderRelevance: 0.24,
+                        governanceRelevance: 0.68,
+                        dominantIntent: 'divide',
+                        fractureTransmission: 0.86,
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => {
+                if (npc.id === duguwenyue.id) return { ...npc, trust: 72 }
+                if (npc.id === hebabogui.id) return { ...npc, trust: 60 }
+                return { ...npc }
+            }),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedSpeaker = result.updatedNpcs.find((npc: any) => npc.id === duguwenyue.id)
+        const updatedSecondTarget = result.updatedNpcs.find((npc: any) => npc.id === hebabogui.id)
+        const targetDelta = result.schemeResults[0]?.personEffects.militaryPowerDelta ?? 0
+        const relatedDelta = result.schemeResults[0]?.personEffects.relatedMilitaryPowerDelta ?? 0
+
+        expect(targetDelta).toBe(0)
+        expect(relatedDelta).toBeLessThan(0)
+        expect(updatedSpeaker?.militaryPower).toBe(duguwenyue.militaryPower + targetDelta)
+        expect(updatedSecondTarget?.militaryPower).toBe(hebabogui.militaryPower + relatedDelta)
+    })
+
+    it('turns a high-relevance hit on 贺拔琪 into empress pressure led by court influence instead of favor loss', () => {
+        const hebaqi = INITIAL_NPCS.find(npc => npc.name === '贺拔琪')!
+        const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
+        const empressBefore = INITIAL_FACTIONS.find(faction => faction.id === 'empress')!
+
+        const result = settleRound({
+            round: 14,
+            schemes: [
+                {
+                    id: 'hebaqi-pressure-settlement',
+                    targetNpcId: yuwendi.id,
+                    relatedNpcId: hebaqi.id,
+                    schemeType: 'alienate',
+                    playerSpeech: '太后既卡主战名分，又握诏令出口，真到东线出事时，后党只会先被认作压住了中枢调度。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.74,
+                        eventFit: 0.72,
+                        structuralPenetration: 0.78,
+                        executability: 0.72,
+                        exposureRisk: 0.16,
+                        financeRelevance: 0.12,
+                        grainRelevance: 0.18,
+                        militaryRelevance: 0.3,
+                        socialOrderRelevance: 0.74,
+                        governanceRelevance: 0.82,
+                        dominantIntent: 'divide',
+                        fractureTransmission: 0.84,
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === yuwendi.id ? { ...npc, trust: 72 } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const empressAfter = result.factionsAfter.find((faction: any) => faction.id === 'empress')
+        const updatedHebaqi = result.updatedNpcs.find((npc: any) => npc.id === hebaqi.id)
+        const influenceLoss = empressBefore.courtInfluence - empressAfter.courtInfluence
+        const stabilityLoss = empressBefore.internalStability - empressAfter.internalStability
+
+        expect(empressAfter?.courtInfluence).toBeLessThan(empressBefore.courtInfluence)
+        expect(empressAfter?.internalStability).toBeLessThan(empressBefore.internalStability)
+        expect(influenceLoss).toBeGreaterThan(stabilityLoss)
+        expect(updatedHebaqi?.emperorFavor).toBe(100)
+        expect(updatedHebaqi?.empressDowagerFavor).toBe(100)
+    })
+
+    it('turns a strong omen on 宗艾 into emperor pressure without touching the dual-favor disposal chain', () => {
+        const zongai = INITIAL_NPCS.find(npc => npc.id === 'zongai')!
+        const emperorBefore = INITIAL_FACTIONS.find(faction => faction.id === 'emperor')!
+
+        const result = settleRound({
+            round: 14,
+            schemes: [
+                {
+                    id: 'zongai-pressure-settlement',
+                    targetNpcId: zongai.id,
+                    schemeType: 'omen',
+                    playerSpeech: '灾异若压到诏令和军令出口上，人人都会先疑你这个御前接口还能不能替皇帝把局面压住。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.78,
+                        eventFit: 0.76,
+                        structuralPenetration: 0.8,
+                        executability: 0.72,
+                        exposureRisk: 0.18,
+                        financeRelevance: 0.12,
+                        grainRelevance: 0.22,
+                        militaryRelevance: 0.58,
+                        socialOrderRelevance: 0.62,
+                        governanceRelevance: 0.76,
+                        dominantIntent: 'divide',
+                        legitimacyCrack: 0.86,
+                        suspicionDirection: 0.82,
+                        omenPolarity: 'destabilizing',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === zongai.id ? { ...npc, trust: 62 } : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const emperorAfter = result.factionsAfter.find((faction: any) => faction.id === 'emperor')
+        const updatedZongai = result.updatedNpcs.find((npc: any) => npc.id === zongai.id)
+        const influenceLoss = emperorBefore.courtInfluence - emperorAfter.courtInfluence
+        const stabilityLoss = emperorBefore.internalStability - emperorAfter.internalStability
+
+        expect(emperorAfter?.courtInfluence).toBeLessThan(emperorBefore.courtInfluence)
+        expect(emperorAfter?.internalStability).toBeLessThan(emperorBefore.internalStability)
+        expect(influenceLoss).toBeGreaterThan(stabilityLoss)
+        expect(updatedZongai?.emperorFavor).toBe(100)
+        expect(updatedZongai?.empressDowagerFavor).toBe(100)
+    })
     it('lets the valid executor use proxy to execute a dual-threshold court target', () => {
         const hebaqi = INITIAL_NPCS.find(npc => npc.id === 'hebaqí')!
         const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
