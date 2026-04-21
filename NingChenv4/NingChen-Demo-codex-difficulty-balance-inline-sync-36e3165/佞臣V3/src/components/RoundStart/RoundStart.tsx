@@ -9,6 +9,7 @@ import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRoundAdvisorHint } from '../../game/roundIntelEngine'
 import { buildDominantExternalStageHint } from '../../game/externalActionHint'
 import { buildOmenAdvisorHint } from '../../game/fengDaozhiHint'
+import { getCampaignMomentumSurface } from '../../game/campaignMomentum'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './RoundStart.css'
@@ -57,6 +58,8 @@ export function RoundStart() {
         openGameplayGuide,
         shuCampaign,
         huainanCampaign,
+        shuMomentum,
+        huainanMomentum,
     } = useGameStore()
 
     const event = ROUND_EVENTS[currentRound - 1]
@@ -84,6 +87,7 @@ export function RoundStart() {
     const externalHintText = stripAdvisorPrefix(externalStageHint)
     const roundTitleLine = buildRoundStartTitle(currentRound, eventTitle, event?.timeLabel)
     const roundBriefingParagraphs = roundBriefing.split('\n').filter(Boolean)
+    const campaignMomentumSurface = getCampaignMomentumSurface(currentRound, shuMomentum, huainanMomentum)
     const aftereffectSummary = [
         activeCampaignSummary ? { label: '战役回响', summary: activeCampaignSummary } : null,
         previousPolicyAftereffect ? { label: '问政余波', summary: previousPolicyAftereffect.summary } : null,
@@ -183,6 +187,17 @@ export function RoundStart() {
                 </section>
 
                 <div className="roundstart-bottom-stack animate-slide-up animate-delay-4">
+                    <section className="glass-panel roundstart-aftereffect-strip">
+                        <h2 className="roundstart-section-title">战役动量</h2>
+                        <div className="roundstart-aftereffect-copy">
+                            <p>
+                                <span className="roundstart-aftereffect-label">{campaignMomentumSurface.theaterLabel}</span>
+                                <span>{campaignMomentumSurface.label}</span>
+                            </p>
+                            <p>{campaignMomentumSurface.summary}</p>
+                        </div>
+                    </section>
+
                     {aftereffectSummary.length > 0 && (
                         <section className="glass-panel roundstart-aftereffect-strip">
                             <h2 className="roundstart-section-title">上回合动向</h2>

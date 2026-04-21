@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
 import { readFileSync } from 'fs'
+import { getCampaignMomentumSurface } from '../../game/campaignMomentum'
 import { RoundStart, shouldUseCompactRoundStartLayout } from './RoundStart'
 import { useGameStore } from '../../stores/gameStore'
 import { useMediaStore } from '../../stores/mediaStore'
@@ -58,6 +59,28 @@ describe('RoundStart compact layout', () => {
         expect(markup).toContain('朝堂势力：')
         expect(markup).not.toContain('round-header')
         expect(markup).not.toContain('context-list')
+    })
+
+    it('wires the compact momentum surface to the shared helper contract', () => {
+        expect(roundStartSource).toContain('getCampaignMomentumSurface(currentRound, shuMomentum, huainanMomentum)')
+        expect(roundStartSource).toContain('战役动量')
+        expect(roundStartSource).toContain('campaignMomentumSurface.theaterLabel')
+        expect(roundStartSource).toContain('campaignMomentumSurface.label')
+        expect(roundStartSource).toContain('campaignMomentumSurface.summary')
+
+        expect(getCampaignMomentumSurface(7, 0.56, 0)).toEqual(
+            expect.objectContaining({
+                theaterLabel: '蜀地方向',
+                label: '已见成势',
+            }),
+        )
+
+        expect(getCampaignMomentumSurface(14, 0.56, 0.88)).toEqual(
+            expect.objectContaining({
+                theaterLabel: '淮南方向',
+                label: '得手在即',
+            }),
+        )
     })
 
     it('labels round-start carryover effects by their source system', () => {

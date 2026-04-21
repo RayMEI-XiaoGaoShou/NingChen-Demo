@@ -23,9 +23,15 @@ import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/sche
 import { forceStatementReplyText } from '../../game/schemeFollowUp'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
+import { explainExternalActionUnlock, getExternalMilitaryPostureLabel } from '../../game/explainability'
 import { isOmenAvailableForNpc, roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { clearSchemeReplyPrefetch, markSchemeReplyPrefetchStarted } from '../../game/schemeReplyPrefetch'
-import { isCourtDispositionExecutor as isCourtDispositionExecutorId, isCourtDispositionTarget as isCourtDispositionTargetId } from '../../game/courtDisposition'
+import {
+    getCourtDispositionOpportunity as getCoreCourtDispositionOpportunity,
+    isCourtDispositionExecutor as isCourtDispositionExecutorId,
+    isCourtDispositionTarget as isCourtDispositionTargetId,
+    normalizeCourtDispositionNpc,
+} from '../../game/courtDisposition'
 import { chatCompletion, getAiModeLabel } from '../../ai/aiService'
 import { buildNpcPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
 import { FengDaozhiAssistPanel } from './FengDaozhiAssistPanel'
@@ -33,7 +39,7 @@ import { OmenTeachingModal } from './OmenTeachingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
-import type { FengDaozhiDraftResult, NPC, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
+import type { FengDaozhiDraftResult, GameDifficulty, NPC, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
 
 export interface SchemeSpeechFields {
@@ -49,14 +55,14 @@ export function getSchemeSpeechFields(selectedScheme: SchemeType | null): Scheme
             mode: 'omen',
             primaryLabel: '谶辞 / 征兆',
             secondaryLabel: '解释 / 指向',
-            helperText: '先给征兆，再解其意，最后暗示谁最该警惕。',
+            helperText: '先编征兆，再指出它动摇了哪一层名分根基，最后暗示谁最该被天命所弃。谶纬不是指着人骂——是借天意的名义来拆人的根基。',
         }
     }
 
     return {
         mode: 'single',
         primaryLabel: '补一句说辞',
-        helperText: '说辞若切中此人的立场与心结，将实际影响计谋成败与效果幅度。',
+        helperText: '说辞若切中此人的立场与心结，不只决定成败，还决定这一手究竟是当回合直接削弱北周国力，还是先埋下一条日后才会发作的结构裂痕。',
     }
 }
 
@@ -90,6 +96,107 @@ function getCourtStatus(npc: NPC): CourtStatus {
     return (npc as CourtDispositionNpc).courtStatus ?? 'active'
 }
 
+function getCourtDispositionOpportunity(npc: NPC) {
+    return getCoreCourtDispositionOpportunity(normalizeCourtDispositionNpc(npc))
+}
+
+function resolveExternalLineAction(
+    npc: NPC,
+    schemeType: SchemeType | null,
+): 'secession' | 'rebellion' {
+    if (schemeType === 'rebellion') return 'rebellion'
+    if (schemeType === 'secession') return 'secession'
+    return npc.highActionBias === 'rebellion' ? 'rebellion' : 'secession'
+}
+
+function buildExternalSchemeProgress(params: {
+    npc: NPC
+    schemeType: SchemeType | null
+    round: number
+    unlockedSecrets: number
+    difficulty?: GameDifficulty
+}) {
+    if (params.npc.powerBase !== 'external') return null
+
+    const action = resolveExternalLineAction(params.npc, params.schemeType)
+
+    return buildExternalLineProgress({
+        npc: { ...params.npc, highActionBias: action },
+        unlockedSecrets: params.unlockedSecrets,
+        difficulty: params.difficulty ?? 'normal',
+        round: params.round,
+        externalActionEnabled: roundSupportsExternalAction(params.round, action),
+    })
+}
+
+function buildExternalSchemeWhisper(npc: NPC, unlockedSecrets: number, progress: NonNullable<ReturnType<typeof buildExternalSchemeProgress>>): string {
+    const unlock = explainExternalActionUnlock({
+        trustGap: progress.trustGap,
+        loyaltyGap: progress.loyaltyGap,
+        secretsGap: progress.secretsGap,
+        roundWindowOpen: progress.windowOpen,
+    })
+
+    if (unlock.unlocked) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「可动之时」。条件已齐：信任够了、忠心已冷、暗线已明。眼下正是逼他走向 ${progress.targetLabel} 的时候——再拖下去，变数只会更多。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.trustGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「养信」。离 ${progress.targetLabel} 还卡在第一步：信任尚差 ${progress.trustGap} 点。暗线已明 ${unlockedSecrets}/${unlockedSecrets + progress.secretsGap}，路还长。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.secretsGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「探暗线」。信任已够，但底牌还没摸透——还差 ${progress.secretsGap} 条暗线。${npc.name} 最不肯明说的那层心思，不挖出来，${progress.targetLabel} 便无从谈起。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    if (progress.loyaltyGap > 0) {
+        return `冯道之密语：${npc.name} 这条线，眼下卡在「离心」。${npc.name} 已肯听你，底牌也露了大半，唯独对朝廷还没冷透。再压 ${progress.loyaltyGap} 点忠诚，才到试 ${progress.targetLabel} 的时候。下一手宜 ${progress.nextMoveLabel}。`
+    }
+
+    return `冯道之密语：${npc.name} 这条线，眼下卡在「等窗口」。信任已够，忠心已冷，底牌已摸清——万事俱备，只差一个能逼他摊牌的时局窗口。下一手宜 ${progress.nextMoveLabel}。`
+}
+
+function buildSchemeRoleHint(params: {
+    schemeType: SchemeType | null
+    npc: NPC
+    relatedNpc: NPC | null
+}): string | null {
+    const { schemeType, npc, relatedNpc } = params
+    if (!schemeType) return null
+
+    if (npc.powerBase === 'court') {
+        if ((schemeType === 'slander' || schemeType === 'alienate') && relatedNpc) {
+            return '此时若施谗言或离间，更容易先撬动他与同僚之间的疑心，再顺势影响他的皇帝恩宠或太后眷顾。'
+        }
+
+        if (schemeType === 'frame') {
+            return '此时若设局嫁祸，最重的嫌疑更容易落回他自己头上——不需要你出面指证。'
+        }
+
+        if (schemeType === 'proxy' && relatedNpc && isCourtDispositionTarget(relatedNpc)) {
+            return getCourtDispositionOpportunity(relatedNpc) === 'safe'
+                ? '借刀是收网的手段，不是造势的手段。目标在御前、帘前两边的庇护还没压到线下，网便收不拢。先去拆他的庇护，再来谈借刀。'
+                : '此人离罢黜之线已只剩一步。再压一层庇护，便可借刀收网。'
+        }
+
+        return null
+    }
+
+    if (schemeType === 'advise') {
+        return '继续献策的话，主要是提升他对你的信任，同时也可能壮大他的兵势。'
+    }
+
+    if (schemeType === 'omen') {
+        return '用谶纬的话，更容易引起朝廷对他的猜疑——忠诚会明显下降，兵势也会小幅削弱。'
+    }
+
+    if (schemeType === 'slander' || schemeType === 'alienate' || schemeType === 'frame') {
+        return '继续施谗言或离间的话，主要是压低他对朝廷的忠诚，但还不至于直接逼他造反。'
+    }
+
+    return null
+}
+
 export function buildSchemeSpeechPayload(params: {
     schemeType: SchemeType
     speech: string
@@ -118,87 +225,67 @@ export function getSchemeUnlockHint(params: {
     npc: NPC
     round: number
     unlockedSecrets: number
+    difficulty?: GameDifficulty
 }): string {
-    const { schemeType, npc, round, unlockedSecrets } = params
+    const { schemeType, npc, round, unlockedSecrets, difficulty = 'normal' } = params
     const scheme = getSchemeByType(schemeType)
     if (!scheme) return ''
 
-    const missingConditions: string[] = []
-    const trustGap = Math.max(0, scheme.trustThreshold - npc.trust)
-
     if (schemeType === 'proxy' && !isCourtDispositionExecutor(npc)) {
-        return '未解锁：借刀只能借太后或御前之手；先削低目标的皇帝恩宠与太后眷顾，再借贺拔琪或宗艾收网。'
+        return '未解锁：借刀是收网的手段，不是造势的手段。目标在御前、帘前两边的庇护还没压到线下，网便收不拢。先去拆他的庇护，再来谈借刀。'
     }
 
     if (scheme.targetScope === 'externalOnly' && npc.powerBase !== 'external') {
-        missingConditions.push('仅地方军头可用')
+        return '未解锁：此计只可对地方军头施用，朝堂人物另有路数。'
     }
 
     if (round === 1 && !['probe', 'advise', 'slander'].includes(schemeType)) {
-        missingConditions.push('首回合仅开放试探、献策、谗言')
-    }
-
-    if (trustGap > 0 && !['secession', 'rebellion'].includes(schemeType)) {
-        missingConditions.push(`还差 ${trustGap} 点信任`)
+        return '未解锁：首回合仅开放试探、献策、谗言。'
     }
 
     if (schemeType === 'omen') {
         if (npc.powerBase !== 'court') {
-            missingConditions.push('仅朝堂角色可用')
-        } else if (!isOmenAvailableForNpc(round, npc)) {
-            missingConditions.push('本回合尚未出现可借题发挥的灾异征兆')
+            return '未解锁：谶纬只可对朝堂人物施用，地方军头另有路数。'
+        }
+
+        if (!isOmenAvailableForNpc(round, npc)) {
+            return '未解锁：这一回合既无灾异可借、也无名分裂缝可乘，谶纬便无从落笔。等一个天象有变或人心生疑的回合再来。'
         }
     }
 
-    if (schemeType === 'secession') {
-        if (npc.powerBase !== 'external') {
-            missingConditions.push('需先选择地方军头')
-        } else {
-            if (npc.trust < 72) {
-                missingConditions.push(`还差 ${72 - npc.trust} 点信任`)
-            }
-            if (npc.loyaltyToCourt > 35) {
-                missingConditions.push(`其对朝廷忠诚仍偏高（需降至 35 以下，当前 ${npc.loyaltyToCourt}）`)
-            }
-            if (unlockedSecrets < 2) {
-                missingConditions.push(`还差 ${2 - unlockedSecrets} 条暗线`)
-            }
-            if (!roundSupportsExternalAction(round, 'secession')) {
-                missingConditions.push('本回合时局还不足以煽动割据')
-            }
-            if (!npc.isAlive || !['loyal', 'watchful'].includes(npc.externalStatus)) {
-                missingConditions.push('当前态势已无法再沿割据线推进')
-            }
+    if (schemeType === 'secession' || schemeType === 'rebellion') {
+        if (!npc.isAlive || !['loyal', 'watchful'].includes(npc.externalStatus)) {
+            return `未解锁：当前态势已无法再沿${schemeType === 'rebellion' ? '造反' : '割据'}线推进。`
         }
-    }
 
-    if (schemeType === 'rebellion') {
-        if (npc.powerBase !== 'external') {
-            missingConditions.push('需先选择地方军头')
-        } else {
-            if (npc.trust < 85) {
-                missingConditions.push(`还差 ${85 - npc.trust} 点信任`)
-            }
-            if (npc.loyaltyToCourt > 18) {
-                missingConditions.push(`其对朝廷忠诚仍偏高（需降至 18 以下，当前 ${npc.loyaltyToCourt}）`)
-            }
-            if (unlockedSecrets < 3) {
-                missingConditions.push(`还差 ${3 - unlockedSecrets} 条暗线`)
-            }
-            if (!roundSupportsExternalAction(round, 'rebellion')) {
-                missingConditions.push('本回合时局还不足以煽动造反')
-            }
-            if (!npc.isAlive || !['loyal', 'watchful'].includes(npc.externalStatus)) {
-                missingConditions.push('当前态势已无法再沿造反线推进')
-            }
+        const progress = buildExternalSchemeProgress({
+            npc,
+            schemeType,
+            round,
+            unlockedSecrets,
+            difficulty,
+        })
+
+        if (!progress) {
+            return '未解锁：人、心、底牌、时机——四样缺一不可。'
         }
+
+        const unlock = explainExternalActionUnlock({
+            trustGap: progress.trustGap,
+            loyaltyGap: progress.loyaltyGap,
+            secretsGap: progress.secretsGap,
+            roundWindowOpen: progress.windowOpen,
+        })
+
+        return unlock.unlocked ? '' : unlock.summary
     }
 
-    if (missingConditions.length === 0) {
-        return '暂未解锁，请继续累积信任、暗线或等待时局变化。'
+    const trustGap = Math.max(0, scheme.trustThreshold - npc.trust)
+    if (trustGap > 0) {
+        return `未解锁：还差 ${trustGap} 点信任。`
     }
 
-    return `未解锁：${missingConditions.join('；')}`
+    return ''
 }
 
 export function SchemePanel() {
@@ -248,7 +335,7 @@ export function SchemePanel() {
     const [fengDraftLoading, setFengDraftLoading] = useState(false)
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
-    const relatedNpc = npcs.find(n => n.id === relatedNpcId)
+    const relatedNpc = npcs.find(n => n.id === relatedNpcId) ?? null
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
     const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
@@ -283,28 +370,33 @@ export function SchemePanel() {
         selectedScheme === 'omen' && selectedNpc
             ? buildOmenTargetHint({ npc: selectedNpc })
             : null
+    const selectedUnlockedSecrets = selectedNpc ? intelProgress[selectedNpc.id] ?? 0 : 0
     const selectedKnownIntel = selectedNpc
-        ? selectedNpc.secretThreads.slice(0, intelProgress[selectedNpc.id] ?? 0)
+        ? selectedNpc.secretThreads.slice(0, selectedUnlockedSecrets)
         : []
     const selectedRoundReaction = selectedNpc
-        ? getNpcRoundReaction(currentRound, selectedNpc, intelProgress[selectedNpc.id] ?? 0, {
+        ? getNpcRoundReaction(currentRound, selectedNpc, selectedUnlockedSecrets, {
             shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
             huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
         })
         : ''
     const selectedExternalProgress = useMemo(() => {
         if (!selectedNpc || selectedNpc.powerBase !== 'external') return null
-        return buildExternalLineProgress({
+        return buildExternalSchemeProgress({
             npc: selectedNpc,
-            unlockedSecrets: intelProgress[selectedNpc.id] ?? 0,
+            schemeType: selectedScheme,
+            unlockedSecrets: selectedUnlockedSecrets,
             difficulty,
             round: currentRound,
-            externalActionEnabled: roundSupportsExternalAction(
-                currentRound,
-                selectedNpc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
-            ),
         })
-    }, [currentRound, difficulty, intelProgress, selectedNpc])
+    }, [currentRound, difficulty, selectedNpc, selectedScheme, selectedUnlockedSecrets])
+    const selectedRoleHint = selectedNpc
+        ? buildSchemeRoleHint({
+            schemeType: selectedScheme,
+            npc: selectedNpc,
+            relatedNpc,
+        })
+        : null
     const leverageChips = selectedNpc
         ? [
             `打动：${selectedNpc.softSpot}`,
@@ -664,6 +756,7 @@ export function SchemePanel() {
                                                         npc: selectedNpc,
                                                         round: currentRound,
                                                         unlockedSecrets: intelProgress[selectedNpc.id] ?? 0,
+                                                        difficulty,
                                                     })
                                                 return (
                                                     <div
@@ -774,18 +867,26 @@ export function SchemePanel() {
                                                             ))}
                                                         </div>
                                                     </section>
+                                                    {selectedRoleHint && (
+                                                        <section className="scheme-preview-section">
+                                                            <div className="scheme-preview-section-title">中间层提示</div>
+                                                            <p>{selectedRoleHint}</p>
+                                                        </section>
+                                                    )}
                                                     {selectedNpc.powerBase === 'external' && selectedExternalProgress && (
                                                         <section className="scheme-preview-section">
                                                             <div className="scheme-preview-section-title">外部筹码</div>
                                                             <div className="scheme-preview-chip-list">
-                                                                <span className="scheme-preview-chip">军力 {selectedNpc.militaryPower}</span>
+                                                                <span className="scheme-preview-chip">
+                                                                    军力 {selectedNpc.militaryPower} · {getExternalMilitaryPostureLabel(selectedNpc.militaryPower)}
+                                                                </span>
                                                                 <span className="scheme-preview-chip">忠诚 {selectedNpc.loyaltyToCourt}</span>
                                                                 <span className="scheme-preview-chip">倾向：{getExternalTiltLabel(selectedNpc.alignmentBias)}</span>
                                                                 <span className="scheme-preview-chip">态势：{getExternalPostureLabel(selectedNpc.externalStatus, selectedNpc.loyaltyToCourt, selectedNpc.alignmentBias)}</span>
                                                                 <span className="scheme-preview-chip">阶段：{selectedExternalProgress.phase}</span>
                                                                 <span className="scheme-preview-chip">目标：{selectedExternalProgress.targetLabel}</span>
                                                             </div>
-                                                            <p>{selectedExternalProgress.gapText}</p>
+                                                            <p>{buildExternalSchemeWhisper(selectedNpc, selectedUnlockedSecrets, selectedExternalProgress)}</p>
                                                         </section>
                                                     )}
                                                     <section className="scheme-preview-section">
