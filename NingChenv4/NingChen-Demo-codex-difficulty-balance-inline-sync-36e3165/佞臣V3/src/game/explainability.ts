@@ -1,20 +1,29 @@
 export type FavorPressureTrack = 'emperorFavor' | 'empressDowagerFavor'
-export type FactionConditionTrack = 'courtInfluence' | 'militaryStrength' | 'internalStability'
+export type FactionConditionTrack = 'courtInfluence' | 'militaryPower' | 'internalStability'
 
-export interface ExternalActionUnlockThresholds {
-    trust: number
-    loyalty: number
-    secrets: number
-}
-
-export interface ExternalActionUnlockExplanation {
-    unlocked: boolean
-    blockers: string[]
-    reason: string
+export interface ExternalActionUnlockGaps {
     trustGap: number
     loyaltyGap: number
     secretsGap: number
     roundWindowOpen: boolean
+}
+
+export type ExternalActionUnlockConditionKind = 'trust' | 'loyalty' | 'secrets' | 'window'
+
+export interface ExternalActionUnlockCondition {
+    kind: ExternalActionUnlockConditionKind
+    text: string
+    summary: string
+    gap?: number
+}
+
+export interface ExternalActionUnlockExplanation {
+    unlocked: boolean
+    state: 'ready' | 'locked'
+    summary: string
+    conditionText: string
+    conditions: ExternalActionUnlockCondition[]
+    gaps: ExternalActionUnlockGaps
 }
 
 const FAVOR_PRESSURE_LABELS: Record<FavorPressureTrack, readonly [string, string, string, string]> = {
@@ -24,7 +33,7 @@ const FAVOR_PRESSURE_LABELS: Record<FavorPressureTrack, readonly [string, string
 
 const FACTION_CONDITION_LABELS: Record<FactionConditionTrack, readonly [string, string, string, string]> = {
     courtInfluence: ['气脉尚稳', '根基已摇', '裂口已现', '将倾欲散'],
-    militaryStrength: ['兵权尚整', '兵势微损', '军令不行', '兵权将散'],
+    militaryPower: ['兵权尚整', '兵势微损', '军令不行', '兵权将散'],
     internalStability: ['上下一心', '暗流渐起', '貌合神离', '大厦将倾'],
 }
 
@@ -64,35 +73,77 @@ export function getCampaignMomentumLabel(value: number): string {
     return CAMPAIGN_MOMENTUM_LABELS[3]
 }
 
-export function explainExternalActionUnlock(input: {
-    trust: number
-    loyaltyToCourt: number
-    unlockedSecrets: number
-    roundWindowOpen: boolean
-    thresholds: ExternalActionUnlockThresholds
-}): ExternalActionUnlockExplanation {
-    const trustGap = Math.max(0, input.thresholds.trust - input.trust)
-    const loyaltyGap = Math.max(0, input.loyaltyToCourt - input.thresholds.loyalty)
-    const secretsGap = Math.max(0, input.thresholds.secrets - input.unlockedSecrets)
+export function explainExternalActionUnlock(input: ExternalActionUnlockGaps): ExternalActionUnlockExplanation {
+    const conditions = buildExternalActionConditions(input)
+    const conditionText = conditions.map(condition => condition.summary).join('、')
 
-    const blockers: string[] = []
-    if (trustGap > 0) blockers.push(`信任尚差 ${trustGap} 点`)
-    if (loyaltyGap > 0) blockers.push(`忠诚尚差 ${loyaltyGap} 点`)
-    if (secretsGap > 0) blockers.push(`差 ${secretsGap} 条暗线`)
-    if (!input.roundWindowOpen) blockers.push('窗口尚闭')
+    if (conditions.length === 0) {
+        return {
+            unlocked: true,
+            state: 'ready',
+            summary: '条件已齐：信任够了、忠心已冷、暗线已明。',
+            conditionText: '',
+            conditions,
+            gaps: input,
+        }
+    }
 
     return {
-        unlocked: blockers.length === 0,
-        blockers,
-        reason: blockers.length === 0 ? '条件已齐' : blockers.join('，'),
-        trustGap,
-        loyaltyGap,
-        secretsGap,
-        roundWindowOpen: input.roundWindowOpen,
+        unlocked: false,
+        state: 'locked',
+        summary: `未解锁：人、心、底牌、时机——四样缺一不可。眼下还差 ${conditionText}，急不得。`,
+        conditionText,
+        conditions,
+        gaps: input,
     }
 }
 
-function pickBandLabel(labels: readonly [string, string, string, string], value: number, thresholds: readonly [number, number, number]): string {
+function buildExternalActionConditions(input: ExternalActionUnlockGaps): ExternalActionUnlockCondition[] {
+    const conditions: ExternalActionUnlockCondition[] = []
+
+    if (input.trustGap > 0) {
+        conditions.push({
+            kind: 'trust',
+            gap: input.trustGap,
+            summary: `信任尚差 ${input.trustGap} 点`,
+            text: `未解锁：信任尚差 ${input.trustGap} 点。他还没把你当自己人，这时候摊牌只会吓跑他。`,
+        })
+    }
+
+    if (input.loyaltyGap > 0) {
+        conditions.push({
+            kind: 'loyalty',
+            gap: input.loyaltyGap,
+            summary: `此人对朝廷还没冷透，差 ${input.loyaltyGap} 点忠诚`,
+            text: `未解锁：此人对朝廷还没冷透，差 ${input.loyaltyGap} 点忠诚。心没凉，手就不会动。`,
+        })
+    }
+
+    if (input.secretsGap > 0) {
+        conditions.push({
+            kind: 'secrets',
+            gap: input.secretsGap,
+            summary: `暗线尚差 ${input.secretsGap} 条`,
+            text: `未解锁：暗线尚差 ${input.secretsGap} 条。他最深的算盘你还没摸到，此时摊牌无异于赌。`,
+        })
+    }
+
+    if (!input.roundWindowOpen) {
+        conditions.push({
+            kind: 'window',
+            summary: '时局未到，窗口尚闭',
+            text: '未解锁：时局未到，窗口尚闭。再等一个能逼他明牌的回合。',
+        })
+    }
+
+    return conditions
+}
+
+function pickBandLabel(
+    labels: readonly [string, string, string, string],
+    value: number,
+    thresholds: readonly [number, number, number],
+): string {
     if (value >= thresholds[0]) return labels[0]
     if (value >= thresholds[1]) return labels[1]
     if (value >= thresholds[2]) return labels[2]
