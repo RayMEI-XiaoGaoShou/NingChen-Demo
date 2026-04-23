@@ -5,29 +5,23 @@ import type { NPC, SchemeType } from '../../game/types'
 import { SCHEMES } from '../../data/schemes'
 import { getAvailableSchemesForNpc } from '../../game/schemeEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
-import { getExternalTerminalLabel, getExternalTerminalSummary, isTerminalExternalNpc } from '../../game/externalStatus'
+import { getExternalTerminalSummary, isTerminalExternalNpc } from '../../game/externalStatus'
 import {
     getCourtStatusLabel as getCoreCourtStatusLabel,
     isCourtDispositionTarget as isCourtDispositionTargetId,
     normalizeCourtDispositionNpc,
 } from '../../game/courtDisposition'
+import {
+    getExternalPostureLabel as getSharedExternalPostureLabel,
+    getExternalTiltLabel as getSharedExternalTiltLabel,
+} from '../../game/explainability'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import './NPCDetail.css'
 
-function getExternalTiltLabel(npc: NPC): string {
-    if (npc.alignmentBias === 'emperor') return '偏帝党'
-    if (npc.alignmentBias === 'empress') return '偏后党'
-    if (npc.alignmentBias === 'self') return '自立'
-    return '摇摆'
-}
+function getExternalTiltLabel(npc: NPC): string { return getSharedExternalTiltLabel(npc.alignmentBias) }
 
-function getExternalPostureLabel(npc: NPC): string {
-    if (isTerminalExternalNpc(npc)) return getExternalTerminalLabel(npc.externalStatus)
-    if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心'
-    if (npc.externalStatus === 'watchful') return '观望'
-    return '忠顺'
-}
+function getExternalPostureLabel(npc: NPC): string { return getSharedExternalPostureLabel(npc) }
 
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & {

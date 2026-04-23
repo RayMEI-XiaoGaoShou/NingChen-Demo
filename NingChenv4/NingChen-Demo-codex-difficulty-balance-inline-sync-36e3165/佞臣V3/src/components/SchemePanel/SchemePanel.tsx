@@ -14,7 +14,7 @@ import {
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
-import { isTerminalExternalNpc } from '../../game/externalStatus'
+import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
@@ -23,7 +23,12 @@ import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/sche
 import { forceStatementReplyText } from '../../game/schemeFollowUp'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
-import { explainExternalActionUnlock, getExternalMilitaryPostureLabel } from '../../game/explainability'
+import {
+    explainExternalActionUnlock,
+    getExternalMilitaryPostureLabel,
+    getExternalPostureLabel as getSharedExternalPostureLabel,
+    getExternalTiltLabel as getSharedExternalTiltLabel,
+} from '../../game/explainability'
 import { isOmenAvailableForNpc, roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { clearSchemeReplyPrefetch, markSchemeReplyPrefetchStarted } from '../../game/schemeReplyPrefetch'
 import {
@@ -66,20 +71,9 @@ export function getSchemeSpeechFields(selectedScheme: SchemeType | null): Scheme
     }
 }
 
-function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string {
-    if (alignmentBias === 'emperor') return '偏帝党'
-    if (alignmentBias === 'empress') return '偏后党'
-    if (alignmentBias === 'self') return '自立'
-    return '摇摆'
-}
+function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalTiltLabel(alignmentBias) }
 
-function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string {
-    if (externalStatus === 'rebellion') return '反叛'
-    if (externalStatus === 'secession') return '已割据'
-    if (loyaltyToCourt <= 35 || alignmentBias === 'self') return '离心'
-    if (externalStatus === 'watchful') return '观望'
-    return '忠顺'
-}
+function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalPostureLabel({ powerBase: 'external', externalStatus, loyaltyToCourt, alignmentBias }) }
 
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & { courtStatus?: CourtStatus }
@@ -254,7 +248,7 @@ export function getSchemeUnlockHint(params: {
     }
 
     if (schemeType === 'secession' || schemeType === 'rebellion') {
-        if (!npc.isAlive || !['loyal', 'watchful'].includes(npc.externalStatus)) {
+        if (!npc.isAlive || !isExternalEscalationOpen(npc.externalStatus)) {
             return `未解锁：当前态势已无法再沿${schemeType === 'rebellion' ? '造反' : '割据'}线推进。`
         }
 
@@ -536,6 +530,8 @@ export function SchemePanel() {
                         schemeType: action.schemeType,
                         speech: speechSnapshot,
                         success,
+                        relatedNpc: relatedNpcSnapshot,
+                        northParse: parsed,
                         followUpMode: 'statement_only',
                         round: currentRound,
                         eventName: currentRoundEvent.eventName,

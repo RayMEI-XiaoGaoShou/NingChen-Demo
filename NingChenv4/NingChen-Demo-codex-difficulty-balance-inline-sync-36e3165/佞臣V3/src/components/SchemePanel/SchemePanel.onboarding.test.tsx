@@ -30,14 +30,14 @@ describe('SchemePanel onboarding flows', () => {
         expect(markup).toContain('将嫌疑兑现为罢黜或处决')
     })
 
-    it('adds direct / structural / threshold language to the scheme master guide', () => {
+    it('keeps the scheme master guide focused on the two visible explainability layers', () => {
         expect(SCHEME_MASTER_GUIDE_CONTENT.pages[1]?.bullets).toEqual(
             expect.arrayContaining([
-                expect.stringContaining('直接削弱北周国力'),
-                expect.stringContaining('结构施压'),
-                expect.stringContaining('推进阈值'),
+                expect.stringContaining('国力影响'),
+                expect.stringContaining('朝堂政局'),
             ]),
         )
+        expect(SCHEME_MASTER_GUIDE_CONTENT.pages[1]?.bullets.join('')).not.toContain('局势伏线')
     })
 
     it('renders top-right buttons for reopening the scheme guide and gameplay guide', () => {

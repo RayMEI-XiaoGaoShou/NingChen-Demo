@@ -110,8 +110,9 @@
 }
 
 .btn-next-round {
-    width: 200px;
+    width: 220px;
     font-size: var(--font-size-lg);
-    letter-spacing: 8px;
-    text-indent: 8px;
+    letter-spacing: 2px;
+    text-indent: 0;
+    white-space: nowrap;
 }

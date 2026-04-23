@@ -114,4 +114,38 @@ describe('explainability helpers', () => {
         expect(result.conditionText).toBe('')
         expect(result.conditions).toEqual([])
     })
+    it('provides a single shared set of external tilt and posture labels', async () => {
+        const { getExternalTiltLabel, getExternalPostureLabel } = await import('./explainability')
+
+        expect(getExternalTiltLabel('emperor')).toBe('偏帝党')
+        expect(getExternalTiltLabel('self')).toBe('自立心重')
+
+        expect(getExternalPostureLabel({
+            powerBase: 'external',
+            alignmentBias: 'self',
+            loyaltyToCourt: 52,
+            externalStatus: 'loyal',
+        })).toBe('离心已显')
+
+        expect(getExternalPostureLabel({
+            powerBase: 'external',
+            alignmentBias: 'swing',
+            loyaltyToCourt: 58,
+            externalStatus: 'watchful',
+        })).toBe('持衡待价')
+
+        expect(getExternalPostureLabel({
+            powerBase: 'external',
+            alignmentBias: 'swing',
+            loyaltyToCourt: 58,
+            externalStatus: 'loyal',
+        })).toBe('持衡待价')
+
+        expect(getExternalPostureLabel({
+            powerBase: 'external',
+            alignmentBias: 'emperor',
+            loyaltyToCourt: 82,
+            externalStatus: 'rebellion',
+        })).toBe('已反叛')
+    })
 })

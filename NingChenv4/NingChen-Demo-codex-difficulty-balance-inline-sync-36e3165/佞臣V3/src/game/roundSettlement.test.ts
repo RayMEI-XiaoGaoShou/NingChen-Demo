@@ -181,6 +181,97 @@ describe('settleRound layered settlement', () => {
         expect(result.schemeResults[0]?.success).toBe(false)
     })
 
+    it('does not auto-upgrade ordinary external pressure into watchful status once loyalty drops', () => {
+        const erzhulie = INITIAL_NPCS.find(npc => npc.name === '尔朱烈')!
+
+        const result = settleRound({
+            round: 8,
+            schemes: [
+                {
+                    id: 'ordinary-external-pressure',
+                    targetNpcId: erzhulie.id,
+                    schemeType: 'advise',
+                    playerSpeech: '眼下若把边军粮械、骑从与调度都先抓稳在自己手里，朝廷反倒更不敢轻慢你这一镇。',
+                    resolutionRoll: 0.01,
+                    northParse: {
+                        characterFit: 0.76,
+                        eventFit: 0.72,
+                        structuralPenetration: 0.7,
+                        executability: 0.78,
+                        exposureRisk: 0.1,
+                        financeRelevance: 0.12,
+                        grainRelevance: 0.44,
+                        militaryRelevance: 0.44,
+                        socialOrderRelevance: 0.2,
+                        governanceRelevance: 0.22,
+                        dominantIntent: 'strategize',
+                        stateBenefit: -0.28,
+                        targetBenefit: 0.52,
+                        advicePolarity: 'pro_target_anti_state',
+                        evidence: [],
+                    },
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === erzhulie.id
+                    ? { ...npc, trust: 62, loyaltyToCourt: 42, externalStatus: 'loyal' as const }
+                    : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedErzhulie = result.updatedNpcs?.find((npc: any) => npc.id === erzhulie.id)
+
+        expect(updatedErzhulie?.loyaltyToCourt).toBeLessThan(42)
+        expect(updatedErzhulie?.externalStatus).toBe('loyal')
+    })
+
+    it('keeps failed secession attempts as non-terminal pressure instead of forcing watchful status', () => {
+        const hebabogui = INITIAL_NPCS.find(npc => npc.id === 'hebaboguì')!
+
+        const result = settleRound({
+            round: 7,
+            schemes: [
+                {
+                    id: 'failed-secession-should-not-force-watchful',
+                    targetNpcId: hebabogui.id,
+                    schemeType: 'secession' as any,
+                    playerSpeech: '西线若真想自成一局，也得先把兵、粮、心都捏在自己手里。',
+                    resolutionRoll: 0.01,
+                },
+            ],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => (
+                npc.id === hebabogui.id
+                    ? {
+                        ...npc,
+                        trust: 74,
+                        loyaltyToCourt: 34,
+                        militaryPower: 10,
+                        externalStatus: 'loyal' as const,
+                        highActionBias: 'secession' as const,
+                    }
+                    : { ...npc }
+            )),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: { [hebabogui.id]: 3 },
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        const updatedHebabogui = result.updatedNpcs?.find((npc: any) => npc.id === hebabogui.id)
+
+        expect(result.externalActionReports?.[0]?.action).toBe('secession')
+        expect(result.externalActionReports?.[0]?.outcome).toContain('暂观朝局')
+        expect(updatedHebabogui?.externalStatus).toBe('loyal')
+    })
+
     it('produces richer judge facts for settlement narration', () => {
         const zuting = INITIAL_NPCS.find(npc => npc.name === '祖廷')!
 

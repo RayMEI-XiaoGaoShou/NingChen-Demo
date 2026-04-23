@@ -1,16 +1,9 @@
-import { buildExternalLineProgress } from './externalLineProgress'
-import { roundSupportsExternalAction } from '../data/roundRuleConfig'
 import { getExternalMilitaryPostureLabel, getFactionConditionLabel, getFavorPressureLabel } from './explainability'
-import { getCourtDispositionOpportunity } from './courtDisposition'
-import {
-    explainCampaignMomentumContribution,
-    getCampaignMomentumSummary as getSharedCampaignMomentumSummary,
-    type CampaignMomentumContributionSnapshot,
-} from './campaignMomentum'
-import type { Faction, GameDifficulty, NationDimensions, NPC, SchemeAction } from './types'
+import { getCampaignMomentumSummary as getSharedCampaignMomentumSummary } from './campaignMomentum'
+import type { Faction, NationDimensions, NPC, SchemeAction } from './types'
 import type { SchemeResult } from './schemeEngine'
 
-type OutcomeLabel = '直接伤国' | '结构施压' | '推进阈值'
+type OutcomeLabel = '国力影响' | '朝堂政局'
 
 export interface SchemeOutcomeExplanationSegment {
     label: OutcomeLabel
@@ -20,13 +13,10 @@ export interface SchemeOutcomeExplanationSegment {
 export interface SchemeOutcomeExplanation {
     direct: SchemeOutcomeExplanationSegment
     structural: SchemeOutcomeExplanationSegment
-    stateProgress: SchemeOutcomeExplanationSegment
-    segments: [SchemeOutcomeExplanationSegment, SchemeOutcomeExplanationSegment, SchemeOutcomeExplanationSegment]
+    segments: [SchemeOutcomeExplanationSegment, SchemeOutcomeExplanationSegment]
 }
 
 export interface SchemeOutcomeExplanationInput {
-    round: number
-    difficulty: GameDifficulty
     action: SchemeAction
     result: SchemeResult
     targetBefore: NPC
@@ -35,9 +25,6 @@ export interface SchemeOutcomeExplanationInput {
     relatedAfter: NPC | null
     factionsBefore: Faction[]
     factionsAfter: Faction[]
-    unlockedSecretsBefore: number
-    unlockedSecretsAfter: number
-    campaignMomentum: CampaignMomentumContributionSnapshot | null
 }
 
 const DIMENSION_NAMES: Record<keyof NationDimensions, string> = {
@@ -50,23 +37,18 @@ const DIMENSION_NAMES: Record<keyof NationDimensions, string> = {
 
 export function buildSchemeOutcomeExplanation(input: SchemeOutcomeExplanationInput): SchemeOutcomeExplanation {
     const direct: SchemeOutcomeExplanationSegment = {
-        label: '直接伤国',
+        label: '国力影响',
         text: buildDirectText(input),
     }
     const structural: SchemeOutcomeExplanationSegment = {
-        label: '结构施压',
+        label: '朝堂政局',
         text: buildStructuralText(input),
-    }
-    const stateProgress: SchemeOutcomeExplanationSegment = {
-        label: '推进阈值',
-        text: buildStateProgressText(input),
     }
 
     return {
         direct,
         structural,
-        stateProgress,
-        segments: [direct, structural, stateProgress],
+        segments: [direct, structural],
     }
 }
 
@@ -98,23 +80,6 @@ function buildStructuralText(input: SchemeOutcomeExplanationInput): string {
     }
 
     return buildCourtStructuralText(input)
-}
-
-function buildStateProgressText(input: SchemeOutcomeExplanationInput): string {
-    if (!input.result.success) {
-        return buildMomentumOnlyText(input.campaignMomentum)
-    }
-
-    const thresholdText = input.targetAfter.powerBase === 'external'
-        ? buildExternalProgressText(input)
-        : buildCourtProgressText(input)
-    const momentumText = buildMomentumOnlyText(input.campaignMomentum)
-
-    if (thresholdText && momentumText) {
-        return `${thresholdText} ${momentumText}`
-    }
-
-    return thresholdText || momentumText || '这一步虽有波澜，但离真正能收网或改局，还差最后那一下。'
 }
 
 function buildCourtStructuralText(input: SchemeOutcomeExplanationInput): string {
@@ -149,12 +114,17 @@ function buildCourtStructuralText(input: SchemeOutcomeExplanationInput): string 
         targetLines.push(factionPressureText)
     }
 
+    const relatedExternalPressureText = buildRelatedExternalPressureText(input)
+    if (relatedExternalPressureText) {
+        targetLines.push(relatedExternalPressureText)
+    }
+
     if (targetLines.length > 0) {
         return targetLines.join('')
     }
 
     if (input.result.trustChange > 0) {
-        return `这一步先把 ${input.targetAfter.name} 的耳朵说热了，他对你更肯听话，后续再沿这条线施压就更容易。`
+        return `这一步先把 ${input.targetAfter.name} 说动了，他如今更愿意听你的话，后续再沿这条线施压会更顺手。`
     }
 
     return `你这一手先在 ${input.targetAfter.name} 身边埋下了一道裂痕，朝局的天平也比先前更容易偏斜。`
@@ -211,78 +181,33 @@ function buildExternalStructuralText(input: SchemeOutcomeExplanationInput): stri
     return pieces.join('')
 }
 
-function buildCourtProgressText(input: SchemeOutcomeExplanationInput): string {
-    const afterOpportunity = getCourtDispositionOpportunity({
-        emperorFavor: input.targetAfter.emperorFavor ?? 100,
-        empressDowagerFavor: input.targetAfter.empressDowagerFavor ?? 100,
-    })
-
-    if (afterOpportunity === 'executable') {
-        return '嫌疑已经够重。若此时再借贺拔琪或宗艾之手收网，便可将一纸疑罪兑成真刀真斧的处置。'
+function buildRelatedExternalPressureText(input: SchemeOutcomeExplanationInput): string {
+    if (!input.relatedBefore || !input.relatedAfter || input.relatedAfter.powerBase !== 'external') {
+        return ''
     }
 
-    if (afterOpportunity === 'dismissible') {
-        return '此人离罢黜之线已只剩一步。再压一层庇护，便可借刀收网。'
+    const loyaltyDelta = input.relatedAfter.loyaltyToCourt - input.relatedBefore.loyaltyToCourt
+    const militaryDelta = input.relatedAfter.militaryPower - input.relatedBefore.militaryPower
+
+    if (loyaltyDelta >= 0 && militaryDelta >= 0) {
+        return ''
     }
 
-    return ''
-}
-
-function buildExternalProgressText(input: SchemeOutcomeExplanationInput): string {
-    if (input.result.specialAction === 'secession') {
-        return `${input.targetAfter.name} 已被你推到割据线上，地方军头这一步已经明牌。`
+    const details: string[] = []
+    if (loyaltyDelta < 0) {
+        details.push(`对朝廷的忠诚已跌到 ${input.relatedAfter.loyaltyToCourt}`)
+    }
+    if (militaryDelta < 0) {
+        details.push(
+            `军力 ${input.relatedAfter.militaryPower} 路 ${getExternalMilitaryPostureLabel(input.relatedAfter.militaryPower)}`,
+        )
     }
 
-    if (input.result.specialAction === 'rebellion') {
-        return `${input.targetAfter.name} 已被你推到造反线上，地方军头这一步已经明牌。`
+    if (details.length === 0) {
+        return ''
     }
 
-    const externalAction = resolveExternalProgressAction(input)
-    const beforeProgress = buildExternalLineProgress({
-        npc: { ...input.targetBefore, highActionBias: externalAction },
-        unlockedSecrets: input.unlockedSecretsBefore,
-        difficulty: input.difficulty,
-        round: input.round,
-        externalActionEnabled: roundSupportsExternalAction(input.round, externalAction),
-    })
-    const afterProgress = buildExternalLineProgress({
-        npc: { ...input.targetAfter, highActionBias: externalAction },
-        unlockedSecrets: input.unlockedSecretsAfter,
-        difficulty: input.difficulty,
-        round: input.round,
-        externalActionEnabled: roundSupportsExternalAction(input.round, externalAction),
-    })
-
-    if (afterProgress?.windowOpen && afterProgress.trustGap === 0 && afterProgress.loyaltyGap === 0 && afterProgress.secretsGap === 0) {
-        return `条件已齐：信任够了、忠心已冷、暗线已明。眼下正是逼他走向 ${afterProgress.targetLabel} 的时候——再拖下去，变数只会更多。`
-    }
-
-    if (afterProgress && beforeProgress) {
-        if (afterProgress.secretsGap < beforeProgress.secretsGap) {
-            return `信任已够，但底牌还没摸透——还差 ${afterProgress.secretsGap} 条暗线。${input.targetAfter.name} 最不肯明说的那层心思，不挖出来，${afterProgress.targetLabel} 便无从谈起。`
-        }
-
-        if (afterProgress.loyaltyGap < beforeProgress.loyaltyGap) {
-            return `${input.targetAfter.name} 已肯听你，底牌也露了大半，唯独对朝廷还没冷透。再压 ${afterProgress.loyaltyGap} 点忠诚，才到试 ${afterProgress.targetLabel} 的时候。`
-        }
-
-        if (afterProgress.trustGap < beforeProgress.trustGap) {
-            return `离 ${afterProgress.targetLabel} 还卡在第一步：信任尚差 ${afterProgress.trustGap} 点。暗线已明 ${input.unlockedSecretsAfter}/${input.unlockedSecretsAfter + afterProgress.secretsGap}，路还长。`
-        }
-    }
-
-    return '离割据或造反的线又近了一步。但在他真正举起反旗之前，他只会变得更冷、更不肯受人摆布——你还需要再推。'
-}
-
-function resolveExternalProgressAction(input: SchemeOutcomeExplanationInput): 'secession' | 'rebellion' {
-    if (input.action.schemeType === 'rebellion') return 'rebellion'
-    if (input.action.schemeType === 'secession') return 'secession'
-    return input.targetAfter.highActionBias === 'rebellion' ? 'rebellion' : 'secession'
-}
-
-function buildMomentumOnlyText(momentum: CampaignMomentumContributionSnapshot | null): string {
-    if (!momentum) return ''
-    return explainCampaignMomentumContribution(momentum)
+    return `这股猜忌还顺势压到了外镇的 ${input.relatedAfter.name} 身上，${details.join('，')}。`
 }
 
 function buildFactionPressureText(input: SchemeOutcomeExplanationInput): string {

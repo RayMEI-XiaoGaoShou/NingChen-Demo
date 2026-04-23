@@ -16,7 +16,6 @@ export function Cover() {
     const [selectedDifficulty, setSelectedDifficulty] = useState<GameDifficulty>('normal')
     const hasSave = useMemo(() => hasSavedGameSnapshot(), [])
     const latestSave = useMemo(() => loadGameSnapshot(), [])
-    const currentProfile = getDifficultyProfile(selectedDifficulty)
 
     return (
         <div className="cover-page animate-fade-in">
@@ -46,7 +45,7 @@ export function Cover() {
             <div className="cover-content">
                 <div className="cover-title-wrap animate-slide-up">
                     <h1 className="cover-title">佞臣</h1>
-                    <p className="cover-subtitle">溪云初起日沉阁，山雨欲来风满楼</p>
+                    <p className="cover-subtitle">世事漫随流水，算来一梦浮生</p>
                 </div>
 
                 <div className="cover-actions animate-slide-up animate-delay-2">
@@ -74,7 +73,6 @@ export function Cover() {
                         <div className="cover-difficulty-panel glass-panel">
                             <div className="cover-difficulty-header">
                                 <span className="cover-kicker">选择难度</span>
-                                <p>{currentProfile.description}</p>
                             </div>
                             <div className="cover-difficulty-options">
                                 {DIFFICULTY_OPTIONS.map(option => {

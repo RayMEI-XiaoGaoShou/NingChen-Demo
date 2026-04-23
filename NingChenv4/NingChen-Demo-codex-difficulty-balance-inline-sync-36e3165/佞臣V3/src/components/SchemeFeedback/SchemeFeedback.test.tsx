@@ -143,6 +143,15 @@ describe('SchemeFeedback orchestration', () => {
 
     it('uses a single large page title without an eyebrow in the current layout', () => {
         expect(schemeFeedbackSource).not.toContain('<span className="page-eyebrow">计谋回报</span>')
+        expect(schemeFeedbackSource).toContain('<h2 className="page-title">计谋回报</h2>')
+        expect(schemeFeedbackSource).toContain('追问')
+        expect(schemeFeedbackSource).toContain('你的回应')
+        expect(schemeFeedbackSource).toContain('写下你的补充说明')
+        expect(schemeFeedbackSource).toContain('跳过追问')
+        expect(schemeFeedbackSource).toContain('查看结算')
+        expect(schemeFeedbackSource).not.toContain('璁¤皨鍥炴姤')
+        expect(schemeFeedbackSource).not.toContain('杩介棶')
+        expect(schemeFeedbackSource).not.toContain('浣犵殑鍥炲簲')
     })
     it('uses full-body ghost portraits instead of small avatars in feedback cards', () => {
         expect(schemeFeedbackSource).toContain('className="feedback-ghost-portrait"')

@@ -23,33 +23,49 @@ describe('Settlement helpers', () => {
         )
     })
 
-    it('avoids repeating guarded backlash summaries that restate the same warning', () => {
+    it('keeps fallback imperial and richer when the player did author a reason', () => {
         expect(
-            getSettlementBacklashText({
-                npcId: 'hebaqi',
-                npcName: '贺拔琪',
-                type: 'guarded',
-                intensity: 2,
-                sourceRound: 3,
-                summary: '贺拔琪表面仍循旧章，然近来言语间已多了一层提防。',
+            buildSettlementDefaultEmpressReply({
+                optionContent: '先整军令，再催粮道',
+                reason: '先把节度与军令统一，前线才不会各唱各的调。',
+                weakestDimensionLabel: '军事',
+                warWindow: true,
+                playerDangerStage: 'under_watch',
             }),
-        ).toBe('贺拔琪 虽未当面翻脸，心里却已记下了这笔账。下回合再试探他时，恐怕不会像今日这般好说话。')
+        ).toContain('朕已按“先整军令，再催粮道”着手施行。')
+    })
+
+    it('avoids repeating guarded backlash summaries that restate the same warning', () => {
+        const text = getSettlementBacklashText({
+            npcId: 'hebaqi',
+            npcName: '贺拔琪',
+            type: 'guarded',
+            intensity: 2,
+            sourceRound: 3,
+            summary: '贺拔琪表面仍循旧章，然近来言语间已多了一层提防。',
+        })
+
+        expect(text).toContain('贺拔琪')
+        expect(text).toContain('心里却已记下了这笔账')
+        expect(text).toContain('不会像今日这般好说话')
     })
 
     it('prefers the guided policy aftereffect line when it would otherwise repeat the same idea', () => {
         expect(
             selectSettlementPolicyAftereffectText(
-                '你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。',
-                '你上回合的奏对收益延续到了这一回合。',
+                '你的附言切中了此议真正的关节。这道新政不只当回合收效，下一个回合还会继续生出余力。',
+                '你上回合的筹对收益延续到了这一回合。',
             ),
-        ).toEqual(['你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。'])
+        ).toEqual(['你的附言切中了此议真正的关节。这道新政不只当回合收效，下一个回合还会继续生出余力。'])
     })
 })
 
 describe('Settlement source contract', () => {
     it('keeps empress feedback AI gated behind authored policy reasoning', () => {
-        expect(settlementSource).toContain('policyReasonAuthored && lastSettlement.policyReport')
-        expect(settlementSource).toContain('buildEmpressFeedbackPrompt(lastSettlement.policyReport)')
+        expect(settlementSource).toContain('policyReasonAuthored && empressFeedbackContext')
+        expect(settlementSource).toContain('const empressFeedbackContext = lastSettlement.policyReport')
+        expect(settlementSource).toContain('buildEmpressFeedbackContext({')
+        expect(settlementSource).toContain('buildEmpressFeedbackPrompt(empressFeedbackContext)')
         expect(settlementSource).toContain('buildSettlementDefaultEmpressReply(lastSettlement.policyReport)')
         expect(settlementSource).not.toContain('眼下${lastSettlement.policyReport.effectSummary}')
     })
@@ -59,23 +75,23 @@ describe('Settlement source contract', () => {
         expect(settlementSource).toContain('policy-option-highlight')
     })
 
-    it('stores the full policy question in the settlement report', () => {
+    it('stores the full policy question and policy parse in the settlement report', () => {
         expect(roundSettlementSource).toContain('question: string')
         expect(roundSettlementSource).toContain('question: question.question')
+        expect(roundSettlementSource).toContain('policyParse: PolicyReasonParseResult | null')
     })
 
     it('renders court disposition reports as their own settlement section', () => {
-        expect(settlementSource).toContain('朝堂收网')
         expect(settlementSource).toContain('lastSettlement.borrowedBladeReports.map')
-        expect(roundSettlementSource).toContain('朝堂收网${borrowedBladeReports.length}次')
+        expect(roundSettlementSource).toContain('borrowedBladeReports')
     })
 
-    it('renders three-part explainability rows for each settled scheme and a momentum surface', () => {
+    it('renders two-part explainability rows and routes campaign narration through the battle record board', () => {
         expect(settlementSource).toContain('lastSettlement?.schemeOutcomeExplanations?.[i]')
-        expect(settlementSource).toContain('直接伤国')
-        expect(settlementSource).toContain('结构施压')
-        expect(settlementSource).toContain('推进阈值')
-        expect(settlementSource).toContain('战役动量')
+        expect(settlementSource).toContain('SCHEME_OUTCOME_LABEL_ORDER')
+        expect(settlementSource).not.toContain('局势伏线')
+        expect(settlementSource).toContain('buildCampaignRecordPanel({')
+        expect(settlementSource).not.toContain('getCampaignMomentumPresentation')
         expect(roundSettlementSource).toContain('schemeOutcomeExplanations')
     })
 })

@@ -28,10 +28,10 @@ export interface CampaignMomentumContributionSnapshot {
 }
 
 const MOMENTUM_SUMMARIES: Record<string, string> = {
-    '筹势未成': '这一步更像是在朝中造势，还没真正推动到前线战局。',
-    '局势微动': '这一步已让前线的战备稍有松动，局势开始微微倾斜。',
-    '已见成势': '这一步切中了当前战局的要害，战役风向已经出现明显偏转。',
-    '得手在即': '前线局势已大幅倾斜，只差最后的契机便可收局。',
+    '筹势未成': '你的动作尚停留在朝堂层面，还没有真正影响到前线战局。',
+    '局势微动': '你的动作已开始影响前线战备，局势出现了轻微偏移。',
+    '已见成势': '你的动作已切中战局要害，战役走向出现了明显偏转。',
+    '得手在即': '前线局势已大幅倾斜，只差最后一步便可定局。',
 }
 
 export function deriveCampaignMomentumGain(params: {

@@ -9,7 +9,7 @@ import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRoundAdvisorHint } from '../../game/roundIntelEngine'
 import { buildDominantExternalStageHint } from '../../game/externalActionHint'
 import { buildOmenAdvisorHint } from '../../game/fengDaozhiHint'
-import { getCampaignMomentumSurface } from '../../game/campaignMomentum'
+import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './RoundStart.css'
@@ -80,16 +80,22 @@ export function RoundStart() {
             : null
     const campaignDisplay = getRoundStartCampaignDisplay(currentRound, shuCampaign, huainanCampaign)
     const campaignMap = campaignDisplay.map
-    const activeCampaignSummary = campaignDisplay.summary
     const eventTitle = campaignDisplay.eventName ?? event?.eventName
     const roundBriefing = campaignDisplay.briefing ?? ROUND_START_RICH_BRIEFINGS[currentRound] ?? event?.briefing ?? ''
     const courtHintText = stripAdvisorPrefix(courtAdvisorHint || event?.hint)
     const externalHintText = stripAdvisorPrefix(externalStageHint)
     const roundTitleLine = buildRoundStartTitle(currentRound, eventTitle, event?.timeLabel)
     const roundBriefingParagraphs = roundBriefing.split('\n').filter(Boolean)
-    const campaignMomentumSurface = getCampaignMomentumSurface(currentRound, shuMomentum, huainanMomentum)
+    const campaignRecord = buildCampaignRecordPanel({
+        round: currentRound,
+        surface: 'round_start',
+        shuCampaign,
+        huainanCampaign,
+        shuMomentum,
+        huainanMomentum,
+        campaignReports: [],
+    })
     const aftereffectSummary = [
-        activeCampaignSummary ? { label: '战役回响', summary: activeCampaignSummary } : null,
         previousPolicyAftereffect ? { label: '问政余波', summary: previousPolicyAftereffect.summary } : null,
         recentBacklash[0] ? { label: '朝局反噬', summary: recentBacklash[0].summary } : null,
     ].filter((item): item is { label: string; summary: string } => Boolean(item))
@@ -187,16 +193,19 @@ export function RoundStart() {
                 </section>
 
                 <div className="roundstart-bottom-stack animate-slide-up animate-delay-4">
-                    <section className="glass-panel roundstart-aftereffect-strip">
-                        <h2 className="roundstart-section-title">战役动量</h2>
-                        <div className="roundstart-aftereffect-copy">
-                            <p>
-                                <span className="roundstart-aftereffect-label">{campaignMomentumSurface.theaterLabel}</span>
-                                <span>{campaignMomentumSurface.label}</span>
-                            </p>
-                            <p>{campaignMomentumSurface.summary}</p>
-                        </div>
-                    </section>
+                    {campaignRecord.visible && (
+                        <section className="glass-panel roundstart-aftereffect-strip">
+                            <h2 className="roundstart-section-title">{campaignRecord.title}</h2>
+                            <div className="roundstart-aftereffect-copy">
+                                <p>
+                                    <span className="roundstart-aftereffect-label">{campaignRecord.phase}</span>
+                                    <span>{campaignRecord.recapText}</span>
+                                </p>
+                                <p>{campaignRecord.statusText}</p>
+                                {campaignRecord.resultText && <p>{campaignRecord.resultText}</p>}
+                            </div>
+                        </section>
+                    )}
 
                     {aftereffectSummary.length > 0 && (
                         <section className="glass-panel roundstart-aftereffect-strip">
@@ -285,10 +294,15 @@ export function RoundStart() {
                         </div>
                     </div>
 
-                    {activeCampaignSummary && (
+                    {campaignRecord.visible && (
                         <div className="glass-panel aftereffect-card">
-                            <h3 className="section-title">战局回响</h3>
-                            <p>{activeCampaignSummary}</p>
+                            <h3 className="section-title">{campaignRecord.title}</h3>
+                            <p>
+                                <strong>{campaignRecord.phase}：</strong>
+                                {campaignRecord.recapText}
+                            </p>
+                            <p>{campaignRecord.statusText}</p>
+                            {campaignRecord.resultText && <p>{campaignRecord.resultText}</p>}
                         </div>
                     )}
 

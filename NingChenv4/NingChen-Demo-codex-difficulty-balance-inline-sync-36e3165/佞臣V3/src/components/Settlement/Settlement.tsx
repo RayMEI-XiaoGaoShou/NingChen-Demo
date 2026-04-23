@@ -10,6 +10,8 @@ import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
+import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
+import { buildEmpressFeedbackContext, type EmpressFeedbackContext } from '../../game/empressFeedbackContext'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
@@ -18,8 +20,7 @@ const COURT_BACKLASH_TOOLTIP = '朝局反噬，是你每一手计谋在暗中留
 const POLICY_AFTEREFFECT_TOOLTIP = '问政余波，来自你在女帝问政页写下的附言。附言若真切中当回合议题，当回合得利自不必说，还会在下一回合继续带来好处。'
 const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
 const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
-const CAMPAIGN_MOMENTUM_TOOLTIP = '战役动量，是你这一步究竟有没有把朝中造势真正推到前线战局上。它不是单纯的战报，而是局势偏转到哪一步的半显性标记。'
-const SCHEME_OUTCOME_LABEL_ORDER = ['直接伤国', '结构施压', '推进阈值'] as const
+const SCHEME_OUTCOME_LABEL_ORDER = ['国力影响', '朝堂政局'] as const
 
 export function getSettlementPolicyFollowupText(focusMatched: boolean): string {
     return focusMatched
@@ -65,7 +66,7 @@ export function getSafeSettlementJudgeFacts(
         externalSummary: judgeFacts?.externalSummary ?? '边镇与外部势力仍在观望。',
         northSummary: judgeFacts?.northSummary ?? '北周国势暂无明显变化。',
         southSummary: judgeFacts?.southSummary ?? '南陈新政的后效仍在缓缓显形。',
-        invasionSummary: judgeFacts?.invasionSummary ?? '南征风向仍待后续观察。',
+        invasionSummary: judgeFacts?.invasionSummary ?? '南征风向仍待观察',
         survivalSummary: judgeFacts?.survivalSummary ?? '风声暂稳。',
         aiNativeSummary: {
             schemeHints: judgeFacts?.aiNativeSummary?.schemeHints ?? [],
@@ -104,10 +105,43 @@ export function hasPolicyReason(policyReport: { reason?: string | null } | null 
 }
 
 export function buildSettlementDefaultEmpressReply(
-    policyReport: { optionContent: string } | null | undefined,
+    policyReportOrContext:
+        | (Pick<EmpressFeedbackContext, 'optionContent' | 'reason' | 'weakestDimensionLabel' | 'warWindow' | 'playerDangerStage'>)
+        | { optionContent: string; reason?: string | null }
+        | null
+        | undefined,
 ): string | null {
-    if (!policyReport) return null
-    return `朕已按“${policyReport.optionContent}”着手施行。`
+    if (!policyReportOrContext) return null
+
+    const optionContent = policyReportOrContext.optionContent
+    const reason = policyReportOrContext.reason?.trim()
+
+    if (!reason) {
+        return `朕已按“${optionContent}”着手施行。`
+    }
+
+    const weakestDimensionLabel = 'weakestDimensionLabel' in policyReportOrContext
+        ? policyReportOrContext.weakestDimensionLabel
+        : null
+    const warWindow = 'warWindow' in policyReportOrContext
+        ? policyReportOrContext.warWindow
+        : false
+    const playerDangerStage = 'playerDangerStage' in policyReportOrContext
+        ? policyReportOrContext.playerDangerStage
+        : 'safe'
+
+    const cautionLine = warWindow
+        ? '眼下兵事将逼，节候与后勤都不可轻纵。'
+        : weakestDimensionLabel
+            ? `只是眼下更要先稳住${weakestDimensionLabel}这一头，锋芒不可尽露。`
+            : '只是此事仍须按轻重徐徐收束，不可一味躁进。'
+    const playerLine = playerDangerStage === 'under_review'
+        ? '你在北朝自护为先，其余话不必说满。'
+        : playerDangerStage === 'under_watch'
+            ? '你在北朝已渐有人留意，往后行话宜更收三分。'
+            : ''
+
+    return `朕已按“${optionContent}”着手施行。${cautionLine}${playerLine}`
 }
 
 function normalizeSettlementSummary(text: string): string {
@@ -208,6 +242,8 @@ export function Settlement() {
         openGameplayGuide,
         shuCampaign,
         huainanCampaign,
+        shuMomentum,
+        huainanMomentum,
     } = useGameStore()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
@@ -228,7 +264,15 @@ export function Settlement() {
     const courtBacklashTexts = lastSettlement?.delayedBacklash?.length
         ? lastSettlement.delayedBacklash.map(getSettlementBacklashText)
         : backlashHints
-    const campaignMomentumSurface = lastSettlement?.campaignMomentumSurface ?? null
+    const campaignRecord = buildCampaignRecordPanel({
+        round: currentRound,
+        surface: 'settlement',
+        shuCampaign,
+        huainanCampaign,
+        shuMomentum,
+        huainanMomentum,
+        campaignReports: lastSettlement?.campaignReports ?? [],
+    })
 
     useEffect(() => {
         let cancelled = false
@@ -251,6 +295,20 @@ export function Settlement() {
             }
 
             const event = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
+            const empressFeedbackContext = lastSettlement.policyReport
+                ? buildEmpressFeedbackContext({
+                    currentRound,
+                    policyReport: lastSettlement.policyReport,
+                    policyAftereffect: lastSettlement.policyAftereffect,
+                    policyParse: lastSettlement.policyReport.policyParse,
+                    southStatsAfter: lastSettlement.southStatsAfter,
+                    northEventName: event.eventName,
+                    northEventBriefing: event.eventBriefing,
+                    northSummary: judgeFacts.northSummary,
+                    invasionSummary: judgeFacts.invasionSummary,
+                    playerDangerStage: lastSettlement.playerDangerStage,
+                })
+                : null
             const trustSummary = Object.entries(lastSettlement.trustChanges)
                 .map(([id, delta]) => {
                     const npc = npcs.find(n => n.id === id)
@@ -279,7 +337,7 @@ export function Settlement() {
                 externalSummary: judgeFacts.externalSummary,
                 northSummary: judgeFacts.northSummary,
                 southSummary: judgeFacts.southSummary,
-                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征风向仍待后续观察。',
+                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征风向仍待观察',
             })
 
             try {
@@ -289,8 +347,8 @@ export function Settlement() {
                         maxTokens: 300,
                         tag: 'judge',
                     }),
-                    policyReasonAuthored && lastSettlement.policyReport
-                        ? chatCompletion(buildEmpressFeedbackPrompt(lastSettlement.policyReport), {
+                    policyReasonAuthored && empressFeedbackContext
+                        ? chatCompletion(buildEmpressFeedbackPrompt(empressFeedbackContext), {
                             temperature: 0.75,
                             maxTokens: 220,
                             tag: 'empress_feedback_settlement',
@@ -300,9 +358,9 @@ export function Settlement() {
                 if (cancelled) return
                 setJudgeNarration(narration)
                 setEmpressReply(
-                    policyReasonAuthored && lastSettlement.policyReport
+                    policyReasonAuthored && empressFeedbackContext
                         ? southReply.trim() || null
-                        : buildSettlementDefaultEmpressReply(lastSettlement.policyReport),
+                        : buildSettlementDefaultEmpressReply(empressFeedbackContext ?? lastSettlement.policyReport),
                 )
             } catch {
                 if (cancelled) return
@@ -506,26 +564,16 @@ export function Settlement() {
 
                 <div className="changes-summary animate-slide-up animate-delay-4">
                     <h3 className="section-title">大局推演</h3>
-                    {lastSettlement?.campaignReports?.length ? (
-                        <div className="glass-panel subtle-hints">
-                            {lastSettlement.campaignReports.map(report => (
-                                <p key={report} className="result-text">{report}</p>
-                            ))}
-                        </div>
-                    ) : null}
-                    {campaignMomentumSurface && (
+                    {campaignRecord.visible && (
                         <div className="glass-panel subtle-hints">
                             <p className="result-text">
-                                <span className="result-scheme">战役动量</span>
+                                <span className="result-scheme">{campaignRecord.title}</span>
                                 {' · '}
-                                {campaignMomentumSurface.theaterLabel}
-                                {' · '}
-                                {campaignMomentumSurface.label}
-                                <span className="status-help status-help-seal" title={CAMPAIGN_MOMENTUM_TOOLTIP} aria-label={CAMPAIGN_MOMENTUM_TOOLTIP}>
-                                    ?
-                                </span>
+                                {campaignRecord.phase}
                             </p>
-                            <p className="result-text">{campaignMomentumSurface.summary}</p>
+                            <p className="result-text">{campaignRecord.recapText}</p>
+                            <p className="result-text">{campaignRecord.statusText}</p>
+                            {campaignRecord.resultText && <p className="result-text">{campaignRecord.resultText}</p>}
                         </div>
                     )}
 

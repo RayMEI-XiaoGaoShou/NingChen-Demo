@@ -18,13 +18,13 @@ export function SchemeOnboardingModal({ open, title, pages, onClose }: SchemeOnb
 
     return (
         <div className="first-round-guide-backdrop">
-            <div className="gold-panel first-round-guide-modal animate-slide-up">
+            <div className="gold-panel first-round-guide-modal first-round-guide-modal--guide animate-slide-up">
                 {title ? (
                     <div className="first-round-guide-header">
                         <h3 className="first-round-guide-title">{title}</h3>
                     </div>
                 ) : null}
-                <div className="first-round-guide-body first-round-guide-body-rich">
+                <div className="first-round-guide-body first-round-guide-body-rich first-round-guide-body-rich--guide">
                     <h4>{page.heading}</h4>
                     {page.intro ? <p>{page.intro}</p> : null}
                     <ul>

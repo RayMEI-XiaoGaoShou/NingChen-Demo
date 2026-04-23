@@ -3,6 +3,7 @@ import { getSouthGrowthForDifficulty } from '../data/nationStats'
 import {
     buildPolicyAftereffect,
     calculatePolicyEffect,
+    calculateExternalSupport,
     checkDeathCondition,
     checkEarlyInvasion,
 } from './nationEngine'
@@ -147,6 +148,24 @@ describe('checkEarlyInvasion', () => {
         expect(result.windowLabel).toBe('南征高压')
         expect(result.politicalWillRatio).toBeGreaterThan(calmerRound.politicalWillRatio)
         expect(result.pressureSummary).toContain('帝党')
+    })
+})
+
+describe('checkEarlyInvasion', () => {
+    it('lets loyalty stay the main external-support brake instead of double-penalizing watchful status', () => {
+        const duguwenyue = INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!
+        const loyalSupport = calculateExternalSupport([
+            { ...duguwenyue, externalStatus: 'loyal', loyaltyToCourt: 58, militaryPower: 45 },
+        ])
+        const watchfulSupport = calculateExternalSupport([
+            { ...duguwenyue, externalStatus: 'watchful', loyaltyToCourt: 58, militaryPower: 45 },
+        ])
+        const lowLoyaltySupport = calculateExternalSupport([
+            { ...duguwenyue, externalStatus: 'loyal', loyaltyToCourt: 30, militaryPower: 45 },
+        ])
+
+        expect(watchfulSupport.empressBonus).toBe(loyalSupport.empressBonus)
+        expect(lowLoyaltySupport.empressBonus).toBeLessThan(loyalSupport.empressBonus)
     })
 })
 

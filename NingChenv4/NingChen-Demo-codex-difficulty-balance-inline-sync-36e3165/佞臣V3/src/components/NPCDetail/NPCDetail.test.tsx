@@ -9,10 +9,9 @@ describe('NPCDetail', () => {
     })
 
     it('uses terminal external labels and explains when a warlord line has already closed', () => {
-        expect(npcDetailSource).toContain('getExternalTerminalLabel')
         expect(npcDetailSource).toContain('getExternalTerminalSummary')
         expect(npcDetailSource).toContain('isTerminalExternalNpc')
-        expect(npcDetailSource).toContain("getExternalTerminalLabel(npc.externalStatus)")
+        expect(npcDetailSource).toContain('态势：{getExternalPostureLabel(npc)}')
         expect(npcDetailSource).toContain("getExternalTerminalSummary(npc.externalStatus)")
     })
 
