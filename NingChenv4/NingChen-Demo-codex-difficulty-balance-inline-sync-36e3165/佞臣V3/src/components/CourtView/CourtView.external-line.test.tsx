@@ -130,7 +130,7 @@ describe('CourtView card presentation', () => {
         const markup = renderCourtViewMarkup()
 
         expect(markup).toContain('综合实力 64.3')
-        expect(markup).toContain('综合实力 69.3')
+        expect(markup).toContain('综合实力 69.6')
         expect(markup).not.toContain('综合势能')
         expect(markup).toContain('后将军、上柱国、澜侯【驻扎天水】')
         expect(markup).toContain('卫将军、上柱国、北地公、都督河西陇右诸军事【驻扎金城郡】')

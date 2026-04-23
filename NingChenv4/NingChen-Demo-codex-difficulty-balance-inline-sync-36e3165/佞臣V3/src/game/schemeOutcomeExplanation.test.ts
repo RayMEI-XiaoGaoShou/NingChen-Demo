@@ -49,7 +49,7 @@ function makeResult(overrides: Partial<SchemeResult> = {}): SchemeResult {
 }
 
 describe('buildSchemeOutcomeExplanation', () => {
-    it('describes direct nation damage, structural pressure, and campaign progress for a court advise success', () => {
+    it('describes direct nation damage and structural pressure for a court advise success', () => {
         const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
         const factionsBefore = cloneFactions()
         const factionsAfter = cloneFactions()
@@ -60,8 +60,6 @@ describe('buildSchemeOutcomeExplanation', () => {
         }
 
         const explanation = buildSchemeOutcomeExplanation({
-            round: 8,
-            difficulty: 'normal',
             action,
             result: makeResult({
                 trustChange: 4,
@@ -98,38 +96,13 @@ describe('buildSchemeOutcomeExplanation', () => {
             relatedAfter: null,
             factionsBefore,
             factionsAfter,
-            unlockedSecretsBefore: 0,
-            unlockedSecretsAfter: 0,
-            campaignMomentum: {
-                round: 8,
-                schemeType: 'advise',
-                success: true,
-                parse: {
-                    characterFit: 0.76,
-                    eventFit: 0.78,
-                    structuralPenetration: 0.82,
-                    executability: 0.74,
-                    exposureRisk: 0.16,
-                    financeRelevance: 0.12,
-                    grainRelevance: 0.82,
-                    militaryRelevance: 0.68,
-                    socialOrderRelevance: 0.18,
-                    governanceRelevance: 0.88,
-                    dominantIntent: 'strategize',
-                    evidence: [],
-                },
-                theater: 'shu',
-                before: 0,
-                after: 0.56,
-                gain: 0.56,
-            },
         })
 
-        expect(explanation.segments.map(segment => segment.label)).toEqual(['直接伤国', '结构施压', '推进阈值'])
+        expect(explanation.segments.map(segment => segment.label)).toEqual(['国力影响', '朝堂政局'])
         expect(explanation.direct.text).toContain('北周治理穿透力')
         expect(explanation.structural.text).toContain('祖廷')
-        expect(explanation.stateProgress.text).toContain('蜀地方向')
-        expect(explanation.stateProgress.text).toContain('已见成势')
+        expect(explanation.structural.text).toContain('更愿意听你的话')
+        expect(explanation.structural.text).not.toContain('耳朵说热')
     })
 
     it('treats court slander as structural pressure when it does not directly harm the nation', () => {
@@ -149,8 +122,6 @@ describe('buildSchemeOutcomeExplanation', () => {
         }
 
         const explanation = buildSchemeOutcomeExplanation({
-            round: 12,
-            difficulty: 'normal',
             action,
             result: makeResult({
                 trustChange: 3,
@@ -178,37 +149,64 @@ describe('buildSchemeOutcomeExplanation', () => {
             relatedAfter: { ...yuwendi, emperorFavor: 73, empressDowagerFavor: 22 },
             factionsBefore,
             factionsAfter,
-            unlockedSecretsBefore: 0,
-            unlockedSecretsAfter: 0,
-            campaignMomentum: {
-                round: 12,
-                schemeType: 'slander',
-                success: true,
-                parse: {
-                    characterFit: 0.62,
-                    eventFit: 0.4,
-                    structuralPenetration: 0.28,
-                    executability: 0.22,
-                    exposureRisk: 0.4,
-                    financeRelevance: 0.08,
-                    grainRelevance: 0.1,
-                    militaryRelevance: 0.12,
-                    socialOrderRelevance: 0.3,
-                    governanceRelevance: 0.2,
-                    dominantIntent: 'divide',
-                    evidence: [],
-                },
-                theater: 'huainan',
-                before: 0.18,
-                after: 0.18,
-                gain: 0,
-            },
         })
 
         expect(explanation.direct.text).toContain('未直接削弱北周国力')
         expect(explanation.structural.text).toContain('疑虑')
         expect(explanation.structural.text).toContain('帝党')
-        expect(explanation.stateProgress.text).toContain('战役动量未变')
+    })
+
+    it('spells out when a court intrigue also weakens a related external warlord', () => {
+        const zongai = INITIAL_NPCS.find(npc => npc.id === 'zongai')!
+        const duguwenyue = INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!
+        const action: SchemeAction = {
+            targetNpcId: zongai.id,
+            relatedNpcId: duguwenyue.id,
+            schemeType: 'slander',
+            playerSpeech: '若把军令、粮道和担责口子都认到他头上，中枢先疑的就是这一路边镇还能不能照旧调度。',
+        }
+
+        const explanation = buildSchemeOutcomeExplanation({
+            action,
+            result: makeResult({
+                trustChange: 3,
+                personEffects: {
+                    trustDelta: 3,
+                    relatedTrustDelta: -2,
+                    loyaltyDelta: 0,
+                    relatedLoyaltyDelta: -4,
+                    militaryPowerDelta: 0,
+                    relatedMilitaryPowerDelta: -3,
+                    alignmentShift: null,
+                    intelDelta: 0,
+                    externalStatus: null,
+                },
+                northParse: {
+                    characterFit: 0.7,
+                    eventFit: 0.7,
+                    structuralPenetration: 0.78,
+                    executability: 0.7,
+                    exposureRisk: 0.18,
+                    financeRelevance: 0.18,
+                    grainRelevance: 0.82,
+                    militaryRelevance: 0.84,
+                    socialOrderRelevance: 0.22,
+                    governanceRelevance: 0.7,
+                    dominantIntent: 'divide',
+                    evidence: [],
+                },
+            }),
+            targetBefore: { ...zongai, trust: 61 },
+            targetAfter: { ...zongai, trust: 64 },
+            relatedBefore: { ...duguwenyue, loyaltyToCourt: 58, militaryPower: 45 },
+            relatedAfter: { ...duguwenyue, loyaltyToCourt: 54, militaryPower: 42 },
+            factionsBefore: cloneFactions(),
+            factionsAfter: cloneFactions(),
+        })
+
+        expect(explanation.structural.text).toContain('独孤文约')
+        expect(explanation.structural.text).toContain('军力 42')
+        expect(explanation.structural.text).toContain('忠诚')
     })
 
     it('calls out borrowed-blade progress when frame pushes a court target toward dismissal', () => {
@@ -220,8 +218,6 @@ describe('buildSchemeOutcomeExplanation', () => {
         }
 
         const explanation = buildSchemeOutcomeExplanation({
-            round: 12,
-            difficulty: 'normal',
             action,
             result: makeResult({
                 northParse: {
@@ -245,14 +241,10 @@ describe('buildSchemeOutcomeExplanation', () => {
             relatedAfter: null,
             factionsBefore: cloneFactions(),
             factionsAfter: cloneFactions(),
-            unlockedSecretsBefore: 0,
-            unlockedSecretsAfter: 0,
-            campaignMomentum: null,
         })
 
         expect(explanation.structural.text).toContain('两道庇护')
         expect(explanation.structural.text).toContain('圣眷将尽')
-        expect(explanation.stateProgress.text).toContain('借刀收网')
     })
 
     it('treats a successful rebellion as completed state progress for an external line', () => {
@@ -264,8 +256,6 @@ describe('buildSchemeOutcomeExplanation', () => {
         }
 
         const explanation = buildSchemeOutcomeExplanation({
-            round: 15,
-            difficulty: 'normal',
             action,
             result: makeResult({
                 specialAction: 'rebellion',
@@ -302,36 +292,9 @@ describe('buildSchemeOutcomeExplanation', () => {
             relatedAfter: null,
             factionsBefore: cloneFactions(),
             factionsAfter: cloneFactions(),
-            unlockedSecretsBefore: 3,
-            unlockedSecretsAfter: 3,
-            campaignMomentum: {
-                round: 15,
-                schemeType: 'rebellion',
-                success: true,
-                parse: {
-                    characterFit: 0.8,
-                    eventFit: 0.78,
-                    structuralPenetration: 0.74,
-                    executability: 0.68,
-                    exposureRisk: 0.18,
-                    financeRelevance: 0.42,
-                    grainRelevance: 0.66,
-                    militaryRelevance: 0.88,
-                    socialOrderRelevance: 0.16,
-                    governanceRelevance: 0.38,
-                    dominantIntent: 'strategize',
-                    evidence: [],
-                },
-                theater: 'huainan',
-                before: 0.72,
-                after: 0.9,
-                gain: 0.18,
-            },
         })
 
         expect(explanation.direct.text).toContain('北周军事')
         expect(explanation.structural.text).toContain('忠心')
-        expect(explanation.stateProgress.text).toContain('造反')
-        expect(explanation.stateProgress.text).toContain('明牌')
     })
 })

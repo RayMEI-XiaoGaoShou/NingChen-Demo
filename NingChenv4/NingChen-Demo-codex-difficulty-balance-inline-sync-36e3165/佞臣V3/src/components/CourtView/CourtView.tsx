@@ -8,6 +8,8 @@ import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import {
     explainExternalActionUnlock,
+    getExternalPostureLabel,
+    getExternalTiltLabel,
     getExternalMilitaryPostureLabel,
     getFactionConditionLabel,
     getFavorPressureLabel,
@@ -23,21 +25,6 @@ import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './CourtView.css'
-
-function getExternalTiltLabel(npc: NPC): string {
-    if (npc.alignmentBias === 'emperor') return '偏帝党'
-    if (npc.alignmentBias === 'empress') return '偏后党'
-    if (npc.alignmentBias === 'self') return '自立心重'
-    return '两边观望'
-}
-
-function getExternalPostureLabel(npc: NPC): string {
-    if (npc.externalStatus === 'rebellion') return '已反叛'
-    if (npc.externalStatus === 'secession') return '已割据'
-    if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心已显'
-    if (npc.externalStatus === 'watchful') return '持重观局'
-    return '表面恭顺'
-}
 
 function getFactionDoctrine(factionId: 'emperor' | 'empress') {
     if (factionId === 'emperor') {
@@ -487,7 +474,7 @@ export function CourtView() {
                                                     </div>
                                                 </div>
                                                 <div className="external-stats">
-                                                    <span>{getExternalTiltLabel(npc)}</span>
+                                                    <span>{getExternalTiltLabel(npc.alignmentBias)}</span>
                                                     <span>{getExternalPostureLabel(npc)}</span>
                                                 </div>
                                                 {!isTerminal && (

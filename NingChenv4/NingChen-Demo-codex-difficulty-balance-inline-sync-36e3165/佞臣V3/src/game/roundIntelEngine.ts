@@ -6,6 +6,7 @@ import {
     normalizeCourtDispositionNpc,
     type CourtDispositionNpc,
 } from './courtDisposition'
+import { getNpcSelfReference } from './npcVoiceProfile'
 import type { NPC } from './types'
 
 type HintNpc = Pick<NPC, 'id' | 'name' | 'isAlive'>
@@ -114,14 +115,14 @@ function buildPublicStatement(round: number, npc: NPC, context: RoundStatementCo
 }
 
 function buildHintStatement(base: string, reaction: string | undefined, npc: NPC): string {
-    const selfRef = getSelfReference(npc)
+    const selfRef = getNpcSelfReference(npc) ?? npc.name
     const clue = trimSentence(reaction || npc.softSpot)
     const careVerb = selfRef === npc.name ? '最在意' : '真正上心的'
     return `${base} 至于${selfRef}${careVerb}，多半还是${clue}。`
 }
 
 function buildDeepStatement(base: string, reaction: string | undefined, npc: NPC, intelDepth: number): string {
-    const selfRef = getSelfReference(npc)
+    const selfRef = getNpcSelfReference(npc) ?? npc.name
     const reactionClue = trimSentence(reaction || npc.publicStance)
     const secretIndex = Math.min(intelDepth - 1, Math.max(npc.secretThreads.length - 1, 0))
     const secretClue = trimSentence(npc.secretThreads[secretIndex] || npc.triggerPoint)
@@ -138,32 +139,4 @@ function trimSentence(text: string): string {
 
     if (!first) return '眼前这盘棋的轻重'
     return first
-}
-
-function matchesNpc(npc: NPC, options: { ids?: string[]; names?: string[] }): boolean {
-    const id = npc.id.toLowerCase()
-    return (
-        options.ids?.some(candidate => id === candidate.toLowerCase()) ||
-        options.names?.includes(npc.name) ||
-        false
-    )
-}
-
-function getSelfReference(npc: NPC): string {
-    if (matchesNpc(npc, { ids: ['yuwendi'], names: ['宇文棣'] })) return '孤'
-    if (matchesNpc(npc, { ids: ['hebaqi', 'hebaqí'], names: ['贺拔琪'] })) return '本宫'
-    if (matchesNpc(npc, { ids: ['zuting'], names: ['祖廷'] })) return '本相'
-    if (
-        matchesNpc(npc, {
-            ids: ['linghuelvguang', 'hebabogui', 'hebaboguì', 'weichimu', 'weichimù'],
-            names: ['令狐律光', '贺拔伯圭', '尉迟暮'],
-        })
-    ) {
-        return '本公'
-    }
-    if (matchesNpc(npc, { ids: ['zongai'], names: ['宗艾'] })) return '奴婢'
-    if (matchesNpc(npc, { ids: ['duguwenyue'], names: ['独孤文约'] })) return '本侯'
-    if (matchesNpc(npc, { ids: ['erzhulie', 'erzhulié'], names: ['尔朱烈'] })) return '本节度'
-    if (matchesNpc(npc, { ids: ['ansiming'], names: ['安思明'] })) return '本节帅'
-    return npc.name
 }

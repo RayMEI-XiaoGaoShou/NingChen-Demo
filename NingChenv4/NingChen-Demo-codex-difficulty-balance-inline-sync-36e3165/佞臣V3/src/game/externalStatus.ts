@@ -4,6 +4,14 @@ export function isExternalTerminalStatus(status: ExternalStatus): boolean {
     return status === 'secession' || status === 'rebellion'
 }
 
+export function isExternalEscalationOpen(status: ExternalStatus): boolean {
+    return !isExternalTerminalStatus(status)
+}
+
+export function normalizeNonTerminalExternalStatus(status: ExternalStatus): ExternalStatus {
+    return isExternalTerminalStatus(status) ? status : 'loyal'
+}
+
 export function isTerminalExternalNpc(
     npc: Pick<NPC, 'powerBase' | 'externalStatus'>,
 ): boolean {

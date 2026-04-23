@@ -873,6 +873,36 @@ describe('schemeEngine contextual scheme rules', () => {
         )
     })
 
+    it('treats title-based high-weight targets as shock backlash candidates at extreme exposure', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 66 }
+
+        const result = settleScheme(
+            {
+                id: 'zongai-high-weight-backlash',
+                targetNpcId: zongai.id,
+                schemeType: 'advise',
+                playerSpeech: '宫中诏令、边军调度与后续清点都该一并并入御前接口，如此方能彻底改过旧局。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.74,
+                    eventFit: 0.66,
+                    structuralPenetration: 0.62,
+                    executability: 0.72,
+                    exposureRisk: 0.84,
+                    governanceRelevance: 0.72,
+                    socialOrderRelevance: 0.34,
+                    dominantIntent: 'strategize',
+                }),
+            },
+            zongai,
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.delayedBacklash[0]?.type).toBe('shock')
+    })
+
     it('keeps proxy personal at scheme-engine level and leaves public consequences to court disposition settlement', () => {
         const yuwendi = { ...INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!, trust: 64 }
         const zuting = { ...INITIAL_NPCS.find(npc => npc.id === 'zuting')!, trust: 58 }

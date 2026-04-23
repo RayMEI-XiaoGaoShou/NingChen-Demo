@@ -3,7 +3,7 @@ import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExter
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
 import { isCourtDispositionExecutor } from './courtDisposition'
 import { getDifficultyProfile } from './difficulty'
-import { isTerminalExternalNpc } from './externalStatus'
+import { isExternalEscalationOpen, isTerminalExternalNpc } from './externalStatus'
 import {
     applySchemeFollowUpToNorthParse,
     getSchemeFollowUpEffectMultiplier,
@@ -67,6 +67,21 @@ const EMPTY_VECTOR: FactionVector = {
     internalStability: 0,
 }
 
+const EMPTY_NORTH_PARSE: NorthSchemeParseResult = {
+    characterFit: 0,
+    eventFit: 0,
+    structuralPenetration: 0,
+    executability: 0,
+    exposureRisk: 0,
+    financeRelevance: 0,
+    grainRelevance: 0,
+    militaryRelevance: 0,
+    socialOrderRelevance: 0,
+    governanceRelevance: 0,
+    dominantIntent: 'neutral',
+    evidence: [],
+}
+
 const SCHEME_NAMES: Record<SchemeType, string> = {
     probe: '试探',
     advise: '献策',
@@ -101,7 +116,7 @@ export function getAvailableSchemesForNpc(
     const canEscalateExternalAction =
         npc.powerBase === 'external' &&
         npc.isAlive &&
-        (npc.externalStatus === 'loyal' || npc.externalStatus === 'watchful')
+        isExternalEscalationOpen(npc.externalStatus)
 
     if (round === 1) {
         return base.filter(type => type === 'probe' || type === 'advise' || type === 'slander')
@@ -866,6 +881,7 @@ function getSuccessTemplate(
     }
 
     let factionEffects: Partial<Record<CourtFactionId, FactionVector>> = {}
+    const safeParse = parse ?? EMPTY_NORTH_PARSE
 
     switch (action.schemeType) {
         case 'probe':
@@ -880,20 +896,7 @@ function getSuccessTemplate(
                     ...emptyPerson,
                     trustDelta: targetNpc.powerBase === 'court' ? 6 : 5,
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -6 : 0,
-                    militaryPowerDelta: deriveExternalAdviceMilitaryGain(targetNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    militaryPowerDelta: deriveExternalAdviceMilitaryGain(targetNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? (targetNpc.alignmentBias === 'self' ? 'self' : targetNpc.alignmentBias) : null,
                 },
                 factionEffects,
@@ -917,52 +920,13 @@ function getSuccessTemplate(
                     trustDelta: 2,
                     relatedTrustDelta: -5,
                     relatedLoyaltyDelta: relatedNpc?.powerBase === 'external' ? -4 : 0,
-                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('slander', relatedNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('slander', relatedNpc, safeParse),
                 },
                 factionEffects: addCourtLeaderPressureEffect(
-                    addCourtLeaderPressureEffect(factionEffects, 'slander', targetNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    addCourtLeaderPressureEffect(factionEffects, 'slander', targetNpc, safeParse),
                     'slander',
                     relatedNpc,
-                    parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    },
+                    safeParse,
                 ),
                 specialAction: null,
             }
@@ -986,73 +950,21 @@ function getSuccessTemplate(
                     relatedTrustDelta: -8,
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -6 : 0,
                     relatedLoyaltyDelta: relatedNpc?.powerBase === 'external' ? -6 : 0,
-                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('alienate', relatedNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('alienate', relatedNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? 'self' : null,
                 },
                 factionEffects: addCourtLeaderPressureEffect(
-                    addCourtLeaderPressureEffect(factionEffects, 'alienate', targetNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    addCourtLeaderPressureEffect(factionEffects, 'alienate', targetNpc, safeParse),
                     'alienate',
                     relatedNpc,
-                    parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    },
+                    safeParse,
                 ),
                 specialAction: null,
             }
         case 'frame':
             const selfTrapPotential = parse?.selfTrapPotential ?? 0
             const scapegoatClarity = parse?.scapegoatClarity ?? 0
-            const trapFactor = getFrameTrapFactor(parse ?? {
-                characterFit: 0,
-                eventFit: 0,
-                structuralPenetration: 0,
-                executability: 0,
-                exposureRisk: 0,
-                financeRelevance: 0,
-                grainRelevance: 0,
-                militaryRelevance: 0,
-                socialOrderRelevance: 0,
-                governanceRelevance: 0,
-                dominantIntent: 'neutral',
-                evidence: [],
-            })
+            const trapFactor = getFrameTrapFactor(safeParse)
             if (targetNpc.powerBase === 'court') {
                 factionEffects = addFactionEffect(factionEffects, targetNpc.factionId as CourtFactionId, {
                     internalStability: -2.8 * trapFactor,
@@ -1064,36 +976,10 @@ function getSuccessTemplate(
                     ...emptyPerson,
                     trustDelta: clamp(0.8 + selfTrapPotential * 0.8 + scapegoatClarity * 0.35, 1, 3),
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -8 * trapFactor : 0,
-                    militaryPowerDelta: deriveExternalFrameMilitaryLoss(targetNpc, parse ?? {
-                        characterFit: 0,
-                        eventFit: 0,
-                        structuralPenetration: 0,
-                        executability: 0,
-                        exposureRisk: 0,
-                        financeRelevance: 0,
-                        grainRelevance: 0,
-                        militaryRelevance: 0,
-                        socialOrderRelevance: 0,
-                        governanceRelevance: 0,
-                        dominantIntent: 'neutral',
-                        evidence: [],
-                    }),
+                    militaryPowerDelta: deriveExternalFrameMilitaryLoss(targetNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? 'self' : null,
                 },
-                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'frame', targetNpc, parse ?? {
-                    characterFit: 0,
-                    eventFit: 0,
-                    structuralPenetration: 0,
-                    executability: 0,
-                    exposureRisk: 0,
-                    financeRelevance: 0,
-                    grainRelevance: 0,
-                    militaryRelevance: 0,
-                    socialOrderRelevance: 0,
-                    governanceRelevance: 0,
-                    dominantIntent: 'neutral',
-                    evidence: [],
-                }),
+                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'frame', targetNpc, safeParse),
                 specialAction: null,
             }
         case 'proxy':
@@ -1125,36 +1011,10 @@ function getSuccessTemplate(
                     ? {
                         ...emptyPerson,
                         trustDelta: 1,
-                        ...deriveExternalOmenPersonEffects(targetNpc, parse ?? {
-                            characterFit: 0,
-                            eventFit: 0,
-                            structuralPenetration: 0,
-                            executability: 0,
-                            exposureRisk: 0,
-                            financeRelevance: 0,
-                            grainRelevance: 0,
-                            militaryRelevance: 0,
-                            socialOrderRelevance: 0,
-                            governanceRelevance: 0,
-                            dominantIntent: 'neutral',
-                            evidence: [],
-                        }),
+                        ...deriveExternalOmenPersonEffects(targetNpc, safeParse),
                     }
                     : { ...emptyPerson, trustDelta: 1 },
-                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'omen', targetNpc, parse ?? {
-                    characterFit: 0,
-                    eventFit: 0,
-                    structuralPenetration: 0,
-                    executability: 0,
-                    exposureRisk: 0,
-                    financeRelevance: 0,
-                    grainRelevance: 0,
-                    militaryRelevance: 0,
-                    socialOrderRelevance: 0,
-                    governanceRelevance: 0,
-                    dominantIntent: 'neutral',
-                    evidence: [],
-                }),
+                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'omen', targetNpc, safeParse),
                 specialAction: null,
             }
         case 'secession':
@@ -1604,7 +1464,7 @@ function deriveDelayedBacklash(
     parse: NorthSchemeParseResult,
     round: number,
 ): DelayedBacklash[] {
-    const highWeightTarget = /涓炵浉|澶悗|鐕曠帇|涓父渚峾涓婃煴鍥絴鑺傚害/.test(targetNpc.title) || targetNpc.canExecute
+    const highWeightTarget = /丞相|太后|燕王|中常侍|上柱国|节度/.test(targetNpc.title) || targetNpc.canExecute
     const agendaRelevance = getAgendaRelevance(parse)
     const courtAgendaRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
     const canTriggerMisdirected =

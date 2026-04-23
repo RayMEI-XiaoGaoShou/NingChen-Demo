@@ -176,7 +176,8 @@ describe('SchemePanel layout labels', () => {
     })
     it('filters secessionist external warlords out of the target list in source', () => {
         expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')")
-        expect(schemePanelSource).toContain("import { isTerminalExternalNpc } from '../../game/externalStatus'")
+        expect(schemePanelSource).toContain("import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'")
+        expect(schemePanelSource).toContain("!npc.isAlive || !isExternalEscalationOpen(npc.externalStatus)")
     })
 })
 

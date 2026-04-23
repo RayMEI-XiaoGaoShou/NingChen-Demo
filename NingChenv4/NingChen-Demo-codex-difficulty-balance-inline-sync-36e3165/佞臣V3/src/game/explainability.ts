@@ -1,3 +1,5 @@
+import type { AlignmentBias, NPC } from './types'
+
 export type FavorPressureTrack = 'emperorFavor' | 'empressDowagerFavor'
 export type FactionConditionTrack = 'courtInfluence' | 'militaryPower' | 'internalStability'
 
@@ -53,6 +55,24 @@ const CAMPAIGN_MOMENTUM_LABELS: readonly [string, string, string, string] = [
 
 const FAVOR_THRESHOLD_BANDS = [60, 36, 19] as const
 const FACTION_THRESHOLD_BANDS = [70, 50, 25] as const
+
+export function getExternalTiltLabel(alignmentBias: AlignmentBias): string {
+    if (alignmentBias === 'emperor') return '偏帝党'
+    if (alignmentBias === 'empress') return '偏后党'
+    if (alignmentBias === 'self') return '自立心重'
+    return '两边观望'
+}
+
+export function getExternalPostureLabel(
+    npc: Pick<NPC, 'powerBase' | 'alignmentBias' | 'loyaltyToCourt' | 'externalStatus'>,
+): string {
+    if (npc.powerBase !== 'external') return ''
+    if (npc.externalStatus === 'rebellion') return '已反叛'
+    if (npc.externalStatus === 'secession') return '已割据'
+    if (npc.loyaltyToCourt <= 35 || npc.alignmentBias === 'self') return '离心已显'
+    if (npc.loyaltyToCourt <= 60 || npc.alignmentBias === 'swing') return '持衡待价'
+    return '表面恭顺'
+}
 
 export function getFavorPressureLabel(track: FavorPressureTrack, favor: number): string {
     return pickBandLabel(FAVOR_PRESSURE_LABELS[track], favor, FAVOR_THRESHOLD_BANDS)

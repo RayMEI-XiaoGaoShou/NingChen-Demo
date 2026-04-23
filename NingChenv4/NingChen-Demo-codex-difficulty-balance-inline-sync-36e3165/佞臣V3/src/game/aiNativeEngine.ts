@@ -279,8 +279,7 @@ function deriveOmenSpecialization(params: {
         + scoreMatches(interpretationSource, ['外镇军头', '外镇', '军头', '节度', '藩镇', '拥兵自重', '借兵自重', '自立', '自重', '离心', '权势', '权柄', '兵粮', '军需', '中枢']) * 0.78
         + scoreMatches(anchorSource, ['外镇', '军旗', '夜鸣', '异动', '石马', '兵粮', '军需', '军头', '藩镇']) * 0.16
         + (isExternalWarlord ? 0.08 : 0)
-        + (isExternalWarlord && params.npc.loyaltyToCourt <= 45 ? 0.04 : 0)
-        + (params.npc.externalStatus === 'watchful' ? 0.03 : 0),
+        + (isExternalWarlord && params.npc.loyaltyToCourt <= 45 ? 0.07 : 0),
     )
 
     const centralSanctionLeverage = clamp01(
