@@ -86,8 +86,7 @@ export function buildExternalLineProgress(input: {
     const nearTrack =
         unlockedSecrets > 0 ||
         trustGap <= 10 ||
-        loyaltyGap <= 10 ||
-        npc.externalStatus === 'watchful'
+        loyaltyGap <= 10
 
     if (trustGap > 0) {
         const nextMove: ExternalNextMove = unlockedSecrets === 0 ? 'probe' : 'advise'

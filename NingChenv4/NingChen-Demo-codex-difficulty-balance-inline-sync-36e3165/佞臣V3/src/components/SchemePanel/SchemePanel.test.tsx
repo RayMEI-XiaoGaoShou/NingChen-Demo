@@ -57,7 +57,7 @@ describe('SchemePanel layout labels', () => {
         expect(fields.mode).toBe('omen')
         expect(fields.primaryLabel).toBe('谶辞 / 征兆')
         expect(fields.secondaryLabel).toBe('解释 / 指向')
-        expect(fields.helperText).toContain('先给征兆')
+        expect(fields.helperText).toContain('先编征兆')
     })
 
     it('builds merged player speech plus structured omen payload', () => {
@@ -124,9 +124,9 @@ describe('SchemePanel layout labels', () => {
         })
 
         expect(hint).toContain('未解锁')
-        expect(hint).toContain('对朝廷忠诚仍偏高')
-        expect(hint).toContain('暗线')
-        expect(hint).toContain('还差')
+        expect(hint).toContain('此人对朝廷还没冷透')
+        expect(hint).toContain('暗线尚差')
+        expect(hint).toContain('信任尚差')
     })
 
     it('explains that proxy does not apply to external warlords', () => {
@@ -139,7 +139,7 @@ describe('SchemePanel layout labels', () => {
             unlockedSecrets: 2,
         })
 
-        expect(hint).toContain('借刀只能借太后或御前之手')
+        expect(hint).toContain('借刀是收网的手段，不是造势的手段')
     })
 
     it('shows proxy as locked on non-executor court NPCs', () => {
@@ -152,7 +152,7 @@ describe('SchemePanel layout labels', () => {
             unlockedSecrets: 2,
         })
 
-        expect(hint).toContain('借刀只能借太后或御前之手')
+        expect(hint).toContain('借刀是收网的手段，不是造势的手段')
     })
 
     it('keeps proxy related targets limited to active court disposition targets in source', () => {
@@ -170,12 +170,14 @@ describe('SchemePanel layout labels', () => {
     it('references locked copy and the current round public stance in source', () => {
         expect(schemePanelSource).toContain('未解锁')
         expect(schemePanelSource).toContain('本回合公开表态')
-        expect(schemePanelSource).toContain('getNpcRoundReaction(currentRound, selectedNpc, intelProgress[selectedNpc.id] ?? 0, {')
+        expect(schemePanelSource).toContain('const selectedRoundReaction = selectedNpc')
+        expect(schemePanelSource).toContain('getNpcRoundReaction(currentRound, selectedNpc, selectedUnlockedSecrets, {')
         expect(schemePanelSource).toContain('shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state')
     })
     it('filters secessionist external warlords out of the target list in source', () => {
         expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')")
-        expect(schemePanelSource).toContain("import { isTerminalExternalNpc } from '../../game/externalStatus'")
+        expect(schemePanelSource).toContain("import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'")
+        expect(schemePanelSource).toContain("!npc.isAlive || !isExternalEscalationOpen(npc.externalStatus)")
     })
 })
 

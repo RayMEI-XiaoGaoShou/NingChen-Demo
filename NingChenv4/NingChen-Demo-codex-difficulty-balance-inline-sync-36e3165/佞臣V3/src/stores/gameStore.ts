@@ -664,6 +664,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const context = buildFengDaozhiDraftContext({
             request,
             npc,
+            relatedNpc,
             factions: state.factions,
             unlockedSecrets: state.intelProgress[npc.id] ?? 0,
             roundHistory: state.roundHistory,

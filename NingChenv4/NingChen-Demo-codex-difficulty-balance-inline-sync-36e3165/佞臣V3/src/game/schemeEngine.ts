@@ -3,7 +3,7 @@ import { getMilitarySpilloverStrength, isOmenAvailableForNpc, roundSupportsExter
 import { fallbackNorthParseFromSpeech } from './aiNativeEngine'
 import { isCourtDispositionExecutor } from './courtDisposition'
 import { getDifficultyProfile } from './difficulty'
-import { isTerminalExternalNpc } from './externalStatus'
+import { isExternalEscalationOpen, isTerminalExternalNpc } from './externalStatus'
 import {
     applySchemeFollowUpToNorthParse,
     getSchemeFollowUpEffectMultiplier,
@@ -28,6 +28,7 @@ export interface PersonEffects {
     loyaltyDelta: number
     relatedLoyaltyDelta: number
     militaryPowerDelta: number
+    relatedMilitaryPowerDelta?: number
     alignmentShift: AlignmentBias | null
     intelDelta: number
     externalStatus: ExternalStatus | null
@@ -66,6 +67,21 @@ const EMPTY_VECTOR: FactionVector = {
     internalStability: 0,
 }
 
+const EMPTY_NORTH_PARSE: NorthSchemeParseResult = {
+    characterFit: 0,
+    eventFit: 0,
+    structuralPenetration: 0,
+    executability: 0,
+    exposureRisk: 0,
+    financeRelevance: 0,
+    grainRelevance: 0,
+    militaryRelevance: 0,
+    socialOrderRelevance: 0,
+    governanceRelevance: 0,
+    dominantIntent: 'neutral',
+    evidence: [],
+}
+
 const SCHEME_NAMES: Record<SchemeType, string> = {
     probe: '试探',
     advise: '献策',
@@ -100,7 +116,7 @@ export function getAvailableSchemesForNpc(
     const canEscalateExternalAction =
         npc.powerBase === 'external' &&
         npc.isAlive &&
-        (npc.externalStatus === 'loyal' || npc.externalStatus === 'watchful')
+        isExternalEscalationOpen(npc.externalStatus)
 
     if (round === 1) {
         return base.filter(type => type === 'probe' || type === 'advise' || type === 'slander')
@@ -476,6 +492,37 @@ function deriveNationEffectFromExternalPerson(
     })
 }
 
+function deriveNationEffectFromExternalMilitaryShift(
+    npc: NPC | null | undefined,
+    militaryPowerDelta: number,
+    parse: NorthSchemeParseResult,
+): Partial<NationDimensions> {
+    if (!npc || npc.powerBase !== 'external' || militaryPowerDelta === 0) return {}
+
+    const magnitude = Math.abs(militaryPowerDelta)
+    const militaryScale = 0.68 + parse.militaryRelevance * 0.46
+    const grainScale = 0.56 + parse.grainRelevance * 0.44
+    const financeScale = 0.48 + parse.financeRelevance * 0.34
+    const governanceScale = 0.46 + parse.governanceRelevance * 0.34
+    const socialScale = 0.42 + parse.socialOrderRelevance * 0.3
+
+    if (militaryPowerDelta > 0) {
+        return normalizeDimensions({
+            finance: -(magnitude * 0.18 * financeScale),
+            grain: -(magnitude * 0.22 * grainScale),
+            military: -(magnitude * 0.34 * militaryScale),
+            governance: -(magnitude * 0.12 * governanceScale),
+        })
+    }
+
+    return normalizeDimensions({
+        grain: -(magnitude * 0.18 * grainScale),
+        military: -(magnitude * 0.32 * militaryScale),
+        governance: parse.governanceRelevance >= 0.44 ? -(magnitude * 0.14 * governanceScale) : 0,
+        socialOrder: parse.socialOrderRelevance >= 0.5 ? -(magnitude * 0.1 * socialScale) : 0,
+    })
+}
+
 function deriveExternalOmenPersonEffects(
     targetNpc: NPC,
     parse: NorthSchemeParseResult,
@@ -517,6 +564,135 @@ function deriveExternalOmenPersonEffects(
         militaryPowerDelta: -roundValue(clamp(Math.max(0, sanctionStrength - 0.34) * 1.35, 0, 1.1)),
         loyaltyDelta: -roundValue(clamp(1.8 + sanctionStrength * 3.2, 1.6, 5.2)),
     }
+}
+
+function deriveExternalAdviceMilitaryGain(
+    targetNpc: NPC,
+    parse: NorthSchemeParseResult,
+): number {
+    if (targetNpc.powerBase !== 'external') return 0
+    if ((parse.advicePolarity ?? 'neutral_or_vague') !== 'pro_target_anti_state') return 0
+
+    const targetBenefit = Math.max(0, parse.targetBenefit ?? 0)
+    const stateRisk = Math.max(0, -(parse.stateBenefit ?? 0))
+    const consolidationSignal =
+        parse.militaryRelevance * 0.44
+        + parse.grainRelevance * 0.26
+        + parse.governanceRelevance * 0.12
+        + targetBenefit * 0.12
+        + stateRisk * 0.06
+
+    if (targetBenefit < 0.45 || stateRisk < 0.18 || consolidationSignal < 0.62) {
+        return 0
+    }
+
+    return roundValue(clamp(0.55 + (consolidationSignal - 0.62) * 3.8, 0.55, 1.85))
+}
+
+function deriveExternalFrameMilitaryLoss(
+    targetNpc: NPC,
+    parse: NorthSchemeParseResult,
+): number {
+    if (targetNpc.powerBase !== 'external') return 0
+
+    const sanctionSignal = Math.max(
+        parse.centralSanctionLeverage ?? 0,
+        parse.governanceRelevance * 0.96,
+        parse.militaryRelevance * 0.88,
+        parse.grainRelevance * 0.8,
+    )
+    const trapSignal =
+        (parse.selfTrapPotential ?? 0) * 0.38
+        + (parse.scapegoatClarity ?? 0) * 0.34
+        + sanctionSignal * 0.28
+
+    if (trapSignal < 0.58 || sanctionSignal < 0.34) {
+        return 0
+    }
+
+    return -roundValue(clamp(0.6 + (trapSignal - 0.58) * 4, 0.6, 2.1))
+}
+
+function deriveRelatedExternalMilitaryLoss(
+    schemeType: SchemeType,
+    relatedNpc: NPC | null | undefined,
+    parse: NorthSchemeParseResult,
+): number {
+    if (!relatedNpc || relatedNpc.powerBase !== 'external') return 0
+    if (schemeType !== 'slander' && schemeType !== 'alienate') return 0
+
+    const transmission = schemeType === 'slander'
+        ? parse.suspicionTransmission ?? 0
+        : parse.fractureTransmission ?? 0
+    const logisticsSignal =
+        parse.militaryRelevance * 0.42
+        + parse.grainRelevance * 0.28
+        + parse.governanceRelevance * 0.18
+        + transmission * 0.12
+    const threshold = schemeType === 'slander' ? 0.62 : 0.58
+
+    if (transmission < (schemeType === 'slander' ? 0.52 : 0.48) || logisticsSignal < threshold) {
+        return 0
+    }
+
+    const minLoss = schemeType === 'slander' ? 0.5 : 0.7
+    const maxLoss = schemeType === 'slander' ? 1.5 : 2
+    return -roundValue(clamp(minLoss + (logisticsSignal - threshold) * 3.6, minLoss, maxLoss))
+}
+
+function getCourtLeaderPressureFactionId(npc: NPC | null | undefined): CourtFactionId | null {
+    if (!npc || npc.powerBase !== 'court') return null
+    if (npc.name === '贺拔琪') return 'empress'
+    if (npc.name === '宗艾') return 'emperor'
+    return null
+}
+
+function addCourtLeaderPressureEffect(
+    bucket: Partial<Record<CourtFactionId, FactionVector>>,
+    schemeType: SchemeType,
+    npc: NPC | null | undefined,
+    parse: NorthSchemeParseResult,
+): Partial<Record<CourtFactionId, FactionVector>> {
+    const factionId = getCourtLeaderPressureFactionId(npc)
+    if (!factionId) return bucket
+    if (!['slander', 'alienate', 'frame', 'omen'].includes(schemeType)) return bucket
+
+    const agendaPressure = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
+    let signal = 0
+    let threshold = 0.6
+    let schemeFactor = 1
+
+    if (schemeType === 'slander') {
+        signal = (parse.suspicionTransmission ?? 0) * 0.58 + agendaPressure * 0.42
+        threshold = 0.6
+        schemeFactor = 1
+    } else if (schemeType === 'alienate') {
+        signal = (parse.fractureTransmission ?? 0) * 0.56 + agendaPressure * 0.44
+        threshold = 0.58
+        schemeFactor = 1.08
+    } else if (schemeType === 'frame') {
+        signal = getFrameTrapFactor(parse) * 0.44 + agendaPressure * 0.38 + (parse.scapegoatClarity ?? 0) * 0.18
+        threshold = 0.92
+        schemeFactor = 1.06
+    } else {
+        if ((parse.omenPolarity ?? 'vague_or_ceremonial') !== 'destabilizing') return bucket
+        signal =
+            Math.max(parse.legitimacyCrack ?? 0, parse.suspicionDirection ?? 0) * 0.64
+            + agendaPressure * 0.36
+        threshold = 0.62
+        schemeFactor = 1.12
+    }
+
+    if (signal < threshold) return bucket
+
+    const normalized = (signal - threshold) / Math.max(0.01, 1 - threshold)
+    const courtInfluenceLoss = roundValue(clamp((1.7 + normalized * 1.5) * schemeFactor, 1.7, 3.2))
+    const internalStabilityLoss = roundValue(clamp((0.72 + normalized * 0.68) * schemeFactor, 0.72, 1.7))
+
+    return addFactionEffect(bucket, factionId, {
+        courtInfluence: -courtInfluenceLoss,
+        internalStability: -internalStabilityLoss,
+    })
 }
 
 function getAgendaRelevance(parse: NorthSchemeParseResult): number {
@@ -698,12 +874,14 @@ function getSuccessTemplate(
         loyaltyDelta: 0,
         relatedLoyaltyDelta: 0,
         militaryPowerDelta: 0,
+        relatedMilitaryPowerDelta: 0,
         alignmentShift: null,
         intelDelta: 0,
         externalStatus: null,
     }
 
     let factionEffects: Partial<Record<CourtFactionId, FactionVector>> = {}
+    const safeParse = parse ?? EMPTY_NORTH_PARSE
 
     switch (action.schemeType) {
         case 'probe':
@@ -718,6 +896,7 @@ function getSuccessTemplate(
                     ...emptyPerson,
                     trustDelta: targetNpc.powerBase === 'court' ? 6 : 5,
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -6 : 0,
+                    militaryPowerDelta: deriveExternalAdviceMilitaryGain(targetNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? (targetNpc.alignmentBias === 'self' ? 'self' : targetNpc.alignmentBias) : null,
                 },
                 factionEffects,
@@ -741,8 +920,14 @@ function getSuccessTemplate(
                     trustDelta: 2,
                     relatedTrustDelta: -5,
                     relatedLoyaltyDelta: relatedNpc?.powerBase === 'external' ? -4 : 0,
+                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('slander', relatedNpc, safeParse),
                 },
-                factionEffects,
+                factionEffects: addCourtLeaderPressureEffect(
+                    addCourtLeaderPressureEffect(factionEffects, 'slander', targetNpc, safeParse),
+                    'slander',
+                    relatedNpc,
+                    safeParse,
+                ),
                 specialAction: null,
             }
         case 'alienate':
@@ -765,28 +950,21 @@ function getSuccessTemplate(
                     relatedTrustDelta: -8,
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -6 : 0,
                     relatedLoyaltyDelta: relatedNpc?.powerBase === 'external' ? -6 : 0,
+                    relatedMilitaryPowerDelta: deriveRelatedExternalMilitaryLoss('alienate', relatedNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? 'self' : null,
                 },
-                factionEffects,
+                factionEffects: addCourtLeaderPressureEffect(
+                    addCourtLeaderPressureEffect(factionEffects, 'alienate', targetNpc, safeParse),
+                    'alienate',
+                    relatedNpc,
+                    safeParse,
+                ),
                 specialAction: null,
             }
         case 'frame':
             const selfTrapPotential = parse?.selfTrapPotential ?? 0
             const scapegoatClarity = parse?.scapegoatClarity ?? 0
-            const trapFactor = getFrameTrapFactor(parse ?? {
-                characterFit: 0,
-                eventFit: 0,
-                structuralPenetration: 0,
-                executability: 0,
-                exposureRisk: 0,
-                financeRelevance: 0,
-                grainRelevance: 0,
-                militaryRelevance: 0,
-                socialOrderRelevance: 0,
-                governanceRelevance: 0,
-                dominantIntent: 'neutral',
-                evidence: [],
-            })
+            const trapFactor = getFrameTrapFactor(safeParse)
             if (targetNpc.powerBase === 'court') {
                 factionEffects = addFactionEffect(factionEffects, targetNpc.factionId as CourtFactionId, {
                     internalStability: -2.8 * trapFactor,
@@ -798,9 +976,10 @@ function getSuccessTemplate(
                     ...emptyPerson,
                     trustDelta: clamp(0.8 + selfTrapPotential * 0.8 + scapegoatClarity * 0.35, 1, 3),
                     loyaltyDelta: targetNpc.powerBase === 'external' ? -8 * trapFactor : 0,
+                    militaryPowerDelta: deriveExternalFrameMilitaryLoss(targetNpc, safeParse),
                     alignmentShift: targetNpc.powerBase === 'external' ? 'self' : null,
                 },
-                factionEffects,
+                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'frame', targetNpc, safeParse),
                 specialAction: null,
             }
         case 'proxy':
@@ -832,23 +1011,10 @@ function getSuccessTemplate(
                     ? {
                         ...emptyPerson,
                         trustDelta: 1,
-                        ...deriveExternalOmenPersonEffects(targetNpc, parse ?? {
-                            characterFit: 0,
-                            eventFit: 0,
-                            structuralPenetration: 0,
-                            executability: 0,
-                            exposureRisk: 0,
-                            financeRelevance: 0,
-                            grainRelevance: 0,
-                            militaryRelevance: 0,
-                            socialOrderRelevance: 0,
-                            governanceRelevance: 0,
-                            dominantIntent: 'neutral',
-                            evidence: [],
-                        }),
+                        ...deriveExternalOmenPersonEffects(targetNpc, safeParse),
                     }
                     : { ...emptyPerson, trustDelta: 1 },
-                factionEffects,
+                factionEffects: addCourtLeaderPressureEffect(factionEffects, 'omen', targetNpc, safeParse),
                 specialAction: null,
             }
         case 'secession':
@@ -916,6 +1082,7 @@ function getFailureTemplate(
             loyaltyDelta: action.schemeType === 'secession' || action.schemeType === 'rebellion' ? 4 : 0,
             relatedLoyaltyDelta: 0,
             militaryPowerDelta: 0,
+            relatedMilitaryPowerDelta: 0,
             alignmentShift: null,
             intelDelta: 0,
             externalStatus: null,
@@ -932,6 +1099,7 @@ function scalePersonEffects(person: PersonEffects, multiplier: number): PersonEf
         loyaltyDelta: Math.round(person.loyaltyDelta * multiplier),
         relatedLoyaltyDelta: Math.round(person.relatedLoyaltyDelta * multiplier),
         militaryPowerDelta: round(person.militaryPowerDelta * multiplier),
+        relatedMilitaryPowerDelta: round((person.relatedMilitaryPowerDelta ?? 0) * multiplier),
     }
 }
 
@@ -1013,6 +1181,14 @@ export function settleScheme(
 
     let nationEffects = deriveNationEffectFromFactionEffects(factionEffects)
     nationEffects = mergeDimensions(nationEffects, deriveNationEffectFromExternalPerson(targetNpc, personEffects, northParse))
+    nationEffects = mergeDimensions(
+        nationEffects,
+        deriveNationEffectFromExternalMilitaryShift(targetNpc, personEffects.militaryPowerDelta, northParse),
+    )
+    nationEffects = mergeDimensions(
+        nationEffects,
+        deriveNationEffectFromExternalMilitaryShift(relatedNpc, personEffects.relatedMilitaryPowerDelta ?? 0, northParse),
+    )
     nationEffects = mergeDimensions(nationEffects, deriveCourtAdviceImpact(action, targetNpc, success, northParse))
     nationEffects = mergeDimensions(nationEffects, deriveOmenLegitimacyImpact(action, targetNpc, success, northParse))
     const strategicSpillover = deriveStrategicSpillover(action, targetNpc, relatedNpc, round, success, northParse)
@@ -1288,7 +1464,7 @@ function deriveDelayedBacklash(
     parse: NorthSchemeParseResult,
     round: number,
 ): DelayedBacklash[] {
-    const highWeightTarget = /涓炵浉|澶悗|鐕曠帇|涓父渚峾涓婃煴鍥絴鑺傚害/.test(targetNpc.title) || targetNpc.canExecute
+    const highWeightTarget = /丞相|太后|燕王|中常侍|上柱国|节度/.test(targetNpc.title) || targetNpc.canExecute
     const agendaRelevance = getAgendaRelevance(parse)
     const courtAgendaRelevance = Math.max(parse.governanceRelevance, parse.socialOrderRelevance)
     const canTriggerMisdirected =

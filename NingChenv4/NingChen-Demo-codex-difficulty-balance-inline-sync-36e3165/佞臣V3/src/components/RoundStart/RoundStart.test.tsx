@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
 import { readFileSync } from 'fs'
+import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { RoundStart, shouldUseCompactRoundStartLayout } from './RoundStart'
 import { useGameStore } from '../../stores/gameStore'
 import { useMediaStore } from '../../stores/mediaStore'
@@ -60,12 +61,106 @@ describe('RoundStart compact layout', () => {
         expect(markup).not.toContain('context-list')
     })
 
-    it('labels round-start carryover effects by their source system', () => {
-        expect(roundStartSource).toContain('战役回响')
-        expect(roundStartSource).toContain('问政余波')
-        expect(roundStartSource).toContain('朝局反噬')
-        expect(roundStartSource).not.toContain('上回合余波')
-        expect(roundStartSource).not.toContain('朝中余波')
+    it('uses the shared battle record helper instead of directly exposing momentum copy', () => {
+        expect(roundStartSource).toContain('buildCampaignRecordPanel({')
+        expect(roundStartSource).toContain('campaignRecord.visible')
+        expect(roundStartSource).toContain('campaignRecord.title')
+        expect(roundStartSource).not.toContain('getCampaignMomentumPresentation(currentRound, shuMomentum, huainanMomentum)')
+        expect(roundStartSource).not.toContain('战役回响')
+
+        expect(buildCampaignRecordPanel({
+            round: 6,
+            surface: 'round_start',
+            shuCampaign: useGameStore.getState().shuCampaign,
+            huainanCampaign: useGameStore.getState().huainanCampaign,
+            shuMomentum: 0.56,
+            huainanMomentum: 0,
+            campaignReports: [],
+        })).toEqual(
+            expect.objectContaining({
+                visible: true,
+                title: '巴蜀之战',
+                phase: '战前伏笔汇总',
+            }),
+        )
+
+        expect(buildCampaignRecordPanel({
+            round: 17,
+            surface: 'round_start',
+            shuCampaign: useGameStore.getState().shuCampaign,
+            huainanCampaign: useGameStore.getState().huainanCampaign,
+            shuMomentum: 0.56,
+            huainanMomentum: 0.88,
+            campaignReports: [],
+        })).toEqual(
+            expect.objectContaining({
+                visible: false,
+            }),
+        )
+    })
+
+    it('only shows the battle record board in the configured campaign windows', () => {
+        const baseState = useGameStore.getState()
+
+        expect(buildCampaignRecordPanel({
+            round: 1,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0.56,
+            huainanMomentum: 0,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: false }))
+
+        expect(buildCampaignRecordPanel({
+            round: 6,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0.56,
+            huainanMomentum: 0,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: true, title: '巴蜀之战' }))
+
+        expect(buildCampaignRecordPanel({
+            round: 10,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0.88,
+            huainanMomentum: 0,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: true, title: '巴蜀之战' }))
+
+        expect(buildCampaignRecordPanel({
+            round: 11,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0.88,
+            huainanMomentum: 0,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: false }))
+
+        expect(buildCampaignRecordPanel({
+            round: 16,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0,
+            huainanMomentum: 0.72,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: true, title: '淮南之战' }))
+
+        expect(buildCampaignRecordPanel({
+            round: 17,
+            surface: 'round_start',
+            shuCampaign: baseState.shuCampaign,
+            huainanCampaign: baseState.huainanCampaign,
+            shuMomentum: 0,
+            huainanMomentum: 0.72,
+            campaignReports: [],
+        })).toEqual(expect.objectContaining({ visible: false }))
     })
 
     it('uses the compact layout for every round start', () => {

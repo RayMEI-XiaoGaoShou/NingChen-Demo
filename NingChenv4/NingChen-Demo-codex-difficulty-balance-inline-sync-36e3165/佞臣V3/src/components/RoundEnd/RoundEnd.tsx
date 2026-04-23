@@ -35,7 +35,7 @@ export function RoundEnd() {
 
                 <div className="action-footer animate-slide-up animate-delay-4">
                     <button className="btn-primary btn-next-round" onClick={nextPhase}>
-                        {currentRound >= 20 ? '去看终局' : '翻入下一回'}
+                        {currentRound >= 20 ? '去看终局' : '下一回合'}
                     </button>
                 </div>
             </div>

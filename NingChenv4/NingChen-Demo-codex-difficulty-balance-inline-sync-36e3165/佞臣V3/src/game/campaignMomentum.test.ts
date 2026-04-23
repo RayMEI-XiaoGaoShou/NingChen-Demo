@@ -159,4 +159,32 @@ describe('campaignMomentum', () => {
 
         expect(result.huainanMomentumGain).toBeGreaterThan(0.8)
     })
+
+    it('explains when a successful scheme did not truly move the active theater', async () => {
+        const { explainCampaignMomentumContribution } = await import('./campaignMomentum')
+
+        expect(
+            explainCampaignMomentumContribution({
+                round: 8,
+                schemeType: 'slander',
+                success: true,
+                parse: {
+                    characterFit: 0.62,
+                    eventFit: 0.4,
+                    structuralPenetration: 0.28,
+                    executability: 0.22,
+                    exposureRisk: 0.4,
+                    financeRelevance: 0.08,
+                    grainRelevance: 0.1,
+                    militaryRelevance: 0.12,
+                    socialOrderRelevance: 0.3,
+                    governanceRelevance: 0.2,
+                    dominantIntent: 'divide',
+                    evidence: [],
+                },
+                gain: 0,
+                after: 0.18,
+            }),
+        ).toContain('战役动量未变')
+    })
 })

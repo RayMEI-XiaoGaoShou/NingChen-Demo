@@ -69,6 +69,11 @@ describe('fengDaozhiAdvisor', () => {
         expect(context.currentPublicStatement).toContain('蜀地已失')
         expect(context.courtSituationSummary).toContain('战局走向：')
         expect(context.courtSituationSummary).toContain('公开表态：')
+        expect(context.strategicFocus.length).toBeGreaterThan(0)
+        expect(context.bestAngle.length).toBeGreaterThan(0)
+        expect(context.redLine.length).toBeGreaterThan(0)
+        expect(['探路', '顺推', '借势', '递刀', '收口', '留后手']).toContain(context.advisoryMode)
+        expect(context.advisoryModeGuidance.length).toBeGreaterThan(0)
     })
 
     it('normalizes omen drafts into dual-step output', () => {
