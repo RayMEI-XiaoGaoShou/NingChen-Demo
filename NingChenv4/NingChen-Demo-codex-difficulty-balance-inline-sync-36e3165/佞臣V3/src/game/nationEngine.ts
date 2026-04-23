@@ -383,9 +383,8 @@ export function calculateExternalSupport(
             if (npc.externalStatus === 'secession' || npc.externalStatus === 'rebellion') return acc
 
             const base = Math.max(0, (npc.militaryPower - 20) / 14)
-            const statusFactor = npc.externalStatus === 'watchful' ? 0.72 : 1
             const loyaltyFactor = npc.loyaltyToCourt >= 70 ? 1 : npc.loyaltyToCourt >= 50 ? 0.75 : npc.loyaltyToCourt >= 35 ? 0.45 : 0.2
-            const contribution = Math.round(base * loyaltyFactor * statusFactor * 10) / 10
+            const contribution = Math.round(base * loyaltyFactor * 10) / 10
 
             if (npc.alignmentBias === 'emperor') acc.emperorBonus += contribution
             if (npc.alignmentBias === 'empress') acc.empressBonus += contribution

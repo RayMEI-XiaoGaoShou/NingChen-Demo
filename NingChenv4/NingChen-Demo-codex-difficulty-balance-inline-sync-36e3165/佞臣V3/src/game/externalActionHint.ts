@@ -74,7 +74,7 @@ export function buildDominantExternalStageHint(input: {
                     npc.trust +
                     Math.max(0, 45 - npc.loyaltyToCourt) +
                     unlockedSecrets * 10 +
-                    (npc.externalStatus === 'watchful' ? 8 : 0),
+                    (npc.loyaltyToCourt <= 40 ? 8 : 0),
             }
         })
         .filter((item): item is typeof item & { progress: NonNullable<typeof item.progress> } => Boolean(item.progress))

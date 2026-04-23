@@ -58,6 +58,11 @@ describe('long-term memory prompt injection', () => {
             factionPressure: 'Both sides are trying to use him as leverage.',
             longTermMemorySummary: 'round 8 betrayal memory',
             playerDangerStage: 'under_watch',
+            strategicFocus: 'Use the court fight over the western line to hit his instinct for central control.',
+            bestAngle: 'Frame the advice as a way to gather military and transport authority back into one set of hands.',
+            redLine: 'Do not sound like you are openly campaigning for the emperor faction.',
+            advisoryMode: '借势',
+            advisoryModeGuidance: 'Borrow what he already fears and let him feel he is completing the move himself.',
         }
 
         const prompt = buildFengDaozhiDraftPrompt({

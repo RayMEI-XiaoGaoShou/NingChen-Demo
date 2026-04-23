@@ -25,14 +25,14 @@ import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
 import './SchemeFeedback.css'
 
 const SCHEME_NAMES: Record<string, string> = {
-    probe: '璇曟帰',
-    advise: '鐚瓥',
-    slander: '璋楄█',
-    alienate: '绂婚棿',
-    frame: '璁惧眬瀚佺ジ',
-    proxy: '鍊熷垁',
-    appeal: '姹傛彺',
-    omen: '璋剁含',
+    probe: '试探',
+    advise: '献策',
+    slander: '谗言',
+    alienate: '离间',
+    frame: '设局嫁祸',
+    proxy: '借刀',
+    appeal: '求援',
+    omen: '谶纬',
 }
 
 const LOCAL_REPLY_FALLBACK = '似有回应，却一时听不分明。'
@@ -579,6 +579,8 @@ export function SchemeFeedback() {
                             schemeType: item.action.schemeType,
                             speech: item.action.playerSpeech,
                             success,
+                            relatedNpc: item.relatedNpc,
+                            northParse: item.parsed,
                             followUpMode: candidateId && item.action.id === candidateId ? 'question_candidate' : 'statement_only',
                             round: currentRound,
                             eventName: snapshot.currentRoundEvent.eventName,
@@ -741,6 +743,9 @@ export function SchemeFeedback() {
         const action = currentSchemes.find(item => item.id === actionId)
         const followUp = action?.followUp
         const targetNpc = npcs.find(npc => npc.id === action?.targetNpcId)
+        const relatedNpc = action?.relatedNpcId
+            ? npcs.find(npc => npc.id === action.relatedNpcId) ?? null
+            : null
         const playerReply = followUpDrafts[actionId]?.trim() ?? ''
 
         if (!actionId || !action || !targetNpc || !action.northParse || !followUp || followUp.status !== 'available') return
@@ -760,6 +765,18 @@ export function SchemeFeedback() {
                 npcQuestion: followUp.questionText,
                 playerReply,
             })
+            const knownSecretThreads = targetNpc.secretThreads.slice(0, intelProgress[targetNpc.id] ?? 0)
+            const dynamicContext = buildNpcPromptDynamicContext({
+                npc: targetNpc,
+                factions,
+                roundHistory,
+                recentBacklash,
+                npcMemoryLedger,
+                relationMemoryLedger,
+                relatedNpcId: relatedNpc?.id,
+                currentRound,
+                schemeType: action.schemeType,
+            })
 
             const finalReplyRaw = await chatCompletion(
                 buildNpcFollowUpFinalPrompt({
@@ -769,6 +786,19 @@ export function SchemeFeedback() {
                     npcQuestion: followUp.questionText,
                     playerReply,
                     parseEvidence: followUpParse.evidence,
+                    followUpParse,
+                    round: currentRound,
+                    eventName: currentRoundEvent.eventName,
+                    eventBriefing: currentRoundEvent.eventBriefing,
+                    knownSecretThreads,
+                    previousDealings: dynamicContext.previousDealings,
+                    relationshipTemperature: dynamicContext.relationshipTemperature,
+                    recentCourtFortune: dynamicContext.recentCourtFortune,
+                    factionPressure: dynamicContext.factionPressure,
+                    longTermMemorySummary: dynamicContext.longTermMemorySummary,
+                    relationMemorySummary: dynamicContext.relationMemorySummary,
+                    relatedNpc,
+                    northParse: action.northParse,
                 }),
                 {
                     temperature: 0.7,
@@ -832,7 +862,7 @@ export function SchemeFeedback() {
             </div>
 
             <div className="scheme-feedback-header animate-slide-up">
-                <h2 className="page-title">璁¤皨鍥炴姤</h2>
+                <h2 className="page-title">计谋回报</h2>
             </div>
 
             <div className="feedback-list">
@@ -863,7 +893,7 @@ export function SchemeFeedback() {
                         >
                             <NpcPortrait
                                 name={fb.npcName}
-                                alt={`${fb.npcName}铏氬奖`}
+                                alt={`${fb.npcName}虚影`}
                                 className="feedback-ghost-portrait"
                                 positionY="18%"
                             />
@@ -913,17 +943,17 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'available' && actionId === visibleAvailableFollowUpId && (
                                 <div className="feedback-follow-up glass-panel">
-                                    <div className="feedback-follow-up-label">杩介棶</div>
+                                    <div className="feedback-follow-up-label">追问</div>
                                     <div className="feedback-follow-up-question">{followUp.questionText}</div>
                                     <label className="feedback-follow-up-input-label" htmlFor={`follow-up-${actionId}`}>
-                                        浣犵殑鍥炲簲
+                                        你的回应
                                     </label>
                                     <textarea
                                         id={`follow-up-${actionId}`}
                                         className="feedback-follow-up-input"
                                         value={draftValue}
                                         onChange={event => handleFollowUpDraftChange(actionId, event.target.value)}
-                                        placeholder="鍐欎笅浣犵殑琛ュ厖璇存槑"
+                                        placeholder="写下你的补充说明"
                                         rows={4}
                                         disabled={isSubmitting}
                                     />
@@ -934,7 +964,7 @@ export function SchemeFeedback() {
                                             onClick={() => handleSkipFollowUp(actionId)}
                                             disabled={isSubmitting}
                                         >
-                                            璺宠繃杩介棶
+                                            跳过追问
                                         </button>
                                         <button
                                             type="button"
@@ -950,7 +980,7 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'answered' && (
                                 <div className="feedback-follow-up feedback-follow-up--final">
-                                    <div className="feedback-follow-up-label">杩介棶鍥炴壒</div>
+                                    <div className="feedback-follow-up-label">追问回应</div>
                                     <div className="feedback-follow-up-final">
                                         {sanitizeFollowUpReplyText(followUp.finalNpcReply ?? '')}
                                     </div>
@@ -959,7 +989,7 @@ export function SchemeFeedback() {
 
                             {followUp?.status === 'skipped' && (
                                 <div className="feedback-follow-up feedback-follow-up--skipped">
-                                    宸茶烦杩囪拷闂紝缁撶畻灏嗘寜鍘熷璇磋緸缁х画鎺ㄨ繘銆?
+                                    已跳过追问，结算将按原始说辞继续推进。
                                 </div>
                             )}
                         </div>
@@ -973,7 +1003,7 @@ export function SchemeFeedback() {
                     onClick={nextPhase}
                     disabled={!canProceed}
                 >
-                    {allDone ? (allParsed ? '鏌ョ湅缁撶畻' : '绛夊緟瑙ｆ瀽瀹屾垚') : '绛夊緟璁¤皨鍥炴姤'}
+                    {allDone ? (allParsed ? '查看结算' : '等待解析完成') : '等待计谋回报'}
                 </button>
             </div>
         </div>

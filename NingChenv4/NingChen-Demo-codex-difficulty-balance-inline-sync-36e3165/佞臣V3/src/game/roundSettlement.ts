@@ -15,7 +15,11 @@ import {
 import { applyRelationshipShock, combineStructureEffects } from './relationshipEngine'
 import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
 import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
-import { deriveCampaignMomentumGain } from './campaignMomentum'
+import {
+    deriveCampaignMomentumGain,
+    getCampaignMomentumSurface,
+    type CampaignMomentumSurface,
+} from './campaignMomentum'
 import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
 import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
 import { getRoundCampaignEventContext } from './campaignDisplayEngine'
@@ -27,6 +31,8 @@ import {
 } from './courtDispositionEngine'
 import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
+import { buildSchemeOutcomeExplanation, type SchemeOutcomeExplanation } from './schemeOutcomeExplanation'
+import { normalizeNonTerminalExternalStatus } from './externalStatus'
 import { calculateCompositePower } from './types'
 import type {
     AiNativeSummary,
@@ -60,6 +66,7 @@ export interface PolicySettlementReport {
     legitimacyTone: 'up' | 'down' | 'steady'
     focusMatched: boolean
     scoringFocus?: string
+    policyParse: PolicyReasonParseResult | null
 }
 
 export interface ExternalActionReport {
@@ -85,6 +92,7 @@ export interface JudgeFacts {
 export interface RoundSettlementResult {
     processedSchemes: SchemeAction[]
     schemeResults: SchemeResult[]
+    schemeOutcomeExplanations: SchemeOutcomeExplanation[]
     updatedNpcs: NPC[]
     factionsAfter: Faction[]
     relationshipsAfter: RelationshipEdge[]
@@ -114,6 +122,7 @@ export interface RoundSettlementResult {
     campaignReports: string[]
     shuMomentum: number
     huainanMomentum: number
+    campaignMomentumSurface: CampaignMomentumSurface
 }
 
 function hasPolicyReasonText(reason: string): boolean {
@@ -173,7 +182,7 @@ export function settleRound(params: {
             southStats = applyDimensionChanges(southStats, fallout.southImpact)
             shuCampaign = fallout.nextCampaign
             if (fallout.nextCampaign.state !== 'idle') {
-                campaignReports.push('蜀地方向余波仍在继续发酵。')
+                campaignReports.push('蜀地方向的战后余波仍在发酵。')
             }
         }
     }
@@ -185,7 +194,7 @@ export function settleRound(params: {
             southStats = applyDimensionChanges(southStats, fallout.southImpact)
             huainanCampaign = fallout.nextCampaign
             if (fallout.nextCampaign.state !== 'idle') {
-                campaignReports.push('淮南方向的战果余波尚未停歇。')
+                campaignReports.push('淮南方向的战后余波尚未平息。')
             }
         }
     }
@@ -196,6 +205,7 @@ export function settleRound(params: {
     }
 
     const schemeResults: SchemeResult[] = []
+    const schemeOutcomeExplanations: SchemeOutcomeExplanation[] = []
     const processedSchemes: SchemeAction[] = []
     const actionsPerNpc: Record<string, number> = {}
 
@@ -210,6 +220,9 @@ export function settleRound(params: {
         const schemeNeedsSecondTarget = action.schemeType === 'slander' || action.schemeType === 'alienate' || action.schemeType === 'proxy'
         if (schemeNeedsSecondTarget && (!relatedNpc || isTerminalCourtDispositionNpc(relatedNpc))) continue
         const activeRelatedNpc = relatedNpc && !isTerminalCourtDispositionNpc(relatedNpc) ? relatedNpc : null
+        const targetBefore = { ...targetNpc }
+        const relatedBefore = activeRelatedNpc ? { ...activeRelatedNpc } : null
+        const factionsBeforeAction = factionsAfter.map(faction => ({ ...faction }))
 
         const result = settleScheme(
             action,
@@ -238,7 +251,14 @@ export function settleRound(params: {
         trustChanges[targetNpc.id] = (trustChanges[targetNpc.id] ?? 0) + result.personEffects.trustDelta
 
         if (activeRelatedNpc) {
-            applyPersonEffects(activeRelatedNpc, result.personEffects.relatedTrustDelta, result.personEffects.relatedLoyaltyDelta, 0, null, null)
+            applyPersonEffects(
+                activeRelatedNpc,
+                result.personEffects.relatedTrustDelta,
+                result.personEffects.relatedLoyaltyDelta,
+                result.personEffects.relatedMilitaryPowerDelta ?? 0,
+                null,
+                null,
+            )
             if (result.personEffects.relatedTrustDelta !== 0) {
                 trustChanges[activeRelatedNpc.id] = (trustChanges[activeRelatedNpc.id] ?? 0) + result.personEffects.relatedTrustDelta
             }
@@ -381,6 +401,16 @@ export function settleRound(params: {
         })
         shuMomentum = Math.round((shuMomentum + momentumGain.shuMomentumGain) * 10) / 10
         huainanMomentum = Math.round((huainanMomentum + momentumGain.huainanMomentumGain) * 10) / 10
+        schemeOutcomeExplanations.push(buildSchemeOutcomeExplanation({
+            action,
+            result,
+            targetBefore,
+            targetAfter: { ...targetNpc },
+            relatedBefore,
+            relatedAfter: activeRelatedNpc ? { ...activeRelatedNpc } : null,
+            factionsBefore: factionsBeforeAction,
+            factionsAfter: factionsAfter.map(faction => ({ ...faction })),
+        }))
 
         actionsPerNpc[action.targetNpcId] = (actionsPerNpc[action.targetNpcId] ?? 0) + 1
     }
@@ -444,6 +474,7 @@ export function settleRound(params: {
                 legitimacyTone,
                 focusMatched: Boolean(policyAftereffect?.focusMatched),
                 scoringFocus: question.aiScoringFocus,
+                policyParse: hasPolicyReason ? policyParse ?? null : null,
             }
 
             policyMomentumGain = derivePolicyCampaignMomentum({
@@ -574,10 +605,12 @@ export function settleRound(params: {
         shuCampaign,
         huainanCampaign,
     })
+    const campaignMomentumSurface = getCampaignMomentumSurface(round, shuMomentum, huainanMomentum)
 
     return {
         processedSchemes,
         schemeResults,
+        schemeOutcomeExplanations,
         updatedNpcs,
         factionsAfter,
         relationshipsAfter,
@@ -607,6 +640,7 @@ export function settleRound(params: {
         campaignReports,
         shuMomentum,
         huainanMomentum,
+        campaignMomentumSurface,
     }
 }
 
@@ -628,8 +662,8 @@ function applyPersonEffects(
 
     if (externalStatus) {
         npc.externalStatus = externalStatus
-    } else if (npc.powerBase === 'external' && npc.loyaltyToCourt <= 40 && npc.externalStatus === 'loyal') {
-        npc.externalStatus = 'watchful'
+    } else if (npc.powerBase === 'external') {
+        npc.externalStatus = normalizeNonTerminalExternalStatus(npc.externalStatus)
     }
 }
 
@@ -695,7 +729,7 @@ function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'rebellion'
             }
         }
 
-        targetNpc.externalStatus = 'watchful'
+        targetNpc.externalStatus = 'loyal'
         targetNpc.loyaltyToCourt = clamp(targetNpc.loyaltyToCourt + 6)
         return {
             report: {
@@ -930,10 +964,14 @@ function deriveNorthPressurePenalty(
     campaign: 'shu' | 'huainan',
 ): number {
     let penalty = 0
-    const watchfulOrWorse = npcs.filter(npc =>
-        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus !== 'loyal',
+    const lowLoyaltyExternal = npcs.filter(npc =>
+        npc.powerBase === 'external'
+        && npc.isAlive
+        && npc.externalStatus !== 'secession'
+        && npc.externalStatus !== 'rebellion'
+        && npc.loyaltyToCourt <= 60,
     ).length
-    penalty += watchfulOrWorse * 1.2
+    penalty += lowLoyaltyExternal * 1.2
     penalty += npcs.filter(npc =>
         npc.powerBase === 'external' && npc.isAlive && npc.externalStatus === 'secession',
     ).length * 2.6

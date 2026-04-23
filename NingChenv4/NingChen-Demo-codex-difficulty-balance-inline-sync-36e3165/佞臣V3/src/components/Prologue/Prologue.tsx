@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { MAP_ASSETS } from '../../data/mediaAssets'
 import { PROLOGUE_PAGE_SECTIONS } from '../../data/prologuePageContent'
 import { AUTO_PAGE_SCROLL_SPEEDS, useAutoPageScroll } from '../../hooks/useAutoPageScroll'
@@ -7,7 +8,21 @@ import './Prologue.css'
 
 export function Prologue() {
     const advancePrologue = useGameStore(state => state.advancePrologue)
+    const [isMapExpanded, setIsMapExpanded] = useState(false)
     useAutoPageScroll({ pixelsPerSecond: AUTO_PAGE_SCROLL_SPEEDS.prologue })
+
+    useEffect(() => {
+        if (!isMapExpanded) return
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsMapExpanded(false)
+            }
+        }
+
+        window.addEventListener('keydown', handleKeyDown)
+        return () => window.removeEventListener('keydown', handleKeyDown)
+    }, [isMapExpanded])
 
     return (
         <div
@@ -40,18 +55,49 @@ export function Prologue() {
                             <section className="gold-panel prologue-map-card animate-slide-up animate-delay-2">
                                 <div className="prologue-map-header">
                                     <h3 className="prologue-map-title">南北形势图</h3>
-                                    <span className="prologue-map-label">{MAP_ASSETS.initial.label}</span>
                                 </div>
-                                <img
-                                    className="prologue-map-image"
-                                    src={MAP_ASSETS.initial.src}
-                                    alt="南北初局地图"
-                                />
+                                <button
+                                    type="button"
+                                    className="prologue-map-button"
+                                    onClick={() => setIsMapExpanded(true)}
+                                    aria-label="放大南北形势图"
+                                >
+                                    <img
+                                        className="prologue-map-image"
+                                        src={MAP_ASSETS.initial.src}
+                                        alt="南北初局地图"
+                                    />
+                                    <span className="prologue-map-zoom-hint">点按放大</span>
+                                </button>
                             </section>
                         )}
                     </div>
                 ))}
             </div>
+
+            {isMapExpanded && (
+                <div
+                    className="prologue-map-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="南北形势图放大查看"
+                    onClick={() => setIsMapExpanded(false)}
+                >
+                    <button
+                        type="button"
+                        className="prologue-map-overlay-close"
+                        onClick={() => setIsMapExpanded(false)}
+                    >
+                        关闭
+                    </button>
+                    <img
+                        className="prologue-map-image prologue-map-image--expanded"
+                        src={MAP_ASSETS.initial.src}
+                        alt="南北形势图放大视图"
+                        onClick={event => event.stopPropagation()}
+                    />
+                </div>
+            )}
 
             <div className="prologue-actions animate-slide-up animate-delay-4">
                 <button className="btn-primary prologue-button" onClick={advancePrologue}>
