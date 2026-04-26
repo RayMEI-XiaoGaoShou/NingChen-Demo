@@ -17,6 +17,7 @@ import { buildOmenTargetHint } from '../../game/omenTargetHint'
 import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput } from '../../game/aiNativeEngine'
+import { recordAiGameMasterDebug } from '../../game/aiGameMasterDebug'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/schemeEngine'
@@ -589,6 +590,16 @@ export function SchemePanel() {
                 omenSpeechInput: speechPayload.omenSpeechInput,
                 eventName: currentRoundEvent.eventName,
                 eventBriefing: currentRoundEvent.eventBriefing,
+            })
+            recordAiGameMasterDebug({
+                chain: 'north_scheme',
+                source: 'fallback',
+                round: currentRound,
+                npcId: npcSnapshot.id,
+                npcName: npcSnapshot.name,
+                schemeType: selectedScheme,
+                summary: `${npcSnapshot.name} · ${selectedScheme}`,
+                notes: ['parseNorthSchemeInput threw during scheme-page preparse; local fallback was used.'],
             })
             updateSchemeParse(actionId, fallbackParsed)
             void generatePreliminaryReply(fallbackParsed)

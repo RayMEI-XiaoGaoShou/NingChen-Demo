@@ -62,6 +62,7 @@ export default defineConfig({
                     }
 
                     if (
+                        normalizedId.includes('/src/components/EmpressReply/') ||
                         normalizedId.includes('/src/components/Settlement/') ||
                         normalizedId.includes('/src/components/RoundEnd/') ||
                         normalizedId.includes('/src/components/Ending/')

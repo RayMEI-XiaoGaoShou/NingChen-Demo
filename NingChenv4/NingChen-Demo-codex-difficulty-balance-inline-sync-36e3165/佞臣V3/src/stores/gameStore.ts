@@ -4,7 +4,7 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenEchoFeedback, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EmpressReplyRecord, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenEchoFeedback, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
@@ -95,6 +95,7 @@ interface GameState {
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
+    empressReplyRecord: EmpressReplyRecord | null
     pendingBacklash: DelayedBacklash[]
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
@@ -132,6 +133,7 @@ interface GameState {
     addNpcFeedback: (feedback: NpcFeedback) => void
     updateNpcFeedback: (feedbackId: string, text: string, source?: string) => void
     updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => void
+    setEmpressReplyRecord: (record: EmpressReplyRecord | null) => void
     markSchemeParsePending: (actionId: string) => void
     updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => void
     setSchemeFollowUp: (actionId: string, followUp: SchemeFollowUp) => void
@@ -255,6 +257,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     lastSettlement: null,
     lastPolicyReport: null,
     lastPolicyAftereffect: null,
+    empressReplyRecord: null,
     pendingBacklash: [],
     recentBacklash: [],
     roundHistory: [],
@@ -302,6 +305,15 @@ export const useGameStore = create<GameState>((set, get) => ({
                 // NPC ???????????
                 {
                     const s = get()
+                    if (s.lastSettlement) {
+                        set({
+                            currentPhase: s.lastSettlement.gameResult !== 'NONE' ? 'ENDING' : 'EMPRESS_REPLY',
+                            isGameOver: s.lastSettlement.gameResult !== 'NONE',
+                            gameResult: s.lastSettlement.gameResult,
+                        })
+                        break
+                    }
+
                     const result = settleRound({
                         round: s.currentRound,
                         difficulty: s.difficulty,
@@ -401,7 +413,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         })
                         const battleReport = buildBattleReport(roundHistory)
                         set({
-                            currentPhase: 'ENDING',
+                            currentPhase: 'SCHEME_FEEDBACK',
                             isGameOver: true,
                             gameResult: result.gameResult,
                             playerDangerStage: result.playerDangerStage,
@@ -416,6 +428,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             lastSettlement: result,
                             lastPolicyReport: result.policyReport ?? s.lastPolicyReport,
                             lastPolicyAftereffect: result.policyAftereffect ?? s.lastPolicyAftereffect,
+                            empressReplyRecord: null,
                             pendingStructuredSchemeIds: [],
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
@@ -430,7 +443,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                         })
                     } else {
                         set({
-                            currentPhase: 'SETTLEMENT',
+                            currentPhase: 'SCHEME_FEEDBACK',
+                            isGameOver: false,
+                            gameResult: 'NONE',
                             northStats: result.northStatsAfter,
                             southStats: result.southStatsAfter,
                             northPower: result.northPowerAfter,
@@ -443,6 +458,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             lastSettlement: result,
                             lastPolicyReport: result.policyReport ?? s.lastPolicyReport,
                             lastPolicyAftereffect: result.policyAftereffect ?? s.lastPolicyAftereffect,
+                            empressReplyRecord: null,
                             pendingStructuredSchemeIds: [],
                             pendingBacklash: result.delayedBacklash,
                             roundHistory,
@@ -455,6 +471,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                         })
                     }
                 }
+                break
+
+            case 'EMPRESS_REPLY':
+                set({ currentPhase: 'SETTLEMENT' })
                 break
 
             case 'SETTLEMENT':
@@ -505,6 +525,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         selectedPolicyParse: null,
                         npcFeedbacks: [],
                         lastSettlement: null,
+                        empressReplyRecord: null,
                         pendingStructuredSchemeIds: [],
                         pendingBacklash: [],
                         recentBacklash: backlashResult.appliedBacklash,
@@ -734,6 +755,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastSettlement: null,
             lastPolicyReport: state.lastPolicyReport,
             lastPolicyAftereffect: state.lastPolicyAftereffect,
+            empressReplyRecord: null,
             pendingBacklash: state.pendingBacklash.map(item => ({ ...item })),
             recentBacklash: state.recentBacklash.map(item => ({ ...item })),
             roundHistory: state.roundHistory.map(item => ({ ...item })),
@@ -796,6 +818,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastSettlement: null,
             lastPolicyReport: snapshot.lastPolicyReport,
             lastPolicyAftereffect: snapshot.lastPolicyAftereffect,
+            empressReplyRecord: snapshot.empressReplyRecord ?? null,
             pendingBacklash: snapshot.pendingBacklash,
             recentBacklash: snapshot.recentBacklash,
             roundHistory: snapshot.roundHistory,
@@ -844,6 +867,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastSettlement: null,
             lastPolicyReport: null,
             lastPolicyAftereffect: null,
+            empressReplyRecord: null,
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
@@ -896,6 +920,10 @@ export const useGameStore = create<GameState>((set, get) => ({
                 f.id === feedbackId ? { ...f, omenEcho } : f
             ),
         })
+    },
+
+    setEmpressReplyRecord: (record: EmpressReplyRecord | null) => {
+        set({ empressReplyRecord: record })
     },
 
     markSchemeParsePending: (actionId: string) => {
@@ -1035,6 +1063,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             lastSettlement: snapshot.lastSettlement,
             lastPolicyReport: snapshot.lastPolicyReport,
             lastPolicyAftereffect: snapshot.lastPolicyAftereffect,
+            empressReplyRecord: snapshot.empressReplyRecord ?? null,
             pendingBacklash: snapshot.pendingBacklash ?? [],
             recentBacklash: snapshot.recentBacklash ?? [],
             roundHistory: snapshot.roundHistory,

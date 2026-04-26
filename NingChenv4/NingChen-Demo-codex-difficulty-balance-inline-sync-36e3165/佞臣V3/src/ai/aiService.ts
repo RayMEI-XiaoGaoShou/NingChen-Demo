@@ -1,7 +1,7 @@
 import type { ChatMessage } from './prompts'
 import { getFallbackResponse } from './fallback'
 
-type AiMode = 'mujian' | 'kimi' | 'fallback'
+type AiMode = 'mujian' | 'deepseek' | 'fallback'
 
 type MujianOpenApiConfig = {
     baseURL: string
@@ -9,6 +9,9 @@ type MujianOpenApiConfig = {
 }
 
 type EnvKey =
+    | 'VITE_DEEPSEEK_API_KEY'
+    | 'VITE_DEEPSEEK_MODEL'
+    | 'VITE_DEEPSEEK_BASE_URL'
     | 'VITE_KIMI_API_KEY'
     | 'VITE_KIMI_MODEL'
     | 'VITE_KIMI_BASE_URL'
@@ -26,6 +29,10 @@ function getEnvValue(key: EnvKey): string | undefined {
     return viteEnv?.[key] ?? runtimeEnv[key]
 }
 
+function getEnvValueWithLegacy(primaryKey: EnvKey, legacyKey: EnvKey): string | undefined {
+    return getEnvValue(primaryKey) ?? getEnvValue(legacyKey)
+}
+
 function isDevRuntime(): boolean {
     if (typeof window === 'undefined') {
         const devFlag = ((globalThis as any).process?.env ?? {}).DEV
@@ -37,9 +44,9 @@ function isDevRuntime(): boolean {
     return devFlag === true || devFlag === 'true'
 }
 
-function hasKimiConfig(): boolean {
-    const apiKey = getEnvValue('VITE_KIMI_API_KEY')
-    return Boolean(apiKey && apiKey !== 'your-kimi-api-key-here')
+function hasDeepSeekConfig(): boolean {
+    const apiKey = getEnvValueWithLegacy('VITE_DEEPSEEK_API_KEY', 'VITE_KIMI_API_KEY')
+    return Boolean(apiKey && apiKey !== 'your-deepseek-api-key-here' && apiKey !== 'your-kimi-api-key-here')
 }
 
 function isLikelyMujianRuntime(): boolean {
@@ -121,6 +128,7 @@ async function openAiCompatibleCompletion(
     temperature: number,
     maxTokens: number,
     tag: string,
+    extraBody: Record<string, unknown> = {},
 ): Promise<string> {
     const response = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
         method: 'POST',
@@ -133,6 +141,7 @@ async function openAiCompatibleCompletion(
             messages: messages.map(message => ({ role: message.role, content: message.content })),
             temperature,
             max_tokens: maxTokens,
+            ...extraBody,
         }),
     }, getAiRequestTimeoutMs())
 
@@ -175,6 +184,22 @@ function shouldRetryStructuredJson(text: string): boolean {
     return !cleaned.endsWith('}') && !cleaned.endsWith(']')
 }
 
+function shouldRetryStructuredJsonCorrection(text: string): boolean {
+    const cleaned = cleanStructuredJsonText(text)
+    if (!cleaned) return false
+    return !shouldRetryStructuredJson(text)
+}
+
+function buildStructuredJsonCorrectionMessages(messages: ChatMessage[]): ChatMessage[] {
+    return [
+        ...messages,
+        {
+            role: 'user',
+            content: '上一轮输出不是可解析的严格 JSON。请重新输出，且只能输出一个 JSON 对象或 JSON 数组；不要解释，不要 Markdown，不要代码块，不要前后缀文字。',
+        },
+    ]
+}
+
 function getStructuredRetryMaxTokens(maxTokens: number): number {
     return Math.max(Math.ceil(maxTokens * 2.75), maxTokens + 320, 520)
 }
@@ -195,8 +220,8 @@ export async function initAiService(): Promise<AiMode> {
             }
         }
 
-        if (hasKimiConfig()) {
-            currentMode = 'kimi'
+        if (hasDeepSeekConfig()) {
+            currentMode = 'deepseek'
             console.log('[AI] DeepSeek API mode active')
             return currentMode
         }
@@ -217,7 +242,7 @@ export function getAiModeLabel(mode: AiMode = currentMode): string {
     switch (mode) {
         case 'mujian':
             return '幕间 SDK'
-        case 'kimi':
+        case 'deepseek':
             return 'DeepSeek API'
         case 'fallback':
             return '本地回退'
@@ -234,8 +259,8 @@ export async function chatCompletion(
     switch (currentMode) {
         case 'mujian':
             return mujianCompletion(messages, temperature, maxTokens, tag)
-        case 'kimi':
-            return kimiCompletion(messages, temperature, maxTokens, tag)
+        case 'deepseek':
+            return deepSeekCompletion(messages, temperature, maxTokens, tag)
         case 'fallback':
             return getFallbackResponse(tag)
     }
@@ -256,6 +281,16 @@ export async function chatCompletionJson<T>(
 
         if (shouldRetryStructuredJson(firstText)) {
             const retryText = await chatCompletion(messages, {
+                temperature,
+                maxTokens: getStructuredRetryMaxTokens(maxTokens),
+                tag,
+            })
+            const retryParsed = tryParseStructuredJson<T>(retryText)
+            if (retryParsed) {
+                return retryParsed
+            }
+        } else if (shouldRetryStructuredJsonCorrection(firstText)) {
+            const retryText = await chatCompletion(buildStructuredJsonCorrectionMessages(messages), {
                 temperature,
                 maxTokens: getStructuredRetryMaxTokens(maxTokens),
                 tag,
@@ -311,16 +346,23 @@ async function mujianCompletion(
     }
 }
 
-async function kimiCompletion(
+function shouldDisableDeepSeekThinking(model: string): boolean {
+    return model.startsWith('deepseek-v4')
+}
+
+async function deepSeekCompletion(
     messages: ChatMessage[],
     temperature: number,
     maxTokens: number,
     tag: string,
 ): Promise<string> {
-    const apiKey = getEnvValue('VITE_KIMI_API_KEY') || ''
-    const model = getEnvValue('VITE_KIMI_MODEL') || 'deepseek-chat'
-    const baseUrl = getEnvValue('VITE_KIMI_BASE_URL') || 'https://api.deepseek.com'
+    const apiKey = getEnvValueWithLegacy('VITE_DEEPSEEK_API_KEY', 'VITE_KIMI_API_KEY') || ''
+    const model = getEnvValueWithLegacy('VITE_DEEPSEEK_MODEL', 'VITE_KIMI_MODEL') || 'deepseek-v4-flash'
+    const baseUrl = getEnvValueWithLegacy('VITE_DEEPSEEK_BASE_URL', 'VITE_KIMI_BASE_URL') || 'https://api.deepseek.com'
     const isDev = isDevRuntime()
+    const extraBody = shouldDisableDeepSeekThinking(model)
+        ? { thinking: { type: 'disabled' } }
+        : {}
 
     try {
         return await openAiCompatibleCompletion(
@@ -331,6 +373,7 @@ async function kimiCompletion(
             temperature,
             maxTokens,
             tag,
+            extraBody,
         )
     } catch (error) {
         console.error('[AI] DeepSeek completion failed:', error)

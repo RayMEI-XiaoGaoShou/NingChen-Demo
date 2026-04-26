@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
+import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES } from '../../data/schemes'
 import { chatCompletion } from '../../ai/aiService'
-import { buildEmpressFeedbackPrompt, buildJudgePrompt } from '../../ai/prompts'
+import { buildJudgePrompt } from '../../ai/prompts'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
-import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
-import { buildEmpressFeedbackContext, type EmpressFeedbackContext } from '../../game/empressFeedbackContext'
+import { buildSettlementDefaultEmpressReply, getSettlementPolicyFollowupText, hasPolicyReason } from '../../game/empressReplyPresentation'
+import { buildSettlementSchemeCausalEvents, selectSettlementChronicleQuoteCandidate } from '../../game/settlementCausalNarrative'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
@@ -20,13 +21,6 @@ const COURT_BACKLASH_TOOLTIP = '朝局反噬，是你每一手计谋在暗中留
 const POLICY_AFTEREFFECT_TOOLTIP = '问政余波，来自你在女帝问政页写下的附言。附言若真切中当回合议题，当回合得利自不必说，还会在下一回合继续带来好处。'
 const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
 const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
-const SCHEME_OUTCOME_LABEL_ORDER = ['国力影响', '朝堂政局'] as const
-
-export function getSettlementPolicyFollowupText(focusMatched: boolean): string {
-    return focusMatched
-        ? '你的附言切中了此议真正的关节。这道新政不只当回合收效，下一回合还会继续生出余力。'
-        : '你的附言尚嫌隔靴搔痒，余波因此不会太强——不过这道新政的后效仍会留到下一回合，只是分量轻了。'
-}
 
 export function getBacklashExplanation(backlash: DelayedBacklash): string {
     if (backlash.type === 'guarded') {
@@ -87,9 +81,17 @@ function isFiniteNumber(value: unknown): value is number {
     return typeof value === 'number' && Number.isFinite(value)
 }
 
-function formatDelta(value: unknown): string | null {
-    if (!isFiniteNumber(value) || value === 0) return null
-    return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
+export function formatChronicleVolumeNumber(round: number): string {
+    const numerals = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九']
+    if (!Number.isInteger(round) || round < 1 || round > 20) return String(round)
+    if (round < 10) return numerals[round] ?? String(round)
+    if (round === 10) return '十'
+    if (round < 20) return `十${numerals[round - 10]}`
+    return '二十'
+}
+
+export function getChronicleVolumeTitle(round: number): string {
+    return `《南北朝通鉴-卷${formatChronicleVolumeNumber(round)}》`
 }
 
 function sanitizeDeltaRecord(record: Record<string, unknown> | null | undefined): Record<string, number> {
@@ -98,50 +100,6 @@ function sanitizeDeltaRecord(record: Record<string, unknown> | null | undefined)
     return Object.fromEntries(
         Object.entries(record).map(([key, value]) => [key, isFiniteNumber(value) ? value : 0]),
     )
-}
-
-export function hasPolicyReason(policyReport: { reason?: string | null } | null | undefined): boolean {
-    return Boolean(policyReport?.reason?.trim())
-}
-
-export function buildSettlementDefaultEmpressReply(
-    policyReportOrContext:
-        | (Pick<EmpressFeedbackContext, 'optionContent' | 'reason' | 'weakestDimensionLabel' | 'warWindow' | 'playerDangerStage'>)
-        | { optionContent: string; reason?: string | null }
-        | null
-        | undefined,
-): string | null {
-    if (!policyReportOrContext) return null
-
-    const optionContent = policyReportOrContext.optionContent
-    const reason = policyReportOrContext.reason?.trim()
-
-    if (!reason) {
-        return `朕已按“${optionContent}”着手施行。`
-    }
-
-    const weakestDimensionLabel = 'weakestDimensionLabel' in policyReportOrContext
-        ? policyReportOrContext.weakestDimensionLabel
-        : null
-    const warWindow = 'warWindow' in policyReportOrContext
-        ? policyReportOrContext.warWindow
-        : false
-    const playerDangerStage = 'playerDangerStage' in policyReportOrContext
-        ? policyReportOrContext.playerDangerStage
-        : 'safe'
-
-    const cautionLine = warWindow
-        ? '眼下兵事将逼，节候与后勤都不可轻纵。'
-        : weakestDimensionLabel
-            ? `只是眼下更要先稳住${weakestDimensionLabel}这一头，锋芒不可尽露。`
-            : '只是此事仍须按轻重徐徐收束，不可一味躁进。'
-    const playerLine = playerDangerStage === 'under_review'
-        ? '你在北朝自护为先，其余话不必说满。'
-        : playerDangerStage === 'under_watch'
-            ? '你在北朝已渐有人留意，往后行话宜更收三分。'
-            : ''
-
-    return `朕已按“${optionContent}”着手施行。${cautionLine}${playerLine}`
 }
 
 function normalizeSettlementSummary(text: string): string {
@@ -233,6 +191,7 @@ export function Settlement() {
         northPower,
         southPower,
         currentSchemes,
+        npcFeedbacks,
         npcs,
         currentRound,
         northStats,
@@ -244,11 +203,11 @@ export function Settlement() {
         huainanCampaign,
         shuMomentum,
         huainanMomentum,
+        empressReplyRecord,
     } = useGameStore()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
     const [isLoading, setIsLoading] = useState(Boolean(lastSettlement))
-    const [empressReply, setEmpressReply] = useState<string | null>(null)
     const settlementGuide = FIRST_ROUND_GUIDE_CONTENT.settlement ?? { title: '', body: [] }
     const judgeFacts = getSafeSettlementJudgeFacts(lastSettlement)
 
@@ -273,14 +232,12 @@ export function Settlement() {
         huainanMomentum,
         campaignReports: lastSettlement?.campaignReports ?? [],
     })
-
     useEffect(() => {
         let cancelled = false
 
         async function generateNarration() {
             if (!lastSettlement) {
                 setJudgeNarration('结算文书正在整理，请稍候。')
-                setEmpressReply(null)
                 setIsLoading(false)
                 return
             }
@@ -289,26 +246,11 @@ export function Settlement() {
 
             if (!lastSettlement.judgeFacts) {
                 setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
-                setEmpressReply(buildSettlementDefaultEmpressReply(lastSettlement.policyReport))
                 setIsLoading(false)
                 return
             }
 
             const event = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
-            const empressFeedbackContext = lastSettlement.policyReport
-                ? buildEmpressFeedbackContext({
-                    currentRound,
-                    policyReport: lastSettlement.policyReport,
-                    policyAftereffect: lastSettlement.policyAftereffect,
-                    policyParse: lastSettlement.policyReport.policyParse,
-                    southStatsAfter: lastSettlement.southStatsAfter,
-                    northEventName: event.eventName,
-                    northEventBriefing: event.eventBriefing,
-                    northSummary: judgeFacts.northSummary,
-                    invasionSummary: judgeFacts.invasionSummary,
-                    playerDangerStage: lastSettlement.playerDangerStage,
-                })
-                : null
             const trustSummary = Object.entries(lastSettlement.trustChanges)
                 .map(([id, delta]) => {
                     const npc = npcs.find(n => n.id === id)
@@ -318,10 +260,23 @@ export function Settlement() {
             const processedSchemes = lastSettlement.processedSchemes.length > 0
                 ? lastSettlement.processedSchemes
                 : currentSchemes
+            const schemeCausalEvents = buildSettlementSchemeCausalEvents({
+                actions: processedSchemes,
+                results: lastSettlement.schemeResults,
+                explanations: lastSettlement.schemeOutcomeExplanations,
+                npcs,
+                npcFeedbacks,
+            })
+            const northQuoteCandidate = selectSettlementChronicleQuoteCandidate(schemeCausalEvents)
+            const chronicleTimeLabel = ROUND_EVENTS[currentRound - 1]?.timeLabel ?? `第${currentRound}回合`
+            const southEmpressReply = empressReplyRecord?.sourceRound === currentRound
+                ? empressReplyRecord.text
+                : buildSettlementDefaultEmpressReply(lastSettlement.policyReport)
 
             const messages = buildJudgePrompt({
                 round: currentRound,
                 eventName: event.eventName,
+                chronicleTimeLabel,
                 eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
                     schemeName: schemeName(processedSchemes[i]?.schemeType ?? ''),
@@ -330,6 +285,8 @@ export function Settlement() {
                     feedback: r.feedbackText,
                     playerSpeech: processedSchemes[i]?.playerSpeech ?? '',
                 })),
+                schemeCausalEvents: schemeCausalEvents.map(event => event.promptLine),
+                northQuoteCandidate,
                 trustChangeSummary: trustSummary,
                 northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
                 factionSummary: judgeFacts.factionSummary,
@@ -337,35 +294,21 @@ export function Settlement() {
                 externalSummary: judgeFacts.externalSummary,
                 northSummary: judgeFacts.northSummary,
                 southSummary: judgeFacts.southSummary,
+                southEmpressReply,
                 invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征风向仍待观察',
             })
 
             try {
-                const [narration, southReply] = await Promise.all([
-                    chatCompletion(messages, {
-                        temperature: 0.9,
-                        maxTokens: 300,
-                        tag: 'judge',
-                    }),
-                    policyReasonAuthored && empressFeedbackContext
-                        ? chatCompletion(buildEmpressFeedbackPrompt(empressFeedbackContext), {
-                            temperature: 0.75,
-                            maxTokens: 220,
-                            tag: 'empress_feedback_settlement',
-                        })
-                        : Promise.resolve(''),
-                ])
+                const narration = await chatCompletion(messages, {
+                    temperature: 0.9,
+                    maxTokens: 480,
+                    tag: 'judge',
+                })
                 if (cancelled) return
                 setJudgeNarration(narration)
-                setEmpressReply(
-                    policyReasonAuthored && empressFeedbackContext
-                        ? southReply.trim() || null
-                        : buildSettlementDefaultEmpressReply(empressFeedbackContext ?? lastSettlement.policyReport),
-                )
             } catch {
                 if (cancelled) return
                 setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
-                setEmpressReply(buildSettlementDefaultEmpressReply(lastSettlement.policyReport))
             } finally {
                 if (cancelled) return
                 setIsLoading(false)
@@ -375,14 +318,13 @@ export function Settlement() {
         void generateNarration().catch(() => {
             if (cancelled) return
             setJudgeNarration(lastSettlement?.summaryText || '本回合局势已有变化，可先看下方结算。')
-            setEmpressReply(buildSettlementDefaultEmpressReply(lastSettlement?.policyReport))
             setIsLoading(false)
         })
 
         return () => {
             cancelled = true
         }
-    }, [currentRound, currentSchemes, huainanCampaign, lastSettlement, northPower, npcs, policyReasonAuthored, shuCampaign])
+    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign])
 
     return (
         <div className="page-container settlement page-enter">
@@ -406,7 +348,7 @@ export function Settlement() {
                 <div className="scroll-container animate-slide-up animate-delay-1">
                     <div className="judge-narration gold-panel decree-panel">
                         <div className="scroll-decorator top"></div>
-                        <h3 className="judge-title">天道结算</h3>
+                        <h3 className="judge-title">{getChronicleVolumeTitle(currentRound)}</h3>
                         <div className="narration-content">
                             {isLoading ? (
                                 <div className="loading-state">
@@ -420,147 +362,6 @@ export function Settlement() {
                         <div className="scroll-decorator bottom"></div>
                     </div>
                 </div>
-
-                <div className="results-section animate-slide-up animate-delay-2">
-                    <h3 className="section-title">计谋筹算结果</h3>
-                    <div className="results-list scheme-results-list">
-                        {lastSettlement?.schemeResults.map((result, i) => {
-                            const action = lastSettlement?.processedSchemes?.[i] ?? currentSchemes[i]
-                            const npc = npcs.find(n => n.id === action?.targetNpcId)
-                            const explanation = lastSettlement?.schemeOutcomeExplanations?.[i]
-                            const orderedExplanationSegments = SCHEME_OUTCOME_LABEL_ORDER
-                                .map(label => explanation?.segments.find(segment => segment.label === label))
-                                .filter((segment): segment is NonNullable<typeof explanation>['segments'][number] => Boolean(segment))
-                            return (
-                                <div
-                                    key={i}
-                                    className={`result-card glass-panel animate-slide-up ${result.success ? 'success' : 'failure'}`}
-                                    style={{ animationDelay: `${0.8 + i * 0.2}s` }}
-                                >
-                                    {npc && (
-                                        <NpcPortrait
-                                            name={npc.name}
-                                            alt={`${npc.name}画像`}
-                                            className="settlement-card-portrait settlement-scheme-target-portrait"
-                                            positionY="18%"
-                                        />
-                                    )}
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-index">计谋 {i + 1}</span>
-                                            <span className="result-scheme">{schemeName(action?.schemeType ?? '')}</span>
-                                        </div>
-                                        <div className={`result-badge ${result.success ? 'success' : 'failure'}`}>
-                                            {result.success ? '成' : '败'}
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{result.feedbackText}</p>
-                                    {explanation && (
-                                        <div className="result-explanation-stack">
-                                            {orderedExplanationSegments.map(segment => (
-                                                <p key={`${i}-${segment.label}`} className="result-text">
-                                                    <strong>{segment.label}</strong>
-                                                    {'：'}
-                                                    {segment.text}
-                                                </p>
-                                            ))}
-                                        </div>
-                                    )}
-                                    <div className="result-effects">
-                                        {result.trustChange !== 0 && (
-                                            <span className={`effect-tag ${result.trustChange > 0 ? 'positive' : 'negative'}`}>
-                                                {npc?.name} 信任 {result.trustChange > 0 ? '+' : ''}{result.trustChange}
-                                            </span>
-                                        )}
-                                        {Object.entries(sanitizeDeltaRecord(result.northDimensionChanges)).map(([dim, val]) => {
-                                            const formattedDelta = formatDelta(val)
-                                            if (!formattedDelta) return null
-                                            const dimNames: Record<string, string> = {
-                                                finance: '财政',
-                                                grain: '粮赋',
-                                                military: '军事',
-                                                socialOrder: '社会秩序',
-                                                governance: '治理穿透力',
-                                            }
-                                            return (
-                                                <span key={dim} className={`effect-tag ${Number(val) > 0 ? 'positive' : 'negative'}`}>
-                                                    北周{dimNames[dim]} {formattedDelta}
-                                                </span>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-
-                {lastSettlement?.borrowedBladeReports && lastSettlement.borrowedBladeReports.length > 0 && (
-                    <div className="results-section animate-slide-up animate-delay-3">
-                        <h3 className="section-title">朝堂收网</h3>
-                        <div className="results-list">
-                            {lastSettlement.borrowedBladeReports.map(report => (
-                                <div
-                                    key={`${report.actorNpcId}-${report.targetNpcId}-${report.outcome}`}
-                                    className={`result-card glass-panel ${report.outcome === 'executed' ? 'failure' : 'success'}`}
-                                >
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-scheme">{report.outcome === 'executed' ? '处决' : report.outcome === 'dismissed' ? '罢黜' : '施压'}</span>
-                                            <span className="result-index">{report.actorNpcName} → {report.targetNpcName}</span>
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{report.summary}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {lastSettlement?.policyReport && (
-                    <div className="results-section animate-slide-up animate-delay-3">
-                        <h3 className="section-title">南陈回信</h3>
-                        <div className="result-card glass-panel success empress-report">
-                            <NpcPortrait
-                                name="陈倩"
-                                alt="陈倩画像"
-                                className="settlement-card-portrait settlement-empress-portrait"
-                                positionY="14%"
-                            />
-                            <div className="result-header">
-                                <div className="result-info">
-                                    <span className="result-scheme">{lastSettlement.policyReport.question}</span>
-                                    <span className="result-index">
-                                        选择 <span className="policy-option-highlight">{lastSettlement.policyReport.optionLabel}. {lastSettlement.policyReport.optionContent}</span>
-                                    </span>
-                                </div>
-                            </div>
-                            <p className="result-text">{isLoading ? '女帝密批正在送达…' : empressReply}</p>
-                            <div className="result-effects">
-                                {Object.entries(sanitizeDeltaRecord(lastSettlement.policyReport.effects)).map(([dim, val]) => {
-                                    if (!val) return null
-                                    const dimNames: Record<string, string> = {
-                                        finance: '财政',
-                                        grain: '粮赋',
-                                        military: '军事',
-                                        socialOrder: '民生秩序',
-                                        governance: '治理穿透力',
-                                    }
-                                    return (
-                                        <span key={`south-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
-                                            南陈{dimNames[dim]} {val > 0 ? '+' : ''}{val.toFixed(1)}
-                                        </span>
-                                    )
-                                })}
-                                {policyReasonAuthored && (
-                                    <span className={`effect-tag ${lastSettlement.policyReport.focusMatched ? 'positive' : 'negative'}`}>
-                                        {lastSettlement.policyReport.focusMatched ? '论证切题' : '论证偏泛'}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 <div className="changes-summary animate-slide-up animate-delay-4">
                     <h3 className="section-title">大局推演</h3>
@@ -615,6 +416,30 @@ export function Settlement() {
                         </div>
                     </div>
                 </div>
+
+                {lastSettlement?.keyChangeHighlights && lastSettlement.keyChangeHighlights.length > 0 && (
+                    <div className="results-section animate-slide-up animate-delay-4">
+                        <h3 className="section-title">关键变化</h3>
+                        <div className="results-list single-column">
+                            {lastSettlement.keyChangeHighlights.map(highlight => (
+                                <div
+                                    key={highlight.id}
+                                    className={`result-card glass-panel ${highlight.tone === 'negative' ? 'failure' : 'success'}`}
+                                >
+                                    <div className="result-header">
+                                        <div className="result-info">
+                                            <span className="result-scheme">{highlight.title}</span>
+                                            <span className="result-index">
+                                                {highlight.category === 'external' ? '地方军头' : highlight.category === 'faction' ? '朝堂势力' : '朝臣处境'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <p className="result-text">{highlight.text}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {(courtBacklashTexts.length > 0 || lastSettlement?.policyAftereffect) && (
                     <div className="settlement-aftereffect-grid animate-slide-up animate-delay-4">

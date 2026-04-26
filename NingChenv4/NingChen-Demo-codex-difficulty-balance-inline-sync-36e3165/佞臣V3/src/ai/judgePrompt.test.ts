@@ -1,0 +1,63 @@
+import { describe, expect, it } from 'vitest'
+import { buildJudgePrompt } from './prompts'
+
+function buildBaseJudgePrompt(overrides: Partial<Parameters<typeof buildJudgePrompt>[0]> = {}) {
+    return buildJudgePrompt({
+        round: 1,
+        eventName: '新君初政',
+        chronicleTimeLabel: '建文五年上 / 天嘉元年上',
+        eventImpactSummary: '北周朝堂暗流初起。',
+        schemeResults: [{
+            schemeName: '离间',
+            targetName: '祖廷',
+            success: true,
+            feedback: '此事可入奏帘前。',
+            playerSpeech: '陇右军需不可不查。',
+        }],
+        schemeCausalEvents: ['祖廷被说动，准备以核查军需之名入奏帘前。'],
+        northQuoteCandidate: null,
+        trustChangeSummary: '祖廷 +6',
+        northPowerChange: '综合国力 66.1',
+        factionSummary: '后党略稳，帝党受挫。',
+        relationshipSummary: '祖廷与贺拔伯圭嫌隙加深。',
+        externalSummary: '陇右粮道被收紧。',
+        northSummary: '北周粮赋与治理受损。',
+        southSummary: '南陈新政初见回响。',
+        invasionSummary: '南征风向仍待观察',
+        southEmpressReply: null,
+        ...overrides,
+    })
+}
+
+describe('buildJudgePrompt chronicle mode', () => {
+    it('feeds the chronicle time label into the judge prompt', () => {
+        const messages = buildBaseJudgePrompt()
+        expect(messages[0]?.content).toContain('编年体史书写法')
+        expect(messages[0]?.content).toContain('不得虚构“初三月、初四月”等具体日期')
+        expect(messages[1]?.content).toContain('纪年标签：建文五年上 / 天嘉元年上')
+        expect(messages[1]?.content).toContain('请据此写一段本回合史书记录')
+    })
+
+    it('adds a constrained quote candidate when one is available', () => {
+        const messages = buildBaseJudgePrompt({
+            northQuoteCandidate: {
+                speakerName: '祖廷',
+                sourceText: '本官明日便以账册为由入奏帘前。',
+            },
+        })
+
+        expect(messages[1]?.content).toContain('可引之语：祖廷原意为“本官明日便以账册为由入奏帘前。”')
+        expect(messages[1]?.content).toContain('不得新增事实或承诺')
+    })
+
+    it('feeds cached South Chen empress reply as source material without allowing copied decrees or invented officials', () => {
+        const messages = buildBaseJudgePrompt({
+            southEmpressReply: '朕已按“清点户籍仓廪”着手施行。只是眼下更要先稳住粮赋这一头。',
+        })
+
+        expect(messages[1]?.content).toContain('南陈回信原文')
+        expect(messages[1]?.content).toContain('尚书省、度支、司农、都督府、州县诸司')
+        expect(messages[1]?.content).toContain('不得照抄密批')
+        expect(messages[1]?.content).toContain('不得虚构具名南陈朝臣')
+    })
+})

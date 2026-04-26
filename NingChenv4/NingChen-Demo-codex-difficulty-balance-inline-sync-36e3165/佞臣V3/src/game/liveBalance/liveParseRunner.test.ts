@@ -29,7 +29,7 @@ describe('liveParseRunner', () => {
             dominantIntent: 'strategize',
             evidence: [],
         }))
-        getAiModeMock.mockReturnValue('kimi')
+        getAiModeMock.mockReturnValue('deepseek')
 
         const { runNorthLiveParse } = await import('./liveParseRunner')
         const record = await runNorthLiveParse({
@@ -47,7 +47,7 @@ describe('liveParseRunner', () => {
 
     it('records fallback when service returns non-json text', async () => {
         chatCompletionMock.mockResolvedValue('朝堂暗流涌动，诸般布局正在悄然发酵。')
-        getAiModeMock.mockReturnValue('kimi')
+        getAiModeMock.mockReturnValue('deepseek')
 
         const { runNorthLiveParse } = await import('./liveParseRunner')
         const record = await runNorthLiveParse({
@@ -80,7 +80,7 @@ describe('liveParseRunner', () => {
                 dominantIntent: 'strategize',
                 evidence: ['第一条', '第二条'],
             }))
-        getAiModeMock.mockReturnValue('kimi')
+        getAiModeMock.mockReturnValue('deepseek')
 
         const { runNorthLiveParse } = await import('./liveParseRunner')
         const record = await runNorthLiveParse({
@@ -103,7 +103,7 @@ describe('liveParseRunner', () => {
 
     it('passes structured omen input through fallback parsing', async () => {
         chatCompletionMock.mockResolvedValue('not-json')
-        getAiModeMock.mockReturnValue('kimi')
+        getAiModeMock.mockReturnValue('deepseek')
 
         const { runNorthLiveParse } = await import('./liveParseRunner')
         const record = await runNorthLiveParse({

@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import {
     SchemeFeedback,
     canProceedFromSchemeFeedback,
+    getSchemeFeedbackProceedLabel,
     getVisibleAvailableFollowUpId,
     orchestrateOmenEchoFeedback,
     shouldQueueRecoveryParse,
@@ -77,6 +78,7 @@ function createState(): any {
         npcFeedbacks: [],
         currentSchemes: [],
         npcs: [],
+        lastSettlement: null,
         factions: [],
         relationships: [],
         intelProgress: {},
@@ -148,10 +150,20 @@ describe('SchemeFeedback orchestration', () => {
         expect(schemeFeedbackSource).toContain('你的回应')
         expect(schemeFeedbackSource).toContain('写下你的补充说明')
         expect(schemeFeedbackSource).toContain('跳过追问')
-        expect(schemeFeedbackSource).toContain('查看结算')
+        expect(schemeFeedbackSource).toContain('揭示筹算结果')
+        expect(schemeFeedbackSource).toContain('进入女帝回信')
+        expect(schemeFeedbackSource).toContain('查看终局')
         expect(schemeFeedbackSource).not.toContain('璁¤皨鍥炴姤')
         expect(schemeFeedbackSource).not.toContain('杩介棶')
         expect(schemeFeedbackSource).not.toContain('浣犵殑鍥炲簲')
+    })
+
+    it('renders settlement results and court net reports on the feedback page', () => {
+        expect(schemeFeedbackSource).toContain('<h3 className="section-title">计谋筹算结果</h3>')
+        expect(schemeFeedbackSource).toContain('lastSettlement.schemeResults.map')
+        expect(schemeFeedbackSource).toContain('lastSettlement.schemeOutcomeExplanations?.[index]')
+        expect(schemeFeedbackSource).toContain('<h3 className="section-title">朝堂收网</h3>')
+        expect(schemeFeedbackSource).toContain('lastSettlement.borrowedBladeReports.map')
     })
     it('uses full-body ghost portraits instead of small avatars in feedback cards', () => {
         expect(schemeFeedbackSource).toContain('className="feedback-ghost-portrait"')
@@ -214,7 +226,7 @@ describe('orchestrateOmenEchoFeedback', () => {
             },
             updateNpcFeedbackOmenEcho,
             chatCompletionImpl,
-            getAiModeImpl: () => 'kimi',
+            getAiModeImpl: () => 'deepseek',
             selectSpeakerImpl: () => ({
                 speakerNpc,
                 candidateCount: 1,
@@ -357,7 +369,7 @@ describe('orchestrateOmenEchoFeedback', () => {
             },
             updateNpcFeedbackOmenEcho,
             chatCompletionImpl,
-            getAiModeImpl: () => 'kimi',
+            getAiModeImpl: () => 'deepseek',
             selectSpeakerImpl: () => ({
                 speakerNpc,
                 candidateCount: 1,
@@ -518,6 +530,51 @@ describe('canProceedFromSchemeFeedback', () => {
     })
 })
 
+describe('getSchemeFeedbackProceedLabel', () => {
+    it('uses stage-specific labels for feedback, settlement reveal, and onward flow', () => {
+        expect(
+            getSchemeFeedbackProceedLabel({
+                allDone: false,
+                allParsed: true,
+                settlementRevealed: false,
+                terminalResult: false,
+            }),
+        ).toBe('等待计谋回报')
+        expect(
+            getSchemeFeedbackProceedLabel({
+                allDone: true,
+                allParsed: false,
+                settlementRevealed: false,
+                terminalResult: false,
+            }),
+        ).toBe('等待解析完成')
+        expect(
+            getSchemeFeedbackProceedLabel({
+                allDone: true,
+                allParsed: true,
+                settlementRevealed: false,
+                terminalResult: false,
+            }),
+        ).toBe('揭示筹算结果')
+        expect(
+            getSchemeFeedbackProceedLabel({
+                allDone: true,
+                allParsed: true,
+                settlementRevealed: true,
+                terminalResult: false,
+            }),
+        ).toBe('进入女帝回信')
+        expect(
+            getSchemeFeedbackProceedLabel({
+                allDone: true,
+                allParsed: true,
+                settlementRevealed: true,
+                terminalResult: true,
+            }),
+        ).toBe('查看终局')
+    })
+})
+
 describe('getVisibleAvailableFollowUpId', () => {
     it('only exposes one available follow-up even if stale state contains several', () => {
         expect(
@@ -660,6 +717,71 @@ describe('SchemeFeedback', () => {
         expect(markup).toContain('发送回应')
         expect(markup).toContain('feedback-follow-up')
         expect(markup).toContain('发送回应')
+    })
+
+    it('renders revealed settlement cards below NPC feedback before leaving the page', () => {
+        state.schemeOnboardingSeen.first_follow_up_teaching = true
+        state.currentSchemes = [
+            {
+                id: 'scheme-1',
+                targetNpcId: 'npc-1',
+                schemeType: 'advise',
+                playerSpeech: 'offer advice',
+                northParse: createNorthParse(),
+            },
+        ]
+        state.npcs = [createNpc({ id: 'npc-1', name: '祖廷' })]
+        state.npcFeedbacks = [
+            {
+                id: 'scheme-1',
+                npcId: 'npc-1',
+                npcName: '祖廷',
+                schemeType: 'advise',
+                schemeName: '献策',
+                playerSpeech: 'offer advice',
+                feedback: '祖廷已经听进去。',
+                isLoading: false,
+                source: 'local',
+            },
+        ]
+        state.lastSettlement = {
+            gameResult: 'NONE',
+            processedSchemes: state.currentSchemes,
+            schemeResults: [
+                {
+                    success: true,
+                    feedbackText: '祖廷略作沉吟，显然已被你的献策拨动了算盘。',
+                    trustChange: 8,
+                    northDimensionChanges: { governance: -0.2 },
+                },
+            ],
+            schemeOutcomeExplanations: [
+                {
+                    segments: [
+                        { label: '国力影响', text: '北周治理穿透力被削弱。' },
+                        { label: '朝堂政局', text: '祖廷更愿意听你的话。' },
+                    ],
+                },
+            ],
+            borrowedBladeReports: [
+                {
+                    actorNpcId: 'npc-1',
+                    actorNpcName: '祖廷',
+                    targetNpcId: 'npc-2',
+                    targetNpcName: '宇文棣',
+                    outcome: 'dismissed',
+                    summary: '祖廷入奏帘前，宇文棣被迫退让。',
+                },
+            ],
+        }
+
+        const markup = renderToStaticMarkup(<SchemeFeedback />)
+
+        expect(markup).toContain('计谋筹算结果')
+        expect(markup).toContain('国力影响')
+        expect(markup).toContain('朝堂政局')
+        expect(markup).toContain('朝堂收网')
+        expect(markup).toContain('进入女帝回信')
     })
 })
 

@@ -10,6 +10,7 @@ import { useMediaStore } from './stores/mediaStore'
 const Cover = lazy(() => import('./components/Cover/Cover').then(module => ({ default: module.Cover })))
 const CourtView = lazy(() => import('./components/CourtView/CourtView').then(module => ({ default: module.CourtView })))
 const EmpressLetter = lazy(() => import('./components/EmpressLetter/EmpressLetter').then(module => ({ default: module.EmpressLetter })))
+const EmpressReply = lazy(() => import('./components/EmpressReply/EmpressReply').then(module => ({ default: module.EmpressReply })))
 const Ending = lazy(() => import('./components/Ending/Ending').then(module => ({ default: module.Ending })))
 const CharacterBios = lazy(() => import('./components/CharacterBios/CharacterBios').then(module => ({ default: module.CharacterBios })))
 const GameplayGuide = lazy(() => import('./components/GameplayGuide/GameplayGuide').then(module => ({ default: module.GameplayGuide })))
@@ -39,6 +40,7 @@ export function shouldHideGlobalHeader(prologueStep: string, currentPhase: strin
         currentPhase === 'SCHEME_PHASE' ||
         currentPhase === 'EMPRESS_LETTER' ||
         currentPhase === 'SCHEME_FEEDBACK' ||
+        currentPhase === 'EMPRESS_REPLY' ||
         currentPhase === 'SETTLEMENT' ||
         currentPhase === 'ROUND_END'
 
@@ -105,6 +107,8 @@ function App() {
                 return <EmpressLetter />
             case 'SCHEME_FEEDBACK':
                 return <SchemeFeedback />
+            case 'EMPRESS_REPLY':
+                return <EmpressReply />
             case 'SETTLEMENT':
                 return <Settlement />
             case 'ROUND_END':

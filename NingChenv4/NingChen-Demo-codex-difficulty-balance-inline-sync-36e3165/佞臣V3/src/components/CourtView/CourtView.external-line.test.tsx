@@ -30,7 +30,7 @@ describe('CourtView card presentation', () => {
 
         expect(markup).toContain('朝堂局势')
         expect(markup).not.toContain('朝堂观察')
-        expect(markup).not.toContain('冯道之旁批')
+        expect(markup).toContain('冯道之旁批')
         expect(markup).toContain('南征风向')
         expect(markup).toContain('自身安危')
         expect((markup.match(/status-help-seal/g) ?? []).length).toBe(2)

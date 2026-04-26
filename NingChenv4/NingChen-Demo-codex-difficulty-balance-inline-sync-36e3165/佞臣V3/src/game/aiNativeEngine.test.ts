@@ -1,9 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import { chatCompletionJson } from '../ai/aiService'
+import { clearAiGameMasterDebugRecords, getAiGameMasterDebugRecords } from './aiGameMasterDebug'
 import {
     fallbackNorthParseFromSpeech,
     fallbackPolicyParseFromReason,
+    parseSchemeFollowUpInput,
     parseNorthSchemeInput,
     normalizeNorthSchemeParse,
     normalizePolicyReasonParse,
@@ -17,6 +19,11 @@ const chatCompletionJsonMock = vi.mocked(chatCompletionJson)
 
 beforeEach(() => {
     chatCompletionJsonMock.mockReset()
+    clearAiGameMasterDebugRecords()
+})
+
+afterEach(() => {
+    delete (globalThis as { __NINGCHEN_AI_GM_DEBUG__?: boolean }).__NINGCHEN_AI_GM_DEBUG__
 })
 
 describe('normalizeNorthSchemeParse', () => {
@@ -94,6 +101,27 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.grainRelevance).toBeGreaterThan(0.35)
         expect(parsed.structuralPenetration).toBeGreaterThan(0.35)
         expect(parsed.executability).toBeGreaterThan(0.45)
+    })
+
+    it('keeps keyword-only fallback text weaker than actionable structural text', () => {
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+
+        const keywordOnly = fallbackNorthParseFromSpeech({
+            speech: '军令粮道皆是大事，朝局复杂，人心不稳，诸事都该谨慎。',
+            npc: zuting,
+            round: 10,
+            schemeType: 'advise',
+        })
+        const actionable = fallbackNorthParseFromSpeech({
+            speech: '可先清点仓储，再把粮道转运与军令节次收回中枢，由御史逐项核账。',
+            npc: zuting,
+            round: 10,
+            schemeType: 'advise',
+        })
+
+        expect(actionable.executability).toBeGreaterThan(keywordOnly.executability)
+        expect(actionable.structuralPenetration).toBeGreaterThan(keywordOnly.structuralPenetration)
+        expect(actionable.grainRelevance).toBeGreaterThan(keywordOnly.grainRelevance)
     })
 
     it('adds polarity fields to fallback north parse results', () => {
@@ -272,6 +300,59 @@ describe('normalizeNorthSchemeParse', () => {
         expect(parsed.centralSanctionLeverage).toBeGreaterThan(0.4)
         expect(parsed.omenPolarity).toBe('destabilizing')
     })
+
+    it('falls back when remote north parse lacks the core numeric schema', async () => {
+        ;(globalThis as { __NINGCHEN_AI_GM_DEBUG__?: boolean }).__NINGCHEN_AI_GM_DEBUG__ = true
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+        chatCompletionJsonMock.mockResolvedValue({
+            characterFit: 0.99,
+            evidence: ['missing most fields'],
+        })
+
+        const parsed = await parseNorthSchemeInput({
+            round: 10,
+            npc: zuting,
+            schemeType: 'advise',
+            speech: '可先清点仓储，再把粮道转运与军令节次收回中枢，由御史逐项核账。',
+            eventName: '西线粮道吃紧',
+            eventBriefing: '朝中争论军令、粮道与中枢调度。',
+        })
+
+        expect(chatCompletionJsonMock).toHaveBeenCalledTimes(1)
+        expect(parsed.characterFit).toBeLessThan(0.99)
+        expect(parsed.governanceRelevance).toBeGreaterThan(0.35)
+        expect(getAiGameMasterDebugRecords().at(-1)?.source).toBe('invalid_ai_fallback')
+    })
+
+    it('marks valid AI north parses that needed fallback dimension merging', async () => {
+        ;(globalThis as { __NINGCHEN_AI_GM_DEBUG__?: boolean }).__NINGCHEN_AI_GM_DEBUG__ = true
+        const zuting = INITIAL_NPCS.find(npc => npc.id === 'zuting')!
+        chatCompletionJsonMock.mockResolvedValue({
+            characterFit: 0.72,
+            eventFit: 0.7,
+            structuralPenetration: 0.64,
+            executability: 0.68,
+            exposureRisk: 0.18,
+            financeRelevance: 0,
+            grainRelevance: 0,
+            militaryRelevance: 0,
+            socialOrderRelevance: 0,
+            governanceRelevance: 0,
+            dominantIntent: 'strategize',
+            evidence: ['valid core but blank dimensions'],
+        })
+
+        await parseNorthSchemeInput({
+            round: 10,
+            npc: zuting,
+            schemeType: 'advise',
+            speech: '可先清点仓储，再把粮道转运与军令节次收回中枢，由御史逐项核账。',
+            eventName: '西线粮道吃紧',
+            eventBriefing: '朝中争论军令、粮道与中枢调度。',
+        })
+
+        expect(getAiGameMasterDebugRecords().at(-1)?.source).toBe('ai_with_fallback_merge')
+    })
 })
 
 describe('normalizePolicyReasonParse', () => {
@@ -306,5 +387,75 @@ describe('normalizePolicyReasonParse', () => {
         expect(parsed.executionClarity).toBeGreaterThan(0.45)
         expect(parsed.costAwareness).toBeGreaterThan(0.2)
         expect(parsed.policyStance).toBe('balanced')
+    })
+
+    it('keeps slogan-only policy reasoning conservative in local fallback', () => {
+        const parsed = fallbackPolicyParseFromReason(
+            '臣以为当以民为本，稳住人心，徐图后效。',
+            {
+                aiScoringFocus: '是否考虑流民安置与资源分配',
+                legitimacyEffect: 'steady',
+            },
+        )
+
+        expect(parsed.focusAlignment).toBeLessThan(0.35)
+        expect(parsed.executionClarity).toBeLessThan(0.25)
+    })
+})
+
+describe('parseSchemeFollowUpInput', () => {
+    it('does not reward long but non-substantive fallback replies as successful clarification', async () => {
+        chatCompletionJsonMock.mockResolvedValue(null)
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
+
+        const parsed = await parseSchemeFollowUpInput({
+            round: 6,
+            eventName: '测试事件',
+            eventBriefing: '测试局势',
+            npc,
+            schemeType: 'advise',
+            originalSpeech: '原始说辞',
+            originalParse: normalizeNorthSchemeParse({
+                characterFit: 0.52,
+                eventFit: 0.45,
+                structuralPenetration: 0.42,
+                executability: 0.5,
+                exposureRisk: 0.22,
+            }),
+            npcQuestion: '你究竟要本官如何落笔？',
+            playerReply: '此事自当从长计议，稳住大局，免得朝中人心浮动。',
+        })
+
+        expect(parsed.successRateDelta).toBe(0)
+        expect(parsed.effectMultiplierDelta).toBe(0)
+        expect(parsed.contradictionRisk).toBeGreaterThan(0.2)
+    })
+
+    it('falls back when remote follow-up parse lacks the required delta schema', async () => {
+        chatCompletionJsonMock.mockResolvedValue({
+            clarificationFit: 0.9,
+        })
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
+
+        const parsed = await parseSchemeFollowUpInput({
+            round: 6,
+            eventName: '测试事件',
+            eventBriefing: '测试局势',
+            npc,
+            schemeType: 'advise',
+            originalSpeech: '原始说辞',
+            originalParse: normalizeNorthSchemeParse({
+                characterFit: 0.52,
+                eventFit: 0.45,
+                structuralPenetration: 0.42,
+                executability: 0.5,
+                exposureRisk: 0.22,
+            }),
+            npcQuestion: '你究竟要本官如何落笔？',
+            playerReply: '不是要你明争，而是先把粮道核账写成例行清查，再请太后顺势收紧。',
+        })
+
+        expect(parsed.clarificationFit).toBeLessThan(0.9)
+        expect(parsed.evidence[0]).toContain('追问')
     })
 })

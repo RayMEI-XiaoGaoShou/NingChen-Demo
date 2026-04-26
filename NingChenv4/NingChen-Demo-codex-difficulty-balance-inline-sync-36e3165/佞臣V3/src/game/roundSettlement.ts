@@ -89,10 +89,19 @@ export interface JudgeFacts {
     aiNativeSummary: AiNativeSummary
 }
 
+export interface SettlementKeyChangeHighlight {
+    id: string
+    category: 'external' | 'faction' | 'court'
+    title: string
+    text: string
+    tone: 'positive' | 'negative' | 'neutral'
+}
+
 export interface RoundSettlementResult {
     processedSchemes: SchemeAction[]
     schemeResults: SchemeResult[]
     schemeOutcomeExplanations: SchemeOutcomeExplanation[]
+    keyChangeHighlights: SettlementKeyChangeHighlight[]
     updatedNpcs: NPC[]
     factionsAfter: Faction[]
     relationshipsAfter: RelationshipEdge[]
@@ -605,12 +614,19 @@ export function settleRound(params: {
         shuCampaign,
         huainanCampaign,
     })
+    const keyChangeHighlights = buildSettlementKeyChangeHighlights({
+        beforeNpcs: params.npcs,
+        afterNpcs: updatedNpcs,
+        beforeFactions: params.factions,
+        afterFactions: factionsAfter,
+    })
     const campaignMomentumSurface = getCampaignMomentumSurface(round, shuMomentum, huainanMomentum)
 
     return {
         processedSchemes,
         schemeResults,
         schemeOutcomeExplanations,
+        keyChangeHighlights,
         updatedNpcs,
         factionsAfter,
         relationshipsAfter,
@@ -1033,6 +1049,131 @@ function summarizeRelationshipReports(reports: RelationshipReport[]): string {
 function summarizeFactionCollapseReports(reports: FactionCollapseReport[]): string {
     if (reports.length === 0) return ''
     return reports.map(report => report.summary).join('；')
+}
+
+function buildSettlementKeyChangeHighlights(params: {
+    beforeNpcs: NPC[]
+    afterNpcs: NPC[]
+    beforeFactions: Faction[]
+    afterFactions: Faction[]
+}): SettlementKeyChangeHighlight[] {
+    const highlights: SettlementKeyChangeHighlight[] = []
+
+    for (const after of params.afterNpcs) {
+        const before = params.beforeNpcs.find(npc => npc.id === after.id)
+        if (!before) continue
+
+        if (after.powerBase === 'external') {
+            const trustDelta = round(after.trust - before.trust)
+            const loyaltyDelta = round(after.loyaltyToCourt - before.loyaltyToCourt)
+            const militaryDelta = round(after.militaryPower - before.militaryPower)
+            const statusChanged = after.externalStatus !== before.externalStatus
+            const shouldShow =
+                Math.abs(trustDelta) >= 3 ||
+                Math.abs(loyaltyDelta) >= 3 ||
+                Math.abs(militaryDelta) >= 2 ||
+                statusChanged
+
+            if (shouldShow) {
+                const deltas = [
+                    trustDelta !== 0 ? `信任${signed(trustDelta)}` : '',
+                    loyaltyDelta !== 0 ? `忠诚${signed(loyaltyDelta)}` : '',
+                    militaryDelta !== 0 ? `军力${signed(militaryDelta)}` : '',
+                    statusChanged ? `状态转为${getExternalStatusNarrativeLabel(after.externalStatus)}` : '',
+                ].filter(Boolean)
+                const reason = statusChanged
+                    ? '这已经不只是态度松动，而是地方军头公开改变了与中枢的关系。'
+                    : '这说明你的计谋已经从言语层面传到地方军头的资源、兵势或离心程度上。'
+
+                highlights.push({
+                    id: `external-${after.id}`,
+                    category: 'external',
+                    title: `${after.name}动向`,
+                    text: `${after.name}：${deltas.join('，')}。${reason}`,
+                    tone: loyaltyDelta < 0 || militaryDelta < 0 || statusChanged ? 'negative' : 'positive',
+                })
+            }
+        }
+
+        if (after.powerBase === 'court') {
+            const emperorDelta = round((after.emperorFavor ?? 100) - (before.emperorFavor ?? 100))
+            const dowagerDelta = round((after.empressDowagerFavor ?? 100) - (before.empressDowagerFavor ?? 100))
+            const statusChanged = Boolean(
+                after.courtStatus &&
+                after.courtStatus !== 'active' &&
+                after.courtStatus !== before.courtStatus,
+            )
+            const shouldShow = Math.abs(emperorDelta) >= 4 || Math.abs(dowagerDelta) >= 4 || statusChanged
+
+            if (shouldShow) {
+                const deltas = [
+                    emperorDelta !== 0 ? `皇帝恩宠${signed(emperorDelta)}` : '',
+                    dowagerDelta !== 0 ? `太后眷顾${signed(dowagerDelta)}` : '',
+                    statusChanged ? `状态转为${getCourtStatusNarrativeLabel(after.courtStatus)}` : '',
+                ].filter(Boolean)
+                highlights.push({
+                    id: `court-${after.id}`,
+                    category: 'court',
+                    title: `${after.name}处境`,
+                    text: `${after.name}：${deltas.join('，')}。这类变化意味着他在御前或帘前的庇护正在改变，后续借刀、罢黜或处置的空间也会随之变化。`,
+                    tone: emperorDelta < 0 || dowagerDelta < 0 || statusChanged ? 'negative' : 'positive',
+                })
+            }
+        }
+    }
+
+    for (const after of params.afterFactions) {
+        const before = params.beforeFactions.find(faction => faction.id === after.id)
+        if (!before) continue
+
+        const influenceDelta = round(after.courtInfluence - before.courtInfluence)
+        const stabilityDelta = round(after.internalStability - before.internalStability)
+        const militaryDelta = round(after.militaryPower - before.militaryPower)
+        const shouldShow =
+            Math.abs(influenceDelta) >= 0.8 ||
+            Math.abs(stabilityDelta) >= 0.8 ||
+            Math.abs(militaryDelta) >= 0.8
+
+        if (!shouldShow) continue
+
+        const deltas = [
+            influenceDelta !== 0 ? `朝堂影响${signed(influenceDelta)}` : '',
+            stabilityDelta !== 0 ? `内部稳定${signed(stabilityDelta)}` : '',
+            militaryDelta !== 0 ? `军事实力${signed(militaryDelta)}` : '',
+        ].filter(Boolean)
+
+        highlights.push({
+            id: `faction-${after.id}`,
+            category: 'faction',
+            title: `${after.name}消长`,
+            text: `${after.name}：${deltas.join('，')}。这代表本回合的计谋已经影响到派系层面的调度、声势或内聚力。`,
+            tone: influenceDelta < 0 || stabilityDelta < 0 || militaryDelta < 0 ? 'negative' : 'positive',
+        })
+    }
+
+    return dedupeHighlights(highlights).slice(0, 8)
+}
+
+function dedupeHighlights(highlights: SettlementKeyChangeHighlight[]): SettlementKeyChangeHighlight[] {
+    const seen = new Set<string>()
+    return highlights.filter(item => {
+        if (seen.has(item.id)) return false
+        seen.add(item.id)
+        return true
+    })
+}
+
+function getExternalStatusNarrativeLabel(status: NPC['externalStatus']): string {
+    if (status === 'secession') return '已割据'
+    if (status === 'rebellion') return '已造反'
+    if (status === 'watchful') return '观望'
+    return '仍属中枢'
+}
+
+function getCourtStatusNarrativeLabel(status: NPC['courtStatus']): string {
+    if (status === 'dismissed') return '已被罢黜'
+    if (status === 'executed') return '已被处决'
+    return '仍在朝'
 }
 
 function buildJudgeFacts(params: {
