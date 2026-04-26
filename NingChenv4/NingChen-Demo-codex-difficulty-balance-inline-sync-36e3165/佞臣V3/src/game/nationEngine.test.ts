@@ -201,6 +201,61 @@ describe('calculatePolicyEffect', () => {
         expect(aligned.socialOrder).toBeGreaterThan(plain.socialOrder ?? 0)
     })
 
+    it('trims base positive policy effects before rewarding authored reasons', () => {
+        const plain = calculatePolicyEffect(
+            { grain: 3, governance: 1 },
+            '',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
+                round: 2,
+            },
+        )
+
+        expect(plain.grain ?? 0).toBeLessThan(2)
+        expect(plain.governance ?? 0).toBeLessThan(0.8)
+    })
+
+    it('lets strong cost-aware reasons soften policy downsides without exposing raw scores', () => {
+        const strong = calculatePolicyEffect(
+            { military: 3, finance: -2, grain: -1 },
+            '先定军令，再按月核粮饷和转运，不足处先从州郡调剂，避免一口气掏空国库。',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否有清晰的战役目标与后勤意识',
+                round: 16,
+                policyParse: {
+                    focusAlignment: 0.86,
+                    executionClarity: 0.82,
+                    costAwareness: 0.88,
+                    legitimacyAlignment: 0.62,
+                    policyStance: 'balanced',
+                    evidence: [],
+                },
+            },
+        )
+        const weak = calculatePolicyEffect(
+            { military: 3, finance: -2, grain: -1 },
+            '速速进兵。',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否有清晰的战役目标与后勤意识',
+                round: 16,
+                policyParse: {
+                    focusAlignment: 0.25,
+                    executionClarity: 0.18,
+                    costAwareness: 0.08,
+                    legitimacyAlignment: 0.2,
+                    policyStance: 'aggressive',
+                    evidence: [],
+                },
+            },
+        )
+
+        expect(strong.military ?? 0).toBeGreaterThan(weak.military ?? 0)
+        expect(strong.finance ?? 0).toBeGreaterThan(weak.finance ?? 0)
+    })
+
     it('lets clear execution and cost-aware policy reasons outperform generic righteous wording', () => {
         const strong = calculatePolicyEffect(
             { grain: 3, governance: 1 },

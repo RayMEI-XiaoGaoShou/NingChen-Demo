@@ -67,6 +67,11 @@ function makeEmpressFeedbackContext(): EmpressFeedbackContext {
         playerDangerStage: 'under_watch',
         playerPositionSummary: '萧宝颖眼下已在北周被人留意，回批宜更收束，不宜把话说得太满。',
         recentAftereffectSummary: '上一回合的问政余波仍在发酵。',
+        concernTitle: '淮南军书',
+        concernOpening: '淮南军书压到案前，朕读你的字，倒更想起你也在另一处战场。',
+        concernClosingHint: '结尾宜强调战役可进，后勤与性命不可轻掷。',
+        playerConcernOverlay: '萧宝颖眼下已被北周留意，回信应半是提醒、半是寄望，语气要更收。',
+        policyImplementationHint: '这条附言可转成具体政令：先定粮道与军籍，再责成都督府、州郡诸司分头承办。',
     }
 }
 
@@ -82,6 +87,9 @@ describe('buildEmpressFeedbackPrompt', () => {
         expect(prompt).toContain('南陈当前重心：')
         expect(prompt).toContain('北方镜像：')
         expect(prompt).toContain('萧宝颖处境：')
+        expect(prompt).toContain('本回合牵挂模板【淮南军书】')
+        expect(prompt).toContain('政令落地线索：')
+        expect(prompt).toContain('不要照抄“实际影响”或任何加减数字')
         expect(prompt).toContain('问政题目：江北将战')
     })
 })

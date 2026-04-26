@@ -60,9 +60,12 @@ export function applyDimensionChanges(
 
 /**
  * 问政对南陈国力的影响
- * 规则：选项影响占 80%，理由修正 ±20%
- * 参考：天道判官结算规则.md §4
+ * 规则：选项决定基础方向，附言决定执行成色。
+ * 基础正向收益轻收，质量足够的附言再给受限补正，避免南陈因 AI Native 层单向增强。
  */
+const POLICY_BASE_POSITIVE_SCALE = 0.86
+const POLICY_REASON_SUPPLEMENT_CAP = 1.2
+
 export function calculatePolicyEffect(
     optionEffects: Partial<NationDimensions>,
     reasonText: string,
@@ -76,7 +79,17 @@ export function calculatePolicyEffect(
     const result: Partial<NationDimensions> = {}
     for (const [key, value] of Object.entries(optionEffects)) {
         if (value !== undefined) {
-            result[key as keyof NationDimensions] = Math.round(value * reasonModifier * profile.policyImmediateMultiplier * 10) / 10
+            const baseValue = value > 0 ? value * POLICY_BASE_POSITIVE_SCALE : value
+            const modifier = value < 0 ? calculatePolicyCostModifier(parse) : reasonModifier
+            result[key as keyof NationDimensions] = Math.round(baseValue * modifier * profile.policyImmediateMultiplier * 10) / 10
+        }
+    }
+
+    if (reasonText.trim()) {
+        const supplement = calculatePolicyReasonSupplement(optionEffects, parse, meta, difficulty)
+        for (const [key, value] of Object.entries(supplement) as Array<[keyof NationDimensions, number | undefined]>) {
+            if (!value) continue
+            result[key] = roundOneDecimal((result[key] ?? 0) + value)
         }
     }
     return result
@@ -96,6 +109,68 @@ function calculateReasonModifier(parse: PolicyReasonParseResult, round: number):
             ) * phaseScale,
         ),
     )
+}
+
+function calculatePolicyCostModifier(parse: PolicyReasonParseResult): number {
+    const mitigation = 1 - parse.costAwareness * 0.34 - parse.executionClarity * 0.12
+    const weakCostPenalty =
+        Math.max(0, 0.48 - parse.costAwareness) * 0.35
+        + Math.max(0, 0.45 - parse.executionClarity) * 0.2
+
+    return Math.max(0.58, Math.min(1.25, mitigation + weakCostPenalty))
+}
+
+function calculatePolicyReasonSupplement(
+    optionEffects: Partial<NationDimensions>,
+    parse: PolicyReasonParseResult,
+    meta: PolicyResolutionMeta,
+    difficulty: GameDifficulty,
+): Partial<NationDimensions> {
+    const quality =
+        parse.focusAlignment * 0.34
+        + parse.executionClarity * 0.28
+        + parse.costAwareness * 0.2
+        + parse.legitimacyAlignment * 0.18
+    if (quality < 0.56 || parse.focusAlignment < 0.48) return {}
+
+    const profile = getDifficultyProfile(difficulty)
+    const roundScale = getPolicyAftereffectScale(meta.round ?? 1)
+    let remaining = Math.min(
+        POLICY_REASON_SUPPLEMENT_CAP,
+        Math.max(0, (quality - 0.5) * 2.35 * profile.policyAftereffectMultiplier * (0.82 + roundScale * 0.24)),
+    )
+    if (remaining <= 0) return {}
+
+    const supplement: Partial<NationDimensions> = {}
+    const positiveEntries = (Object.entries(optionEffects) as Array<[keyof NationDimensions, number | undefined]>)
+        .filter(([, value]) => typeof value === 'number' && value > 0)
+        .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+
+    const add = (dimension: keyof NationDimensions, amount: number) => {
+        if (remaining <= 0 || amount <= 0) return
+        const applied = Math.min(remaining, amount)
+        supplement[dimension] = roundOneDecimal((supplement[dimension] ?? 0) + applied)
+        remaining = roundOneDecimal(remaining - applied)
+    }
+
+    const primary = positiveEntries[0]?.[0] ?? 'governance'
+    add(primary, 0.28 + parse.focusAlignment * 0.28)
+
+    if (parse.executionClarity >= 0.58) {
+        add(positiveEntries[1]?.[0] ?? 'governance', 0.18 + parse.executionClarity * 0.18)
+    }
+
+    if (parse.costAwareness >= 0.58) {
+        const negative = (Object.entries(optionEffects) as Array<[keyof NationDimensions, number | undefined]>)
+            .find(([, value]) => typeof value === 'number' && value < 0)
+        add(negative?.[0] ?? 'socialOrder', 0.16 + parse.costAwareness * 0.16)
+    }
+
+    if (parse.legitimacyAlignment >= 0.62 || meta.legitimacyEffect === 'up') {
+        add(meta.legitimacyEffect === 'up' ? 'socialOrder' : 'governance', 0.12 + parse.legitimacyAlignment * 0.16)
+    }
+
+    return supplement
 }
 
 export function buildPolicyAftereffect(params: {

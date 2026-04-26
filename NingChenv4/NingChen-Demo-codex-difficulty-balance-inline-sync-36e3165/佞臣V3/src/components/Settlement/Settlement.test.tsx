@@ -31,9 +31,10 @@ describe('Settlement helpers', () => {
 
     it('builds a terse default empress reply when no policy reason was authored', () => {
         expect(buildSettlementDefaultEmpressReply(null)).toBeNull()
-        expect(buildSettlementDefaultEmpressReply({ optionContent: '清点户籍仓廪' })).toBe(
-            '朕已按“清点户籍仓廪”着手施行。',
-        )
+        const reply = buildSettlementDefaultEmpressReply({ optionContent: '清点户籍仓廪' })
+        expect(reply).toContain('朕知你在北庭周旋')
+        expect(reply).toContain('朕已按“清点户籍仓廪”着手施行')
+        expect(reply).not.toContain('+')
     })
 
     it('keeps fallback imperial and richer when the player did author a reason', () => {
@@ -44,6 +45,8 @@ describe('Settlement helpers', () => {
                 weakestDimensionLabel: '军事',
                 warWindow: true,
                 playerDangerStage: 'under_watch',
+                concernOpening: '淮南军书压到案前，朕读你的字，倒更想起你也在另一处战场。',
+                concernClosingHint: '结尾宜强调战役可进，后勤与性命不可轻掷。',
             }),
         ).toContain('朕已按“先整军令，再催粮道”着手施行。')
     })

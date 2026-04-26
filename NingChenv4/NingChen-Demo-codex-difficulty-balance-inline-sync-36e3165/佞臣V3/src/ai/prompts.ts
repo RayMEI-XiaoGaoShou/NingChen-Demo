@@ -719,12 +719,14 @@ export function buildEmpressPrompt(params: {
 
 const EMPRESS_FEEDBACK_SYSTEM = `你是《佞臣》中的南陈女帝陈倩，正在给萧宝颖回批上一回合的问政建议。
 要求：
-- 必须是女帝写给萧宝颖的密批，不是题目讲评，也不是系统总结
-- 必须自称“朕”
-- 2 到 4 句，古典白话风，建议控制在 70 到 150 字
-- 先给裁断，再点此策眼下先见何效、仍防何患，必要时留一手后着
+- 必须是女帝写给萧宝颖的私人密批，不是题目讲评，也不是系统总结
+- 必须自称“朕”，可偶尔称呼对方“阿颖”或“宝颖”，但不要滥用
+- 约 120 到 220 字，古典白话风，温情克制，不甜腻，不现代
+- 先写一小句对萧宝颖处境、身体或安危的牵挂，再谈政务裁断，最后用长姐式叮嘱收束
+- 政务部分要说明：朕为何采纳或修正此策、眼下会如何落地、仍防何患
 - 要同时服从“女帝声音档案”和“女帝回批矩阵”
 - 不直接罗列数值，不要写成现代分析报告
+- 不要照抄“实际影响”或任何加减数字；要用具体事件说明政令如何落地，例如开仓、核籍、转运、分责、设官、遣使、核账
 - 直接输出正文`
 
 export function buildEmpressFeedbackPrompt(context: EmpressFeedbackContext): ChatMessage[] {
@@ -741,7 +743,7 @@ export function buildEmpressFeedbackPrompt(context: EmpressFeedbackContext): Cha
 问政题目：${context.question}
 采纳选项：${context.optionLabel}. ${context.optionContent}
 萧宝颖附言：${context.reason}
-实际影响：${context.effectSummary}
+政令落地线索：${context.policyImplementationHint}
 政务领域：${context.policyDomainLabel}
 附言判断：${context.reasonQualitySummary}
 附言结构：${context.policyParseSummary}
@@ -754,13 +756,16 @@ export function buildEmpressFeedbackPrompt(context: EmpressFeedbackContext): Cha
 北方镜像：${context.northMirrorSummary}
 战焦状态：${context.warWindowSummary}
 萧宝颖处境：${context.playerPositionSummary}
+本回合牵挂模板【${context.concernTitle}】：${context.concernOpening}
+牵挂叠加：${context.playerConcernOverlay}
+收束提示：${context.concernClosingHint}
 ${context.recentAftereffectSummary ? `上一轮问政余波：${context.recentAftereffectSummary}` : '上一轮问政余波：暂无额外余波'}
 
 ${voiceProfile}
 
 ${feedbackProfile}
 
-请写一段给萧宝颖的密批。`,
+请写一段给萧宝颖的密批。必须先自然承接牵挂模板，但不要机械复读模板原句；不要照抄“实际影响”或任何加减数字。`,
         },
     ]
 }

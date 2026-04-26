@@ -59,6 +59,10 @@ describe('buildEmpressFeedbackContext', () => {
         expect(context.reasonQuality).toBe('high')
         expect(context.northMirrorSummary).toContain('淮南兵马将动')
         expect(context.playerPositionSummary).toContain('北周')
+        expect(context.concernTitle).toBe('淮南军书')
+        expect(context.concernOpening).toContain('淮南军书')
+        expect(context.playerConcernOverlay).toContain('留意')
+        expect(context.policyImplementationHint).toContain('粮道')
     })
 
     it('falls back to governance when no parse is available and no positive dimension dominates', () => {
@@ -88,5 +92,7 @@ describe('buildEmpressFeedbackContext', () => {
         expect(context.policyDomain).toBe('governance')
         expect(context.reasonQuality).toBe('low')
         expect(context.policyParseSummary).toContain('附言结构')
+        expect(context.concernTitle).toBe('灾年粮价')
+        expect(context.policyImplementationHint).toContain('度支')
     })
 })
