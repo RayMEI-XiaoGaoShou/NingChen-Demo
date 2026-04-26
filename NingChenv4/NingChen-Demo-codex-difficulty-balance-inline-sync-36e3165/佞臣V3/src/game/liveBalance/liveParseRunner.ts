@@ -40,6 +40,24 @@ function shouldRetryStructuredJson(text: string): boolean {
     return !cleaned.endsWith('}') && !cleaned.endsWith(']')
 }
 
+function shouldRetryStructuredJsonCorrection(text: string): boolean {
+    const cleaned = cleanStructuredJsonText(text)
+    if (!cleaned) return false
+    return !shouldRetryStructuredJson(text)
+}
+
+function buildStructuredJsonCorrectionMessages(
+    messages: ReturnType<typeof buildNorthSchemeParsePrompt> | ReturnType<typeof buildPolicyReasonParsePrompt>,
+): ReturnType<typeof buildNorthSchemeParsePrompt> | ReturnType<typeof buildPolicyReasonParsePrompt> {
+    return [
+        ...messages,
+        {
+            role: 'user',
+            content: '上一轮输出不是可解析的严格 JSON。请重新输出，且只能输出一个 JSON 对象或 JSON 数组；不要解释，不要 Markdown，不要代码块，不要前后缀文字。',
+        },
+    ]
+}
+
 function getStructuredRetryMaxTokens(maxTokens: number): number {
     return Math.max(Math.ceil(maxTokens * 2.75), maxTokens + 320, 520)
 }
@@ -62,6 +80,19 @@ async function completeStructuredJson<T>(params: {
 
     if (shouldRetryStructuredJson(firstText)) {
         const retryText = await chatCompletion(params.messages, {
+            temperature: params.temperature,
+            maxTokens: getStructuredRetryMaxTokens(params.maxTokens),
+            tag: params.tag,
+        })
+        const retryParsed = tryParseJson<T>(retryText)
+        return {
+            rawResponse: retryText,
+            parsed: retryParsed,
+        }
+    }
+
+    if (shouldRetryStructuredJsonCorrection(firstText)) {
+        const retryText = await chatCompletion(buildStructuredJsonCorrectionMessages(params.messages), {
             temperature: params.temperature,
             maxTokens: getStructuredRetryMaxTokens(params.maxTokens),
             tag: params.tag,

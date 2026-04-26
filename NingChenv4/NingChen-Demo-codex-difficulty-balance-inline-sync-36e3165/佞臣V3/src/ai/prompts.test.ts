@@ -504,14 +504,15 @@ describe('buildNorthSchemeParsePrompt', () => {
     it('asks for advice and omen polarity fields in the north parse schema', () => {
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
-        const advisePrompt = buildNorthSchemeParsePrompt({
+        const adviseMessages = buildNorthSchemeParsePrompt({
             round: 5,
             npc,
             schemeType: 'advise',
             speech: '先稳住仓储与转运，再整饬诏令，免得前后失序。',
             eventName: '测试事件',
             eventBriefing: '测试简报',
-        })[1].content
+        })
+        const advisePrompt = adviseMessages[1].content
 
         const omenPrompt = buildNorthSchemeParsePrompt({
             round: 13,
@@ -526,6 +527,7 @@ describe('buildNorthSchemeParsePrompt', () => {
             eventBriefing: '朝中开始借灾异与名分之说相互攻讦。',
         })[1].content
 
+        expect(adviseMessages[0].content).toContain('除字段说明特别标注为 -1 到 1 或小范围 delta 的字段外')
         expect(advisePrompt).toContain('"stateBenefit"')
         expect(advisePrompt).toContain('"targetBenefit"')
         expect(advisePrompt).toContain('"factionBenefit"')
@@ -812,6 +814,19 @@ describe('buildFengDaozhiDraftPrompt', () => {
 
         expect(prompt).toContain('战局摘要：西线的用兵与收权已把帝后两党都推到了台前。')
         expect(prompt).toContain('本回合公开表态：孤以为，西线兵权不可再散落于诸司之手。')
+    })
+
+    it('injects court disposition hint into Feng Daozhi prompt when present', () => {
+        const prompt = buildFengDaozhiDraftPrompt({
+            context: {
+                ...baseContext,
+                courtDispositionHint: '祖廷御前恩宠已薄，但帘前眷顾尚未断；下一手应优先让太后也对他生疑。',
+            },
+            schemeType: 'alienate',
+        })[1].content
+
+        expect(prompt).toContain('处置链旁批：祖廷御前恩宠已薄')
+        expect(prompt).toContain('下一手应优先让太后也对他生疑')
     })
 
     it('requires dual-step omen drafting', () => {

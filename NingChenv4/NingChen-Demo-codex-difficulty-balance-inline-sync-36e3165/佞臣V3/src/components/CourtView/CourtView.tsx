@@ -20,6 +20,7 @@ import {
     isCourtDispositionTarget as isCourtDispositionTargetId,
     normalizeCourtDispositionNpc,
 } from '../../game/courtDisposition'
+import { buildCourtDispositionHint } from '../../game/courtDispositionHint'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
@@ -324,6 +325,7 @@ export function CourtView() {
                                         const isTerminalCourt = isCourtDispositionTarget(npc) && getCourtStatus(npc) !== 'active'
                                         const courtFavor = getCourtFavor(npc)
                                         const opportunity = getCourtDispositionOpportunity(npc)
+                                        const dispositionHint = buildCourtDispositionHint(npc)
                                         return (
                                             <button
                                                 key={npc.id}
@@ -355,20 +357,27 @@ export function CourtView() {
                                                         </span>
                                                     </div>
                                                     {isCourtDispositionTarget(npc) && courtStatus === 'active' && (
-                                                        <div className="npc-favor-row">
-                                                            <span className="npc-meta-chip npc-favor-chip">
-                                                                皇帝恩宠 {courtFavor.emperorFavor} · {getFavorPressureLabel('emperorFavor', courtFavor.emperorFavor)}
-                                                            </span>
-                                                            <span className="npc-meta-chip npc-favor-chip">
-                                                                太后眷顾 {courtFavor.empressDowagerFavor} · {getFavorPressureLabel('empressDowagerFavor', courtFavor.empressDowagerFavor)}
-                                                            </span>
-                                                            {opportunity === 'dismissible' && (
-                                                                <span className="npc-meta-chip npc-meta-chip-warning">可罢黜</span>
+                                                        <>
+                                                            <div className="npc-favor-row">
+                                                                <span className="npc-meta-chip npc-favor-chip">
+                                                                    皇帝恩宠 {courtFavor.emperorFavor} · {getFavorPressureLabel('emperorFavor', courtFavor.emperorFavor)}
+                                                                </span>
+                                                                <span className="npc-meta-chip npc-favor-chip">
+                                                                    太后眷顾 {courtFavor.empressDowagerFavor} · {getFavorPressureLabel('empressDowagerFavor', courtFavor.empressDowagerFavor)}
+                                                                </span>
+                                                                {opportunity === 'dismissible' && (
+                                                                    <span className="npc-meta-chip npc-meta-chip-warning">可罢黜</span>
+                                                                )}
+                                                                {opportunity === 'executable' && (
+                                                                    <span className="npc-meta-chip npc-meta-chip-danger">可处决</span>
+                                                                )}
+                                                            </div>
+                                                            {dispositionHint && (
+                                                                <div className={`npc-court-disposition-hint npc-court-disposition-hint--${dispositionHint.tone}`}>
+                                                                    冯道之旁批：{dispositionHint.shortText}
+                                                                </div>
                                                             )}
-                                                            {opportunity === 'executable' && (
-                                                                <span className="npc-meta-chip npc-meta-chip-danger">可处决</span>
-                                                            )}
-                                                        </div>
+                                                        </>
                                                     )}
                                                     {npc.isAlive && courtStatus === 'active' && (
                                                         <span className="npc-reaction">

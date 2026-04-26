@@ -26,6 +26,7 @@ function resolveTrack(
         case 'SCHEME_FEEDBACK':
             return 'bgm2'
         case 'EMPRESS_LETTER':
+        case 'EMPRESS_REPLY':
             return 'bgm3'
         case 'SETTLEMENT':
         case 'ROUND_END':

@@ -5,6 +5,7 @@
     | 'SCHEME_PHASE'
     | 'EMPRESS_LETTER'
     | 'SCHEME_FEEDBACK'
+    | 'EMPRESS_REPLY'
     | 'SETTLEMENT'
     | 'ROUND_END'
     | 'ENDING'
@@ -12,6 +13,11 @@
 export type PrologueStep = 'COVER' | 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'CHARACTER_BIOS' | 'INGAME'
 export type HelpOverlaySource = 'gameplay' | 'prologue'
 export type GameDifficulty = 'easy' | 'normal' | 'hard' | 'hell'
+export interface EmpressReplyRecord {
+    sourceRound: number
+    text: string
+    mode: 'ai' | 'default' | 'fallback'
+}
 export type NorthDominantIntent = 'neutral' | 'induce' | 'threaten' | 'divide' | 'empathize' | 'strategize'
 export type PolicyStance = 'neutral' | 'balanced' | 'aggressive' | 'conservative' | 'expedient'
 export type AdvicePolarity = 'pro_state' | 'pro_target_anti_state' | 'neutral_or_vague'

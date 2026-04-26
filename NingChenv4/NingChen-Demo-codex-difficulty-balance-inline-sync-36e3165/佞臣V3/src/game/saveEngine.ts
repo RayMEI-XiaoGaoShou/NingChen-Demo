@@ -2,6 +2,7 @@ import type {
     BattleReport,
     CampaignState,
     DelayedBacklash,
+    EmpressReplyRecord,
     EndingReport,
     Faction,
     FirstRoundGuideSeenMap,
@@ -62,6 +63,7 @@ export interface GameSnapshotCore {
     lastSettlement: RoundSettlementResult | null
     lastPolicyReport: PolicySettlementReport | null
     lastPolicyAftereffect: PolicyAftereffect | null
+    empressReplyRecord: EmpressReplyRecord | null
     pendingBacklash: DelayedBacklash[]
     recentBacklash: DelayedBacklash[]
     roundHistory: RoundHistoryEntry[]
@@ -116,6 +118,7 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         lastSettlement: state.lastSettlement,
         lastPolicyReport: state.lastPolicyReport,
         lastPolicyAftereffect: state.lastPolicyAftereffect,
+        empressReplyRecord: state.empressReplyRecord,
         pendingBacklash: state.pendingBacklash,
         recentBacklash: state.recentBacklash,
         roundHistory: state.roundHistory,
@@ -175,6 +178,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             huainanMomentum?: number
             npcMemoryLedger?: NpcMemoryLedger
             relationMemoryLedger?: RelationMemoryLedger
+            empressReplyRecord?: EmpressReplyRecord | null
         }
         if (parsed.version !== 1) return null
         return {
@@ -197,8 +201,10 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
                     ...parsed.roundStartSnapshot,
                     npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
                     relationMemoryLedger: parsed.roundStartSnapshot.relationMemoryLedger ?? {},
+                    empressReplyRecord: parsed.roundStartSnapshot.empressReplyRecord ?? null,
                 }
                 : null,
+            empressReplyRecord: parsed.empressReplyRecord ?? null,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
             npcMemoryLedger: parsed.npcMemoryLedger ?? {},

@@ -75,6 +75,7 @@ describe('npcRelationshipMemory persistence', () => {
         lastSettlement: null,
         lastPolicyReport: null,
         lastPolicyAftereffect: null,
+        empressReplyRecord: null,
         pendingBacklash: [],
         recentBacklash: [],
         roundHistory: [],

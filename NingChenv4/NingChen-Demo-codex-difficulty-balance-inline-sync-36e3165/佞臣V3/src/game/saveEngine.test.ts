@@ -79,6 +79,7 @@ const initialSchemeOnboardingSeen = {
         lastSettlement: null,
         lastPolicyReport: null,
         lastPolicyAftereffect: null,
+        empressReplyRecord: null,
         pendingBacklash: [],
         recentBacklash: [],
         roundHistory: [],
@@ -209,6 +210,29 @@ const initialSchemeOnboardingSeen = {
         const loaded = loadGameSnapshot()
         expect(loaded?.currentSchemes[0]?.followUp?.status).toBe('answered')
         expect(loaded?.currentSchemes[0]?.followUp?.parse?.successRateDelta).toBe(0.07)
+    })
+
+    it('persists the generated empress reply record through save and load', () => {
+        const snapshot = buildPersistedSnapshot({
+            ...createBaseState(),
+            currentPhase: 'EMPRESS_REPLY',
+            prologueStep: 'INGAME',
+            empressReplyRecord: {
+                sourceRound: 3,
+                text: '朕已按“清点户籍仓廪”着手施行。',
+                mode: 'default',
+            },
+        })
+
+        expect(snapshot?.empressReplyRecord?.text).toContain('清点户籍仓廪')
+
+        const localStorage = createLocalStorageMock()
+        vi.stubGlobal('localStorage', localStorage)
+        saveGameSnapshot(snapshot!)
+
+        const loaded = loadGameSnapshot()
+        expect(loaded?.empressReplyRecord?.sourceRound).toBe(3)
+        expect(loaded?.empressReplyRecord?.mode).toBe('default')
     })
 
     it('fills court disposition fields when building and loading older npc snapshots', () => {

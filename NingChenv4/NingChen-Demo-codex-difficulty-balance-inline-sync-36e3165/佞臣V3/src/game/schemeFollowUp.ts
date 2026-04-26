@@ -52,6 +52,46 @@ export function getSchemeFollowUpSuccessRateDelta(followUp?: SchemeFollowUp): nu
     return followUp.parse.successRateDelta
 }
 
+export type SchemeFollowUpImpactTone = 'positive' | 'neutral' | 'negative'
+
+export interface SchemeFollowUpImpactPresentation {
+    tone: SchemeFollowUpImpactTone
+    text: string
+}
+
+export function getSchemeFollowUpImpactPresentation(followUp?: SchemeFollowUp): SchemeFollowUpImpactPresentation | null {
+    if (followUp?.status !== 'answered' || !followUp.parse) return null
+
+    const parse = followUp.parse
+    const impactScore =
+        parse.successRateDelta * 3 +
+        parse.effectMultiplierDelta * 2 +
+        (parse.clarificationFit - 0.5) * 0.24 +
+        (parse.npcInterestFit - 0.5) * 0.2 +
+        (parse.pressureControl - 0.5) * 0.18 -
+        parse.contradictionRisk * 0.28 -
+        Math.max(0, parse.exposureRiskDelta) * 1.4
+
+    if (impactScore >= 0.08) {
+        return {
+            tone: 'positive',
+            text: '补答贴住对方关切，此计更容易落地。',
+        }
+    }
+
+    if (impactScore <= -0.08) {
+        return {
+            tone: 'negative',
+            text: '补答露出破绽，对方疑心反而更重。',
+        }
+    }
+
+    return {
+        tone: 'neutral',
+        text: '补答稳住了话头，计谋仍按原势推进。',
+    }
+}
+
 export function applySchemeFollowUpToNorthParse(
     baseParse: NorthSchemeParseResult,
     followUp?: SchemeFollowUp,
@@ -79,6 +119,11 @@ export function applySchemeFollowUpToNorthParse(
         ),
         eventFit: clamp(
             baseParse.eventFit + (parse.clarificationFit + parse.npcInterestFit) * 0.03 - parse.contradictionRisk * 0.02,
+            0,
+            1,
+        ),
+        structuralPenetration: clamp(
+            baseParse.structuralPenetration + (parse.pressureControl - 0.5) * 0.04 + (parse.clarificationFit - 0.5) * 0.02 - parse.contradictionRisk * 0.02,
             0,
             1,
         ),

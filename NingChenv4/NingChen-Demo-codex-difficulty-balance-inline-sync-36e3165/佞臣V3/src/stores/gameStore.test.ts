@@ -52,6 +52,7 @@ function resetStore() {
         lastSettlement: null,
         lastPolicyReport: null,
         lastPolicyAftereffect: null,
+        empressReplyRecord: null,
         pendingBacklash: [],
         recentBacklash: [],
         roundHistory: [],
@@ -365,9 +366,13 @@ describe('gameStore addScheme', () => {
         useGameStore.getState().nextPhase()
 
         const state = useGameStore.getState()
-        expect(state.currentPhase).toBe('ENDING')
+        expect(state.currentPhase).toBe('SCHEME_FEEDBACK')
+        expect(state.lastSettlement?.gameResult).not.toBe('NONE')
         expect(state.endingReport).toBeTruthy()
         expect(state.endingReport?.tier).toBeTruthy()
+
+        useGameStore.getState().nextPhase()
+        expect(useGameStore.getState().currentPhase).toBe('ENDING')
     })
 
     it('stores the latest policy aftereffect so the next round can show delayed fallout', () => {
@@ -382,10 +387,14 @@ describe('gameStore addScheme', () => {
         useGameStore.getState().nextPhase()
 
         const state = useGameStore.getState()
-        expect(state.currentPhase).toBe('SETTLEMENT')
+        expect(state.currentPhase).toBe('SCHEME_FEEDBACK')
+        expect(state.lastSettlement).toBeTruthy()
         expect(state.lastPolicyAftereffect).toBeTruthy()
         expect(state.lastPolicyAftereffect?.sourceRound).toBe(2)
         expect(state.lastPolicyAftereffect?.summary).toBeTruthy()
+
+        useGameStore.getState().nextPhase()
+        expect(useGameStore.getState().currentPhase).toBe('EMPRESS_REPLY')
     })
 
     it('can enter settlement from round 1 scheme feedback without throwing', () => {
@@ -400,8 +409,21 @@ describe('gameStore addScheme', () => {
         expect(() => useGameStore.getState().nextPhase()).not.toThrow()
 
         const state = useGameStore.getState()
-        expect(state.currentPhase).toBe('SETTLEMENT')
+        expect(state.currentPhase).toBe('SCHEME_FEEDBACK')
         expect(state.lastSettlement).toBeTruthy()
+
+        expect(() => useGameStore.getState().nextPhase()).not.toThrow()
+        expect(useGameStore.getState().currentPhase).toBe('EMPRESS_REPLY')
+    })
+
+    it('continues from empress reply into settlement', () => {
+        useGameStore.setState({
+            currentPhase: 'EMPRESS_REPLY',
+        })
+
+        useGameStore.getState().nextPhase()
+
+        expect(useGameStore.getState().currentPhase).toBe('SETTLEMENT')
     })
 
     it('keeps round history and npc memory aligned with processed schemes when an earlier action is skipped', () => {
@@ -683,6 +705,7 @@ describe('gameStore guide and prologue state', () => {
             lastSettlement: null,
             lastPolicyReport: null,
             lastPolicyAftereffect: null,
+            empressReplyRecord: null,
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
@@ -758,6 +781,7 @@ describe('gameStore guide and prologue state', () => {
             lastSettlement: null,
             lastPolicyReport: null,
             lastPolicyAftereffect: null,
+            empressReplyRecord: null,
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
@@ -878,6 +902,7 @@ describe('gameStore guide and prologue state', () => {
             lastSettlement: null,
             lastPolicyReport: null,
             lastPolicyAftereffect: null,
+            empressReplyRecord: null,
             pendingBacklash: [],
             recentBacklash: [],
             roundHistory: [],
@@ -935,6 +960,7 @@ describe('gameStore guide and prologue state', () => {
                 lastSettlement: null,
                 lastPolicyReport: null,
                 lastPolicyAftereffect: null,
+                empressReplyRecord: null,
                 pendingBacklash: [],
                 recentBacklash: [],
                 roundHistory: [],

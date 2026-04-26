@@ -1,6 +1,7 @@
 import { ROUND_EVENTS } from '../data/rounds'
 import { chatCompletionJson } from '../ai/aiService'
 import { buildNorthSchemeParsePrompt, buildPolicyReasonParsePrompt, buildSchemeFollowUpParsePrompt } from '../ai/prompts'
+import { recordAiGameMasterDebug } from './aiGameMasterDebug'
 import { normalizeSchemeFollowUpParse } from './schemeFollowUp'
 import type {
     AdvicePolarity,
@@ -130,6 +131,202 @@ function includesAny(text: string, words: string[]): boolean {
 function scoreMatches(text: string, words: string[]): number {
     const matches = words.filter(word => word && text.includes(word))
     return Math.min(1, matches.length / Math.max(1, Math.min(words.length, 4)))
+}
+
+function countMatches(text: string, words: string[]): number {
+    return words.filter(word => word && text.includes(word)).length
+}
+
+function isRecord(input: unknown): input is Record<string, unknown> {
+    return typeof input === 'object' && input !== null
+}
+
+function hasCoercibleNumberField(input: Record<string, unknown>, field: string): boolean {
+    const value = input[field]
+    const numeric = typeof value === 'number' ? value : Number(value)
+    return Number.isFinite(numeric)
+}
+
+function hasStructuredNumberShape(input: unknown, fields: string[]): boolean {
+    return isRecord(input) && fields.every(field => hasCoercibleNumberField(input, field))
+}
+
+function hasNorthSchemeParseShape(input: unknown): boolean {
+    return hasStructuredNumberShape(input, [
+        'characterFit',
+        'eventFit',
+        'structuralPenetration',
+        'executability',
+        'exposureRisk',
+    ])
+}
+
+function hasSchemeFollowUpParseShape(input: unknown): boolean {
+    return hasStructuredNumberShape(input, [
+        'clarificationFit',
+        'npcInterestFit',
+        'pressureControl',
+        'contradictionRisk',
+        'exposureRiskDelta',
+        'successRateDelta',
+        'effectMultiplierDelta',
+    ])
+}
+
+function hasPolicyReasonParseShape(input: unknown): boolean {
+    return hasStructuredNumberShape(input, [
+        'focusAlignment',
+        'executionClarity',
+        'costAwareness',
+        'legitimacyAlignment',
+    ])
+}
+
+const NORTH_CONCRETE_ACTION_WORDS = [
+    '先',
+    '再',
+    '随后',
+    '可先',
+    '应当',
+    '上奏',
+    '入奏',
+    '派',
+    '遣',
+    '收紧',
+    '削减',
+    '截断',
+    '放慢',
+    '清点',
+    '核账',
+    '接管',
+    '调度',
+    '转运',
+    '压实',
+    '监军',
+    '御史',
+]
+
+const POLICY_CONCRETE_ACTION_WORDS = [
+    '先',
+    '再',
+    '随后',
+    '分州郡',
+    '编户',
+    '屯田',
+    '口粮',
+    '清点',
+    '转运',
+    '接管',
+    '压实',
+    '断粮',
+    '占领',
+    '设官',
+    '拨粮',
+    '赈济',
+    '裁撤',
+    '核账',
+]
+
+const GENERIC_POLITICAL_SLOGANS = [
+    '以民为本',
+    '安民为先',
+    '稳住人心',
+    '徐图后效',
+    '正本清源',
+    '天下归心',
+    '先稳大局',
+    '从长计议',
+    '不可操之过急',
+]
+
+function getNorthFallbackSubstanceProfile(speech: string, relatedNpc?: NPC | null, schemeType?: SchemeType): {
+    hasConcreteAction: boolean
+    hasStructuralAnchor: boolean
+    hasResourceAnchor: boolean
+    structuralFactor: number
+    dimensionFactor: number
+    executionLengthFactor: number
+    transmissionFactor: number
+} {
+    const hasConcreteAction =
+        scoreMatches(speech, NORTH_EXECUTION_WORDS) >= 0.18 ||
+        countMatches(speech, NORTH_CONCRETE_ACTION_WORDS) >= 1
+    const hasStructuralAnchor =
+        scoreMatches(speech, NORTH_STRUCTURAL_WORDS) >= 0.18 ||
+        Boolean(relatedNpc && speech.includes(relatedNpc.name))
+    const hasResourceAnchor = Math.max(
+        scoreMatches(speech, NORTH_FINANCE_WORDS),
+        scoreMatches(speech, NORTH_GRAIN_WORDS),
+        scoreMatches(speech, NORTH_MILITARY_WORDS),
+        scoreMatches(speech, NORTH_SOCIAL_ORDER_WORDS),
+        scoreMatches(speech, NORTH_GOVERNANCE_WORDS),
+    ) >= 0.2
+    const hasStrategicQuestion =
+        schemeType === 'probe' &&
+        /[？?]|究竟|最怕|最难|会是|还是|哪一|哪处/.test(speech) &&
+        (hasStructuralAnchor || hasResourceAnchor)
+    const hasActionableChain = (hasConcreteAction || hasStrategicQuestion) && (hasStructuralAnchor || hasResourceAnchor || Boolean(relatedNpc))
+
+    return {
+        hasConcreteAction,
+        hasStructuralAnchor,
+        hasResourceAnchor,
+        structuralFactor: hasActionableChain ? 1 : hasStructuralAnchor ? 0.78 : 0.58,
+        dimensionFactor: hasActionableChain ? 1 : hasResourceAnchor || hasStructuralAnchor ? 0.78 : 0.56,
+        executionLengthFactor: hasConcreteAction ? 1 : hasStrategicQuestion ? 0.72 : 0.38,
+        transmissionFactor: hasActionableChain ? 1 : hasStructuralAnchor || Boolean(relatedNpc) ? 0.72 : 0.45,
+    }
+}
+
+function dampFallbackDimension(value: number, factor: number): number {
+    return clamp01(value * factor)
+}
+
+function getPolicyFallbackSubstanceProfile(text: string, focusText: string): {
+    hasConcreteAction: boolean
+    hasCostAnchor: boolean
+    hasFocusAnchor: boolean
+    isSloganOnly: boolean
+    focusFactor: number
+    executionFactor: number
+} {
+    const hasConcreteAction =
+        countMatches(text, POLICY_CONCRETE_ACTION_WORDS) >= 1 ||
+        /先.+再|若.+则/.test(text)
+    const hasCostAnchor = includesAny(text, ['代价', '风险', '地方', '门阀', '国库', '后勤', '反弹', '拖垮', '权衡'])
+    const focusWords = extractKeywords(focusText)
+    const hasFocusAnchor = focusWords.length > 0 ? scoreMatches(text, focusWords) >= 0.18 : false
+    const isSloganOnly =
+        includesAny(text, GENERIC_POLITICAL_SLOGANS) &&
+        !hasConcreteAction &&
+        !hasCostAnchor &&
+        !hasFocusAnchor
+
+    return {
+        hasConcreteAction,
+        hasCostAnchor,
+        hasFocusAnchor,
+        isSloganOnly,
+        focusFactor: isSloganOnly ? 0.58 : hasFocusAnchor || hasConcreteAction ? 1 : 0.72,
+        executionFactor: hasConcreteAction ? 1 : isSloganOnly ? 0.42 : 0.62,
+    }
+}
+
+function getFollowUpFallbackSubstanceProfile(reply: string, npcQuestion: string): {
+    answersQuestion: boolean
+    hasConcreteClause: boolean
+    hasSubstance: boolean
+} {
+    const questionWords = extractKeywords(npcQuestion)
+    const answersQuestion = questionWords.length > 0 && scoreMatches(reply, questionWords) >= 0.2
+    const hasConcreteClause =
+        includesAny(reply, ['因为', '所以', '若', '则', '不是', '而是', '先', '再', '只需', '可使', '让他', '上奏', '粮道', '军令', '中枢', '太后', '陛下']) ||
+        /不在.+而在|先.+再/.test(reply)
+    return {
+        answersQuestion,
+        hasConcreteClause,
+        hasSubstance: reply.trim().length >= 16 && (answersQuestion || hasConcreteClause),
+    }
 }
 
 function deriveAdvicePolarityFromSpeech(text: string): {
@@ -366,6 +563,7 @@ export function fallbackNorthParseFromSpeech(params: {
         ...extractKeywords(params.eventBriefing ?? roundEvent?.briefing ?? ''),
         ...extractKeywords(params.eventNorthDescription ?? roundEvent?.northDescription ?? ''),
     ]
+    const substanceProfile = getNorthFallbackSubstanceProfile(speech, params.relatedNpc, params.schemeType)
 
     const characterFit = clamp01(
         0.12
@@ -381,15 +579,15 @@ export function fallbackNorthParseFromSpeech(params: {
     )
 
     const structuralPenetration = clamp01(
-        0.05
+        (0.05
         + scoreMatches(speech, NORTH_STRUCTURAL_WORDS) * 0.8
-        + (params.relatedNpc ? 0.08 : 0),
+        + (params.relatedNpc ? 0.08 : 0)) * substanceProfile.structuralFactor,
     )
 
     const executability = clamp01(
         0.08
-        + (speech.length >= 18 ? 0.18 : 0)
-        + (speech.length >= 34 ? 0.12 : 0)
+        + (speech.length >= 18 ? 0.18 * substanceProfile.executionLengthFactor : 0)
+        + (speech.length >= 34 ? 0.12 * substanceProfile.executionLengthFactor : 0)
         + scoreMatches(speech, NORTH_EXECUTION_WORDS) * 0.62,
     )
 
@@ -399,31 +597,31 @@ export function fallbackNorthParseFromSpeech(params: {
         + (speech.length >= 70 ? 0.08 : 0),
     )
 
-    const financeRelevance = clamp01(
+    const financeRelevance = dampFallbackDimension(clamp01(
         scoreMatches(speech, NORTH_FINANCE_WORDS) * 0.88
         + (includesAny(speech, ['国库', '赋税', '商道', '饷银', '军费', '钱粮']) ? 0.16 : 0),
-    )
+    ), substanceProfile.dimensionFactor)
 
-    const grainRelevance = clamp01(
+    const grainRelevance = dampFallbackDimension(clamp01(
         scoreMatches(speech, NORTH_GRAIN_WORDS) * 0.92
         + (includesAny(speech, ['粮道', '军粮', '转运', '补给', '后勤', '仓储']) ? 0.2 : 0),
-    )
+    ), substanceProfile.dimensionFactor)
 
-    const militaryRelevance = clamp01(
+    const militaryRelevance = dampFallbackDimension(clamp01(
         scoreMatches(speech, NORTH_MILITARY_WORDS) * 0.9
         + (includesAny(speech, ['前线', '调兵', '战线', '平叛', '军令', '边镇']) ? 0.18 : 0),
-    )
+    ), substanceProfile.dimensionFactor)
 
-    const socialOrderRelevance = clamp01(
+    const socialOrderRelevance = dampFallbackDimension(clamp01(
         scoreMatches(speech, NORTH_SOCIAL_ORDER_WORDS) * 0.84
         + (includesAny(speech, ['流民', '民变', '安民', '人心', '州郡']) ? 0.16 : 0),
-    )
+    ), substanceProfile.dimensionFactor)
 
-    const governanceRelevance = clamp01(
+    const governanceRelevance = dampFallbackDimension(clamp01(
         scoreMatches(speech, NORTH_GOVERNANCE_WORDS) * 0.9
         + scoreMatches(speech, NORTH_STRUCTURAL_WORDS) * 0.18
         + (includesAny(speech, ['中枢', '诏令', '门阀', '调度', '执行', '接管', '法统', '名分']) ? 0.16 : 0),
-    )
+    ), substanceProfile.dimensionFactor)
 
     const dominantIntent: NorthDominantIntent =
         includesAny(speech, ['逼宫', '夺权', '今夜', '立刻', '举兵', '起兵']) ? 'threaten'
@@ -437,6 +635,7 @@ export function fallbackNorthParseFromSpeech(params: {
         characterFit >= 0.58 ? '说辞贴近此人心结' : '',
         structuralPenetration >= 0.58 ? '话头已触及权力结构' : '',
         exposureRisk >= 0.58 ? '说辞锋芒过露' : '',
+        !substanceProfile.hasConcreteAction && structuralPenetration < 0.5 ? '说辞缺少清晰动作链' : '',
     ].filter(Boolean)
 
     const advicePolarity = deriveAdvicePolarityFromSpeech(speech)
@@ -457,7 +656,7 @@ export function fallbackNorthParseFromSpeech(params: {
             '调度',
             '谁来担责',
             '众口一词',
-        ]) * 0.34)
+        ]) * 0.34 * substanceProfile.transmissionFactor)
         : 0
     const fractureTransmission = params.schemeType === 'alienate'
         ? clamp01(scoreMatches(speech, [
@@ -468,7 +667,7 @@ export function fallbackNorthParseFromSpeech(params: {
             '谁先保自己',
             '接应断开',
             '彼此留后手',
-        ]) * 0.42)
+        ]) * 0.42 * substanceProfile.transmissionFactor)
         : 0
     const proxyTransmission = params.schemeType === 'proxy'
         ? clamp01(scoreMatches(speech, [
@@ -479,7 +678,7 @@ export function fallbackNorthParseFromSpeech(params: {
             '顺手夺权',
             '众人都会看见',
             '借势发难',
-        ]) * 0.4)
+        ]) * 0.4 * substanceProfile.transmissionFactor)
         : 0
 
     return normalizeNorthSchemeParse({
@@ -525,6 +724,7 @@ export function fallbackPolicyParseFromReason(
 
     const focusWords = extractKeywords(meta.aiScoringFocus ?? '')
     const focusText = meta.aiScoringFocus ?? ''
+    const substanceProfile = getPolicyFallbackSubstanceProfile(text, focusText)
     const thematicFocusBoost =
         /流民|资源/.test(focusText) && includesAny(text, ['流民', '编户', '屯田', '劳力', '口粮', '安置'])
             ? 0.24
@@ -538,18 +738,18 @@ export function fallbackPolicyParseFromReason(
                         ? 0.18
                         : 0
 
-    const focusAlignment = clamp01(
+    const focusAlignment = clamp01((
         0.12
         + scoreMatches(text, focusWords) * 0.72
         + (includesAny(text, ['流民', '门阀', '地方', '执行', '成本', '后勤', '缓急', '粮道', '转运', '接管', '战果']) ? 0.12 : 0)
-        + thematicFocusBoost,
+        + thematicFocusBoost) * substanceProfile.focusFactor,
     )
 
-    const executionClarity = clamp01(
+    const executionClarity = clamp01((
         0.08
-        + (text.length >= 18 ? 0.16 : 0)
-        + (text.length >= 32 ? 0.1 : 0)
-        + scoreMatches(text, ['先', '再', '随后', '分州郡', '编户', '屯田', '口粮', '执行责任', '清点', '转运', '接管', '压实', '断粮', '占领']) * 0.72,
+        + (text.length >= 18 ? 0.16 * substanceProfile.executionFactor : 0)
+        + (text.length >= 32 ? 0.1 * substanceProfile.executionFactor : 0)
+        + scoreMatches(text, ['先', '再', '随后', '分州郡', '编户', '屯田', '口粮', '执行责任', '清点', '转运', '接管', '压实', '断粮', '占领']) * 0.72) * substanceProfile.executionFactor,
     )
 
     const costAwareness = clamp01(
@@ -573,6 +773,7 @@ export function fallbackPolicyParseFromReason(
         focusAlignment >= 0.58 ? '附言切中此题关节' : '',
         executionClarity >= 0.58 ? '施行路径较为清晰' : '',
         costAwareness >= 0.52 ? '兼顾了代价与阻力' : '',
+        substanceProfile.isSloganOnly ? '附言偏口号，缺少施行抓手' : '',
     ].filter(Boolean)
 
     return normalizePolicyReasonParse({
@@ -619,7 +820,7 @@ export async function parseNorthSchemeInput(params: {
         { temperature: 0.2, maxTokens: 220, tag: 'north_scheme_parse' },
     )
 
-    if (aiParsed) {
+    if (hasNorthSchemeParseShape(aiParsed)) {
         const normalized = normalizeNorthSchemeParse(aiParsed)
         const hasDimensionRelevance =
             normalized.financeRelevance > 0 ||
@@ -637,11 +838,35 @@ export async function parseNorthSchemeInput(params: {
                 socialOrderRelevance: fallbackParsed.socialOrderRelevance,
                 governanceRelevance: fallbackParsed.governanceRelevance,
             }
-        return params.schemeType === 'omen'
+        const finalParsed = params.schemeType === 'omen'
             ? mergeOmenSpecializationFields(merged, fallbackParsed)
             : merged
+        recordAiGameMasterDebug({
+            chain: 'north_scheme',
+            source: hasDimensionRelevance && params.schemeType !== 'omen' ? 'ai' : 'ai_with_fallback_merge',
+            round: params.round,
+            npcId: params.npc.id,
+            npcName: params.npc.name,
+            schemeType: params.schemeType,
+            summary: `${params.npc.name} · ${params.schemeType}`,
+            notes: [
+                hasDimensionRelevance ? 'AI provided dimension relevance.' : 'Dimension relevance merged from local fallback.',
+                params.schemeType === 'omen' ? 'Omen specialization fields checked against local fallback.' : '',
+            ].filter(Boolean),
+        })
+        return finalParsed
     }
 
+    recordAiGameMasterDebug({
+        chain: 'north_scheme',
+        source: 'invalid_ai_fallback',
+        round: params.round,
+        npcId: params.npc.id,
+        npcName: params.npc.name,
+        schemeType: params.schemeType,
+        summary: `${params.npc.name} · ${params.schemeType}`,
+        notes: ['AI parse was missing the required north scheme schema; local fallback was used.'],
+    })
     return fallbackParsed
 }
 
@@ -652,19 +877,20 @@ function fallbackSchemeFollowUpParseFromReply(params: {
 }): SchemeFollowUpParseResult {
     const reply = params.playerReply.trim()
     const replyLength = reply.length
-    const hasSubstance = replyLength >= 16
+    const substanceProfile = getFollowUpFallbackSubstanceProfile(reply, params.npcQuestion)
+    const hasSubstance = substanceProfile.hasSubstance
     const questionLength = params.npcQuestion.trim().length
 
     return normalizeSchemeFollowUpParse({
-        clarificationFit: replyLength >= 20 ? 0.34 : replyLength >= 10 ? 0.22 : 0.12,
-        npcInterestFit: clamp01(0.16 + params.originalParse.characterFit * 0.18 + params.originalParse.eventFit * 0.12 + (hasSubstance ? 0.05 : 0)),
-        pressureControl: clamp01(0.36 - params.originalParse.exposureRisk * 0.18 - (replyLength < 12 ? 0.08 : 0)),
-        contradictionRisk: clamp01(0.14 + (replyLength < 12 ? 0.14 : 0.05) + (params.originalParse.exposureRisk >= 0.45 ? 0.05 : 0)),
-        exposureRiskDelta: replyLength >= 20 ? -0.01 : 0.01,
-        successRateDelta: replyLength >= 18 && params.originalParse.characterFit >= 0.38 ? 0.01 : 0,
-        effectMultiplierDelta: replyLength >= 24 && params.originalParse.executability >= 0.35 ? 0.02 : 0,
+        clarificationFit: hasSubstance ? (replyLength >= 20 ? 0.34 : 0.24) : replyLength >= 10 ? 0.16 : 0.1,
+        npcInterestFit: clamp01(0.16 + params.originalParse.characterFit * 0.18 + params.originalParse.eventFit * 0.12 + (hasSubstance ? 0.05 : -0.04)),
+        pressureControl: clamp01(0.36 - params.originalParse.exposureRisk * 0.18 - (replyLength < 12 ? 0.08 : 0) - (hasSubstance ? 0 : 0.06)),
+        contradictionRisk: clamp01(0.14 + (replyLength < 12 ? 0.14 : 0.05) + (hasSubstance ? 0 : 0.08) + (params.originalParse.exposureRisk >= 0.45 ? 0.05 : 0)),
+        exposureRiskDelta: hasSubstance && replyLength >= 20 ? -0.01 : replyLength < 8 ? 0.02 : 0.01,
+        successRateDelta: hasSubstance && replyLength >= 18 && params.originalParse.characterFit >= 0.38 ? 0.01 : 0,
+        effectMultiplierDelta: hasSubstance && replyLength >= 24 && params.originalParse.executability >= 0.35 ? 0.02 : 0,
         evidence: [
-            replyLength >= 20 ? '回复足够具体，略微提高澄清收益' : '回复较短，只给保守修正',
+            hasSubstance ? '回复接住了追问，略微提高澄清收益' : '回复缺少明确补充，只给保守修正',
             questionLength >= 8 ? '追问本身保留了轻微互动空间' : '追问很短，互动空间有限',
             params.originalParse.exposureRisk >= 0.45 ? '原计谋本身偏露锋芒' : '原计谋本身不算高压',
         ],
@@ -697,10 +923,31 @@ export async function parseSchemeFollowUpInput(params: {
         { temperature: 0.2, maxTokens: 180, tag: 'scheme_follow_up_parse' },
     )
 
-    if (aiParsed) {
-        return normalizeSchemeFollowUpParse(aiParsed)
+    if (hasSchemeFollowUpParseShape(aiParsed)) {
+        const parsed = normalizeSchemeFollowUpParse(aiParsed)
+        recordAiGameMasterDebug({
+            chain: 'scheme_follow_up',
+            source: 'ai',
+            round: params.round,
+            npcId: params.npc.id,
+            npcName: params.npc.name,
+            schemeType: params.schemeType,
+            summary: `${params.npc.name} · ${params.schemeType} follow-up`,
+            notes: ['AI follow-up parse matched schema.'],
+        })
+        return parsed
     }
 
+    recordAiGameMasterDebug({
+        chain: 'scheme_follow_up',
+        source: 'invalid_ai_fallback',
+        round: params.round,
+        npcId: params.npc.id,
+        npcName: params.npc.name,
+        schemeType: params.schemeType,
+        summary: `${params.npc.name} · ${params.schemeType} follow-up`,
+        notes: ['AI follow-up parse was invalid; local fallback was used.'],
+    })
     return fallbackSchemeFollowUpParseFromReply({
         originalParse: params.originalParse,
         playerReply: params.playerReply,
@@ -726,10 +973,25 @@ export async function parsePolicyReasonInput(params: {
         { temperature: 0.2, maxTokens: 220, tag: 'policy_reason_parse' },
     )
 
-    if (aiParsed) {
-        return normalizePolicyReasonParse(aiParsed)
+    if (hasPolicyReasonParseShape(aiParsed)) {
+        const parsed = normalizePolicyReasonParse(aiParsed)
+        recordAiGameMasterDebug({
+            chain: 'policy_reason',
+            source: 'ai',
+            round: params.round,
+            summary: params.topic,
+            notes: ['AI policy reason parse matched schema.'],
+        })
+        return parsed
     }
 
+    recordAiGameMasterDebug({
+        chain: 'policy_reason',
+        source: 'invalid_ai_fallback',
+        round: params.round,
+        summary: params.topic,
+        notes: ['AI policy reason parse was invalid; local fallback was used.'],
+    })
     return fallbackPolicyParseFromReason(params.reason, params.meta)
 }
 

@@ -2,13 +2,26 @@ import { describe, expect, it } from 'vitest'
 import settlementSource from './Settlement.tsx?raw'
 import roundSettlementSource from '../../game/roundSettlement.ts?raw'
 import {
-    buildSettlementDefaultEmpressReply,
+    formatChronicleVolumeNumber,
+    getChronicleVolumeTitle,
     getSettlementBacklashText,
-    hasPolicyReason,
     selectSettlementPolicyAftereffectText,
 } from './Settlement'
+import {
+    buildSettlementDefaultEmpressReply,
+    hasPolicyReason,
+} from '../../game/empressReplyPresentation'
 
 describe('Settlement helpers', () => {
+    it('formats chronicle volume numbers for the twenty-round campaign', () => {
+        expect(formatChronicleVolumeNumber(1)).toBe('一')
+        expect(formatChronicleVolumeNumber(2)).toBe('二')
+        expect(formatChronicleVolumeNumber(10)).toBe('十')
+        expect(formatChronicleVolumeNumber(11)).toBe('十一')
+        expect(formatChronicleVolumeNumber(20)).toBe('二十')
+        expect(getChronicleVolumeTitle(1)).toBe('《南北朝通鉴-卷一》')
+    })
+
     it('detects whether the player authored a policy reason', () => {
         expect(hasPolicyReason(null)).toBe(false)
         expect(hasPolicyReason({ reason: '' })).toBe(false)
@@ -61,18 +74,18 @@ describe('Settlement helpers', () => {
 })
 
 describe('Settlement source contract', () => {
-    it('keeps empress feedback AI gated behind authored policy reasoning', () => {
-        expect(settlementSource).toContain('policyReasonAuthored && empressFeedbackContext')
-        expect(settlementSource).toContain('const empressFeedbackContext = lastSettlement.policyReport')
-        expect(settlementSource).toContain('buildEmpressFeedbackContext({')
-        expect(settlementSource).toContain('buildEmpressFeedbackPrompt(empressFeedbackContext)')
-        expect(settlementSource).toContain('buildSettlementDefaultEmpressReply(lastSettlement.policyReport)')
+    it('keeps empress feedback generation out of settlement and feeds cached reply to judge narration', () => {
+        expect(settlementSource).not.toContain('buildEmpressFeedbackPrompt')
+        expect(settlementSource).not.toContain('buildEmpressFeedbackContext({')
+        expect(settlementSource).not.toContain('<h3 className="section-title">南陈回信</h3>')
+        expect(settlementSource).toContain('southEmpressReply')
+        expect(settlementSource).toContain('empressReplyRecord?.sourceRound === currentRound')
         expect(settlementSource).not.toContain('眼下${lastSettlement.policyReport.effectSummary}')
     })
 
-    it('renders the full policy question as the empress reply title and highlights the selected option', () => {
-        expect(settlementSource).toContain('{lastSettlement.policyReport.question}')
-        expect(settlementSource).toContain('policy-option-highlight')
+    it('keeps policy aftereffect in settlement after moving the empress reply card out', () => {
+        expect(settlementSource).toContain('问政余波')
+        expect(settlementSource).toContain('lastSettlement?.policyAftereffect')
     })
 
     it('stores the full policy question and policy parse in the settlement report', () => {
@@ -81,17 +94,32 @@ describe('Settlement source contract', () => {
         expect(roundSettlementSource).toContain('policyParse: PolicyReasonParseResult | null')
     })
 
-    it('renders court disposition reports as their own settlement section', () => {
-        expect(settlementSource).toContain('lastSettlement.borrowedBladeReports.map')
+    it('keeps court disposition reports in settlement data but no longer renders them on settlement', () => {
+        expect(settlementSource).not.toContain('lastSettlement.borrowedBladeReports.map')
+        expect(settlementSource).not.toContain('<h3 className="section-title">朝堂收网</h3>')
         expect(roundSettlementSource).toContain('borrowedBladeReports')
     })
 
-    it('renders two-part explainability rows and routes campaign narration through the battle record board', () => {
-        expect(settlementSource).toContain('lastSettlement?.schemeOutcomeExplanations?.[i]')
-        expect(settlementSource).toContain('SCHEME_OUTCOME_LABEL_ORDER')
+    it('moves scheme explainability rows out of settlement and routes campaign narration through the battle record board', () => {
+        expect(settlementSource).not.toContain('lastSettlement?.schemeOutcomeExplanations?.[i]')
+        expect(settlementSource).not.toContain('SCHEME_OUTCOME_LABEL_ORDER')
+        expect(settlementSource).not.toContain('<h3 className="section-title">计谋筹算结果</h3>')
         expect(settlementSource).not.toContain('局势伏线')
         expect(settlementSource).toContain('buildCampaignRecordPanel({')
         expect(settlementSource).not.toContain('getCampaignMomentumPresentation')
         expect(roundSettlementSource).toContain('schemeOutcomeExplanations')
+    })
+
+    it('feeds causal scheme events into judge narration and renders key change highlights', () => {
+        expect(settlementSource).toContain('buildSettlementSchemeCausalEvents')
+        expect(settlementSource).toContain('schemeCausalEvents: schemeCausalEvents.map')
+        expect(settlementSource).toContain('selectSettlementChronicleQuoteCandidate')
+        expect(settlementSource).toContain('northQuoteCandidate')
+        expect(settlementSource).toContain('chronicleTimeLabel')
+        expect(settlementSource).toContain('《南北朝通鉴-卷')
+        expect(settlementSource).not.toContain('<h3 className="judge-title">天道结算</h3>')
+        expect(settlementSource).toContain('lastSettlement?.keyChangeHighlights')
+        expect(roundSettlementSource).toContain('keyChangeHighlights')
+        expect(roundSettlementSource).toContain('buildSettlementKeyChangeHighlights')
     })
 })

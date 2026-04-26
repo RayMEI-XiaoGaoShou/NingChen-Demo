@@ -6,6 +6,7 @@ import {
     extractTerminalQuestion,
     forceQuestionCandidateReplyText,
     forceStatementReplyText,
+    getSchemeFollowUpImpactPresentation,
     normalizeSchemeFollowUpParse,
     selectRequiredSchemeFollowUpCandidateId,
     selectSchemeFollowUpCandidateId,
@@ -157,8 +158,45 @@ describe('schemeFollowUp helpers', () => {
             evidence: ['base one', 'base two'],
         }))
         expect(result.characterFit).toBeGreaterThan(base.characterFit)
+        expect(result.structuralPenetration).toBeGreaterThan(base.structuralPenetration)
         expect(result.executability).toBeGreaterThan(base.executability)
         expect(result.exposureRisk).toBeCloseTo(0.2)
+    })
+
+    it('summarizes follow-up impact without exposing numeric deltas', () => {
+        const positive = getSchemeFollowUpImpactPresentation({
+            questionText: 'Why now?',
+            status: 'answered',
+            parse: {
+                clarificationFit: 0.82,
+                npcInterestFit: 0.72,
+                pressureControl: 0.76,
+                contradictionRisk: 0.12,
+                exposureRiskDelta: -0.03,
+                successRateDelta: 0.05,
+                effectMultiplierDelta: 0.08,
+                evidence: [],
+            },
+        })
+        const negative = getSchemeFollowUpImpactPresentation({
+            questionText: 'Why now?',
+            status: 'answered',
+            parse: {
+                clarificationFit: 0.22,
+                npcInterestFit: 0.18,
+                pressureControl: 0.2,
+                contradictionRisk: 0.78,
+                exposureRiskDelta: 0.1,
+                successRateDelta: -0.04,
+                effectMultiplierDelta: -0.05,
+                evidence: [],
+            },
+        })
+
+        expect(positive?.tone).toBe('positive')
+        expect(positive?.text).not.toMatch(/\d/)
+        expect(negative?.tone).toBe('negative')
+        expect(negative?.text).not.toMatch(/\d/)
     })
 
     it('extracts the final question segment for English and Chinese question marks', () => {

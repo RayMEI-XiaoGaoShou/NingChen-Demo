@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { getRelativePowerLabel } from '../../game/relativePower'
-import { getSettlementPolicyFollowupText } from '../Settlement/Settlement'
+import { getSettlementPolicyFollowupText } from '../../game/empressReplyPresentation'
 import { RUNTIME_ERROR_STORAGE_KEY } from './PhaseErrorBoundary'
 
 interface CapturedRuntimeError {

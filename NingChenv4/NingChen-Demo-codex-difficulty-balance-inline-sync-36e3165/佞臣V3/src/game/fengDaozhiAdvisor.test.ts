@@ -184,6 +184,36 @@ describe('fengDaozhiAdvisor', () => {
         expect(buildContext('omen').longTermMemorySummary).toMatch(/^omen memory/)
     })
 
+    it('adds court disposition hint for disposition schemes and related targets', () => {
+        const executor = { ...INITIAL_NPCS.find(item => item.id === 'zongai')! }
+        const relatedNpc = {
+            ...INITIAL_NPCS.find(item => item.id === 'zuting')!,
+            emperorFavor: 30,
+            empressDowagerFavor: 62,
+        }
+        const context = buildFengDaozhiDraftContext({
+            request: {
+                round: 9,
+                difficulty: 'normal',
+                targetNpcId: executor.id,
+                relatedNpcId: relatedNpc.id,
+                schemeType: 'proxy',
+                playerDangerStage: 'safe',
+            },
+            npc: executor,
+            relatedNpc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            unlockedSecrets: 0,
+            roundHistory: [],
+            recentBacklash: [],
+            shuCampaign: makeCampaignState(),
+            huainanCampaign: makeCampaignState(),
+        })
+
+        expect(context.courtDispositionHint).toContain('祖廷')
+        expect(context.courtDispositionHint).toContain('太后')
+    })
+
     it('keeps selected old debts out of summary fields so drafts do not over-weight them', () => {
         const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
         const context = buildFengDaozhiDraftContext({

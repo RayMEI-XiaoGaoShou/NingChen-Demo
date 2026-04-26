@@ -1,4 +1,5 @@
 import { getSchemeByType } from '../data/schemes'
+import { buildCourtDispositionHint, getCourtDispositionHintSubject, shouldUseCourtDispositionHint } from './courtDispositionHint'
 import { buildFengDaozhiSituationSummary } from './fengDaozhiSituationSummary'
 import { buildFengDaozhiStrategyCard, type FengDaozhiAdvisoryMode } from './fengDaozhiStrategyCard'
 import type {
@@ -33,6 +34,7 @@ export interface FengDaozhiDraftContext {
     relationMemorySummary?: string
     relationshipSummary?: string
     courtSituationSummary?: string
+    courtDispositionHint?: string
     playerDangerStage: PlayerDangerStage
     strategicFocus: string
     bestAngle: string
@@ -90,6 +92,10 @@ export function buildFengDaozhiDraftContext(params: {
         campaignSummary: situationSummary.campaignSummary,
         relatedNpc,
     })
+    const dispositionSubject = getCourtDispositionHintSubject(npc, relatedNpc)
+    const dispositionHint = shouldUseCourtDispositionHint(request.schemeType)
+        ? buildCourtDispositionHint(dispositionSubject)
+        : null
 
     return {
         round: request.round,
@@ -110,6 +116,7 @@ export function buildFengDaozhiDraftContext(params: {
         relationMemorySummary: situationSummary.relationMemorySummary,
         relationshipSummary: situationSummary.relationshipSummary,
         courtSituationSummary: situationSummary.courtSituationSummary,
+        courtDispositionHint: dispositionHint?.promptText,
         playerDangerStage: request.playerDangerStage,
         strategicFocus: strategyCard.strategicFocus,
         bestAngle: strategyCard.bestAngle,
