@@ -88,7 +88,7 @@ export type GameResult =
 export type CourtFactionId = 'emperor' | 'empress'
 export type NpcFactionId = CourtFactionId | 'longxi' | 'prairie'
 export type AlignmentBias = CourtFactionId | 'swing' | 'self'
-export type ExternalStatus = 'loyal' | 'watchful' | 'secession' | 'rebellion'
+export type ExternalStatus = 'loyal' | 'secession' | 'rebellion'
 export type HighActionBias = 'secession' | 'rebellion'
 export type RelationshipEdgeType =
     | 'rivalry'
@@ -275,6 +275,8 @@ export interface FengDaozhiDraftRequest {
     targetNpcId: string
     schemeType: SchemeType
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     relatedNpcId?: string
     omenSpeechInput?: OmenSpeechInput
 }
@@ -453,6 +455,8 @@ export interface RoundHistoryEntry {
     relationshipBreakCount: number
     factionCollapseCount: number
     invasionTriggered: boolean
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     northPower: number
     southPower: number
     summary: string
@@ -594,7 +598,6 @@ export function getAlignmentLabel(alignment: AlignmentBias): string {
 export function getExternalStatusLabel(status: ExternalStatus): string {
     const labels: Record<ExternalStatus, string> = {
         loyal: '仍受节制',
-        watchful: '观望离心',
         secession: '割据坐大',
         rebellion: '明旗反叛',
     }

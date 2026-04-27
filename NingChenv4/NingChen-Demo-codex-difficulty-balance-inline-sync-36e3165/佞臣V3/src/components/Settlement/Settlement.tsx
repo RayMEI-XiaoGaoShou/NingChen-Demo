@@ -13,6 +13,7 @@ import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { buildSettlementDefaultEmpressReply, getSettlementPolicyFollowupText, hasPolicyReason } from '../../game/empressReplyPresentation'
 import { buildSettlementSchemeCausalEvents, selectSettlementChronicleQuoteCandidate } from '../../game/settlementCausalNarrative'
+import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
@@ -42,7 +43,7 @@ export function getBacklashExplanation(backlash: DelayedBacklash): string {
     return backlash.summary
 }
 
-function getSettlementSafetyRisk(stage: PlayerDangerStage | null | undefined) {
+export function getSettlementSafetyRisk(stage: PlayerDangerStage | null | undefined) {
     if (stage === 'under_review') return { label: '祸在帷幄', className: 'risk-critical' }
     if (stage === 'under_watch') return { label: '暗流渐浓', className: 'risk-warning' }
     return { label: '朝中尚可周旋', className: 'risk-safe' }
@@ -213,8 +214,8 @@ export function Settlement() {
 
     const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
     const backlashHints = judgeFacts.aiNativeSummary.backlashHints
-    const invasionWindowLabel = getSettlementInvasionWindowLabel(lastSettlement?.invasionPoliticalRatio)
-    const safetyRisk = getSettlementSafetyRisk(lastSettlement?.playerDangerStage)
+    const invasionRisk = getInvasionPressurePresentation(lastSettlement?.invasionPressure ?? 0)
+    const safetyRisk = getPlayerDangerPresentation(lastSettlement?.playerSuspicionHeat ?? 0, lastSettlement?.playerDangerStage)
     const policyReasonAuthored = hasPolicyReason(lastSettlement?.policyReport ?? null)
     const settlementPolicyFollowup =
         policyReasonAuthored && lastSettlement?.policyAftereffect && lastSettlement.policyReport
@@ -403,7 +404,7 @@ export function Settlement() {
                                     ?
                                 </span>
                             </span>
-                            <span className="summary-value status-value">{invasionWindowLabel}</span>
+                            <span className={`summary-value status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
                         </div>
                     </div>
 

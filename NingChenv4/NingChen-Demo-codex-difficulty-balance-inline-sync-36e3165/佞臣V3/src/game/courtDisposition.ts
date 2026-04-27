@@ -4,6 +4,7 @@ import type {
     CourtStatus,
     NPC,
 } from './types'
+import { normalizeExternalStatus } from './externalStatus'
 
 export type CourtDispositionNpc = NPC & {
     emperorFavor: number
@@ -132,6 +133,7 @@ export function seedCourtDispositionNpc<T extends NPC>(npc: T): T & CourtDisposi
             : 'active')
     const base: NPC = {
         ...npc,
+        externalStatus: normalizeExternalStatus(npc.externalStatus),
         courtStatus: inferredCourtStatus,
         deathCause: npc.deathCause ?? null,
         deathByNpcId: npc.deathByNpcId ?? null,

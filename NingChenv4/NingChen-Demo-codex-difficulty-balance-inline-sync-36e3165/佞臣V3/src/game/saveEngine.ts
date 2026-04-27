@@ -44,6 +44,8 @@ export interface GameSnapshotCore {
     omenGuideSeen: OmenGuideSeenMap
     fengDaozhiAssistsRemaining: number
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     isGameOver: boolean
     gameResult: GameResult
     northStats: NationDimensions
@@ -99,6 +101,8 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         omenGuideSeen: state.omenGuideSeen,
         fengDaozhiAssistsRemaining: state.fengDaozhiAssistsRemaining,
         playerDangerStage: state.playerDangerStage,
+        playerSuspicionHeat: state.playerSuspicionHeat ?? 0,
+        invasionPressure: state.invasionPressure ?? 0,
         isGameOver: state.isGameOver,
         gameResult: state.gameResult,
         northStats: state.northStats,
@@ -179,6 +183,8 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             npcMemoryLedger?: NpcMemoryLedger
             relationMemoryLedger?: RelationMemoryLedger
             empressReplyRecord?: EmpressReplyRecord | null
+            playerSuspicionHeat?: number
+            invasionPressure?: number
         }
         if (parsed.version !== 1) return null
         return {
@@ -202,9 +208,13 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
                     npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
                     relationMemoryLedger: parsed.roundStartSnapshot.relationMemoryLedger ?? {},
                     empressReplyRecord: parsed.roundStartSnapshot.empressReplyRecord ?? null,
+                    playerSuspicionHeat: parsed.roundStartSnapshot.playerSuspicionHeat ?? 0,
+                    invasionPressure: parsed.roundStartSnapshot.invasionPressure ?? 0,
                 }
                 : null,
             empressReplyRecord: parsed.empressReplyRecord ?? null,
+            playerSuspicionHeat: parsed.playerSuspicionHeat ?? 0,
+            invasionPressure: parsed.invasionPressure ?? 0,
             shuMomentum: parsed.shuMomentum ?? 0,
             huainanMomentum: parsed.huainanMomentum ?? 0,
             npcMemoryLedger: parsed.npcMemoryLedger ?? {},

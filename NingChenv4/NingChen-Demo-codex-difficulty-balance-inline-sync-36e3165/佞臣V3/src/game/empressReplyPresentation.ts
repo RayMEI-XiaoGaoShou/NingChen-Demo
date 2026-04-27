@@ -57,9 +57,9 @@ export function buildSettlementDefaultEmpressReply(policyReportOrContext: Empres
             ? `只是眼下更要先稳住${weakestDimensionLabel}这一头，锋芒不可尽露。`
             : '只是此事仍须按轻重徐徐收束，不可一味躁进。'
     const playerLine = playerDangerStage === 'under_review'
-        ? '你在北朝自护为先，其余话不必说满。'
+        ? '密札若落旁人眼里，朕不愿它替你添险，余话只可意会。'
         : playerDangerStage === 'under_watch'
-            ? '你在北朝已渐有人留意，往后行话宜更收三分。'
+            ? '北来书信隔了数重人手，往后行话宜更收三分。'
             : ''
 
     return `${concernOpening}朕已按“${optionContent}”着手施行。${cautionLine}${playerLine || defaultClosingLine}`

@@ -3,6 +3,7 @@ import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
+import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
 import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
@@ -156,6 +157,9 @@ export function CourtView() {
         firstRoundGuideSeen,
         markFirstRoundGuideSeen,
         openGameplayGuide,
+        playerDangerStage,
+        playerSuspicionHeat,
+        invasionPressure,
         shuCampaign,
         huainanCampaign,
     } = useGameStore()
@@ -183,29 +187,9 @@ export function CourtView() {
             }),
         ]),
     )
-    const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(factions, npcs, currentRound)
-
-    const invasionRisk =
-        warRatio >= 1.2
-            ? { label: '南征箭在弦上', className: 'risk-critical' }
-            : warRatio >= 0.8
-                ? { label: '南征议势升温', className: 'risk-warning' }
-                : { label: '朝廷仍偏安内', className: 'risk-safe' }
-
-    const dangerNpcs = npcs.filter(
-        npc =>
-            npc.canExecute &&
-            npc.powerBase === 'court' &&
-            npc.trust <= 25 &&
-            (factions.find(faction => faction.id === npc.factionId)?.courtInfluence ?? 0) >= 55,
-    )
-
-    const safetyRisk =
-        dangerNpcs.some(npc => npc.trust <= 15)
-            ? { label: '祸在帷幄', className: 'risk-critical' }
-            : dangerNpcs.length > 0
-                ? { label: '暗流渐浓', className: 'risk-warning' }
-                : { label: '朝中尚可周旋', className: 'risk-safe' }
+    const { emperorInfluence, empressInfluence } = getCourtBalance(factions, npcs, currentRound)
+    const invasionRisk = getInvasionPressurePresentation(invasionPressure)
+    const safetyRisk = getPlayerDangerPresentation(playerSuspicionHeat, playerDangerStage)
 
     return (
         <div className="page-container court-view page-enter">

@@ -217,9 +217,6 @@ function describeRecentCourtFortune(
         if (npc.externalStatus === 'rebellion') {
             return `${npc.name}近来已把局面闹到明处，朝廷与边镇都在盯着他的下一步。`
         }
-        if (npc.externalStatus === 'watchful') {
-            return `${npc.name}近来边心浮动，既想抬价，也不愿过早把底牌全摊出来。`
-        }
     }
 
     if (initialNpc) {

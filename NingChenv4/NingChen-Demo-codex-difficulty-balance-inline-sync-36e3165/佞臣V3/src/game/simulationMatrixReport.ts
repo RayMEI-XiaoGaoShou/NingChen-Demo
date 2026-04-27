@@ -41,8 +41,6 @@ function formatExternalStatus(status: string): string {
             return '已割据'
         case 'rebellion':
             return '已反叛'
-        case 'watchful':
-            return '观望'
         case 'loyal':
             return '受制'
         default:

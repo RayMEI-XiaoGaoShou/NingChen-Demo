@@ -755,7 +755,7 @@ export function buildEmpressFeedbackPrompt(context: EmpressFeedbackContext): Cha
 当前最先起色的一维：${context.recoveringDimensionLabel}
 北方镜像：${context.northMirrorSummary}
 战焦状态：${context.warWindowSummary}
-萧宝颖处境：${context.playerPositionSummary}
+密札安全口径：${context.playerPositionSummary}
 本回合牵挂模板【${context.concernTitle}】：${context.concernOpening}
 牵挂叠加：${context.playerConcernOverlay}
 收束提示：${context.concernClosingHint}
@@ -1021,6 +1021,8 @@ ${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
 ${courtSituationSummaryLine}
 ${courtDispositionHintLine ? `${courtDispositionHintLine}\n` : ''}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}萧宝颖当前危险：${context.playerDangerStage}
+自身安危热度旁批：${context.playerSafetyPressureHint ?? '风声暂稳：暂未形成成体系追查。'}
+南征压力旁批：${context.invasionPressureHint ?? '朝廷仍偏安内：南征议势尚未成形。'}
 
 ${formatRules}
 

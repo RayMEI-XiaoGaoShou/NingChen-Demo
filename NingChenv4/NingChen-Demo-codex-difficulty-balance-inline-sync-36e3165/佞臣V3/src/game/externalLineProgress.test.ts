@@ -15,7 +15,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 60,
                 loyaltyToCourt: 22,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -38,7 +38,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 87,
                 loyaltyToCourt: 15,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'rebellion',
             },
         })
@@ -61,7 +61,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 80,
                 loyaltyToCourt: 28,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -77,7 +77,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 80,
                 loyaltyToCourt: 28,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -100,7 +100,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 66,
                 loyaltyToCourt: 39,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })

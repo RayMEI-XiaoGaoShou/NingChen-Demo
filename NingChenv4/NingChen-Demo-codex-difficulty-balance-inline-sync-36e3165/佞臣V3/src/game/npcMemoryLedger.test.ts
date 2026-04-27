@@ -152,7 +152,7 @@ describe('npcMemoryLedger', () => {
     })
 
     it('tracks power-shift memories for successful external escalation', () => {
-        const npc = { ...INITIAL_NPCS.find(item => item.id === 'an_siming')!, externalStatus: 'watchful' as const }
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'an_siming')!, externalStatus: 'loyal' as const }
         const report: ExternalActionReport = {
             npcId: npc.id,
             npcName: npc.name,

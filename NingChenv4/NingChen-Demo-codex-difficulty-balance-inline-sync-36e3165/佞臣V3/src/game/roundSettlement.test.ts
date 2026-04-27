@@ -181,7 +181,7 @@ describe('settleRound layered settlement', () => {
         expect(result.schemeResults[0]?.success).toBe(false)
     })
 
-    it('does not auto-upgrade ordinary external pressure into watchful status once loyalty drops', () => {
+    it('does not auto-upgrade ordinary external pressure into a stored intermediate status once loyalty drops', () => {
         const erzhulie = INITIAL_NPCS.find(npc => npc.name === '尔朱烈')!
 
         const result = settleRound({
@@ -231,14 +231,14 @@ describe('settleRound layered settlement', () => {
         expect(updatedErzhulie?.externalStatus).toBe('loyal')
     })
 
-    it('keeps failed secession attempts as non-terminal pressure instead of forcing watchful status', () => {
+    it('keeps failed secession attempts as non-terminal pressure instead of forcing a stored intermediate status', () => {
         const hebabogui = INITIAL_NPCS.find(npc => npc.id === 'hebaboguì')!
 
         const result = settleRound({
             round: 7,
             schemes: [
                 {
-                    id: 'failed-secession-should-not-force-watchful',
+                    id: 'failed-secession-should-not-force-intermediate-status',
                     targetNpcId: hebabogui.id,
                     schemeType: 'secession' as any,
                     playerSpeech: '西线若真想自成一局，也得先把兵、粮、心都捏在自己手里。',
@@ -607,7 +607,7 @@ describe('settleRound layered settlement', () => {
     it('lets prepared shu conversion push a successful line from stalemate to gained', () => {
         const pressuredNpcs = INITIAL_NPCS.map(npc => (
             npc.powerBase === 'external'
-                ? { ...npc, externalStatus: 'watchful' as const }
+                ? { ...npc, externalStatus: 'loyal' as const }
                 : { ...npc }
         ))
         const pressuredFactions = INITIAL_FACTIONS.map(faction => (
@@ -652,7 +652,7 @@ describe('settleRound layered settlement', () => {
                 : npc.id === linghu.id
                     ? { ...npc, trust: 58 }
                     : npc.powerBase === 'external'
-                        ? { ...npc, externalStatus: 'watchful' as const }
+                        ? { ...npc, externalStatus: 'loyal' as const }
                         : { ...npc }
         ))
         const pressuredFactions = INITIAL_FACTIONS.map(faction => (

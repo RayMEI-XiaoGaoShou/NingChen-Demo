@@ -1,5 +1,5 @@
 import type { NationDimensions, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult } from './types'
-import { getEmpressConcernTemplate, getPlayerDangerConcernOverlay } from './empressConcernTemplates'
+import { adjustConcernOpeningForSafety, getEmpressConcernTemplate, getPlayerDangerConcernOverlay } from './empressConcernTemplates'
 
 export type EmpressPolicyDomain = 'military' | 'finance' | 'grain' | 'governance' | 'socialOrder'
 export type EmpressReasonQuality = 'high' | 'medium' | 'low'
@@ -64,7 +64,7 @@ const DIMENSION_LABELS: Record<EmpressPolicyDomain, string> = {
 }
 
 const TOPIC_DOMAIN_HINTS: Array<{ pattern: RegExp; domain: EmpressPolicyDomain }> = [
-    { pattern: /征蜀|征淮南|战役方略|练兵|边镇|战略选择|征蜀方略|淮南战役方略|终局国策/, domain: 'military' },
+    { pattern: /征蜀|征淮南|战役方略|练兵|边镇|战略选择|征蜀方略|淮南战役方略|北伐总策/, domain: 'military' },
     { pattern: /战时财政|财政/, domain: 'finance' },
     { pattern: /仓储|粮|流民|灾年/, domain: 'grain' },
     { pattern: /民生|流民|久战之治/, domain: 'socialOrder' },
@@ -182,12 +182,12 @@ function describeWarWindow(warWindow: boolean): string {
 
 function describePlayerPosition(stage: PlayerDangerStage): string {
     if (stage === 'under_review') {
-        return '萧宝颖眼下在北周处境逼仄，回批宜更短、更稳，重在提醒其先自保。'
+        return '此信宜更短、更稳，不明写北边细节，也不把双方关系说满。'
     }
     if (stage === 'under_watch') {
-        return '萧宝颖眼下已在北周被人留意，回批宜更收束，不宜把话说得太满。'
+        return '北来书信终究不稳妥，回批宜更收束，不宜把话说得太满。'
     }
-    return '萧宝颖眼下在北周尚可周旋，回批可多一分期许，但仍不能轻许重诺。'
+    return '可略多一分期许，但仍不能轻许重诺，不写只有萧宝颖才可能知道的北庭细节。'
 }
 
 function describePolicyImplementationHint(report: EmpressFeedbackPolicyReport, parse: PolicyReasonParseResult | null | undefined): string {
@@ -242,6 +242,7 @@ export function buildEmpressFeedbackContext(params: {
     const warWindow = isWarWindowRound(params.currentRound, params.policyReport)
     const reasonQuality = summarizeReasonQuality(params.policyParse, params.policyReport.focusMatched)
     const concern = getEmpressConcernTemplate(params.policyReport.sourceRound)
+    const concernOpening = adjustConcernOpeningForSafety(concern.opening, params.playerDangerStage)
 
     return {
         sourceRound: params.policyReport.sourceRound,
@@ -274,7 +275,7 @@ export function buildEmpressFeedbackContext(params: {
         playerPositionSummary: describePlayerPosition(params.playerDangerStage),
         recentAftereffectSummary: params.policyAftereffect?.summary,
         concernTitle: concern.title,
-        concernOpening: concern.opening,
+        concernOpening,
         concernClosingHint: concern.closingHint,
         playerConcernOverlay: getPlayerDangerConcernOverlay(params.playerDangerStage),
         policyImplementationHint: describePolicyImplementationHint(params.policyReport, params.policyParse),

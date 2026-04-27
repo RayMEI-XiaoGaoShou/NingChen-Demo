@@ -87,7 +87,7 @@ describe('CourtView card presentation', () => {
             difficulty: 'normal',
             npcs: INITIAL_NPCS.map(npc =>
                 npc.id === 'hebaboguì'
-                    ? { ...npc, trust: 75, loyaltyToCourt: 34, externalStatus: 'watchful' }
+                    ? { ...npc, trust: 75, loyaltyToCourt: 34, externalStatus: 'loyal' }
                     : { ...npc },
             ),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),

@@ -63,6 +63,8 @@ interface GameState {
     omenGuideSeen: OmenGuideSeenMap
     fengDaozhiAssistsRemaining: number
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat: number
+    invasionPressure: number
 
     // 游戏结果
     isGameOver: boolean
@@ -237,6 +239,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     omenGuideSeen: initialOmenGuideSeen,
     fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
     playerDangerStage: 'safe',
+    playerSuspicionHeat: 0,
+    invasionPressure: 0,
     isGameOver: false,
     gameResult: 'NONE',
     roundStartSnapshot: null,
@@ -325,6 +329,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         relationships: s.relationships,
                         intelProgress: s.intelProgress,
                         playerDangerStage: s.playerDangerStage,
+                        playerSuspicionHeat: s.playerSuspicionHeat,
+                        invasionPressure: s.invasionPressure,
                         policyOptionIndex: s.selectedPolicyOption,
                         policyReason: s.policyReason,
                         policyParse: s.selectedPolicyParse,
@@ -372,6 +378,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         relationshipBreakCount: result.relationshipReports.length,
                         factionCollapseCount: result.factionCollapseReports.length,
                         invasionTriggered: result.invasionTriggered,
+                        playerSuspicionHeat: result.playerSuspicionHeat,
+                        invasionPressure: result.invasionPressure,
                         northPower: result.northPowerAfter,
                         southPower: result.southPowerAfter,
                         summary: result.summaryText,
@@ -417,6 +425,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             isGameOver: true,
                             gameResult: result.gameResult,
                             playerDangerStage: result.playerDangerStage,
+                            playerSuspicionHeat: result.playerSuspicionHeat,
+                            invasionPressure: result.invasionPressure,
                             northStats: result.northStatsAfter,
                             southStats: result.southStatsAfter,
                             northPower: result.northPowerAfter,
@@ -451,6 +461,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             northPower: result.northPowerAfter,
                             southPower: result.southPowerAfter,
                             playerDangerStage: result.playerDangerStage,
+                            playerSuspicionHeat: result.playerSuspicionHeat,
+                            invasionPressure: result.invasionPressure,
                             npcs: updatedNpcs,
                             factions: result.factionsAfter,
                             relationships: result.relationshipsAfter,
@@ -682,8 +694,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         const relatedNpc = request.relatedNpcId
             ? state.npcs.find(item => item.id === request.relatedNpcId)
             : null
+        const pressureAwareRequest = {
+            ...request,
+            playerSuspicionHeat: request.playerSuspicionHeat ?? state.playerSuspicionHeat,
+            invasionPressure: request.invasionPressure ?? state.invasionPressure,
+        }
         const context = buildFengDaozhiDraftContext({
-            request,
+            request: pressureAwareRequest,
             npc,
             relatedNpc,
             factions: state.factions,
@@ -736,6 +753,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: state.omenGuideSeen,
             fengDaozhiAssistsRemaining: state.fengDaozhiAssistsRemaining,
             playerDangerStage: state.playerDangerStage,
+            playerSuspicionHeat: state.playerSuspicionHeat,
+            invasionPressure: state.invasionPressure,
             isGameOver: false,
             gameResult: 'NONE',
             northStats: state.northStats,
@@ -798,6 +817,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: snapshot.omenGuideSeen,
             fengDaozhiAssistsRemaining: snapshot.fengDaozhiAssistsRemaining,
             playerDangerStage: snapshot.playerDangerStage,
+            playerSuspicionHeat: snapshot.playerSuspicionHeat ?? 0,
+            invasionPressure: snapshot.invasionPressure ?? 0,
             isGameOver: false,
             gameResult: 'NONE',
             roundStartSnapshot: snapshot,
@@ -849,6 +870,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: initialOmenGuideSeen,
             fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
             playerDangerStage: 'safe',
+            playerSuspicionHeat: 0,
+            invasionPressure: 0,
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
             northPower: initialNorthPower,
@@ -1027,6 +1050,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 guideSnapshot.fengDaozhiAssistsRemaining ??
                 getAssistQuotaForDifficulty(snapshot.difficulty ?? initialDifficulty),
             playerDangerStage: snapshot.playerDangerStage ?? 'safe',
+            playerSuspicionHeat: snapshot.playerSuspicionHeat ?? 0,
+            invasionPressure: snapshot.invasionPressure ?? 0,
             isGameOver: snapshot.isGameOver,
             gameResult: snapshot.gameResult,
             roundStartSnapshot: snapshot.roundStartSnapshot
@@ -1039,6 +1064,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                     },
                     npcMemoryLedger: snapshot.roundStartSnapshot.npcMemoryLedger ?? {},
                     relationMemoryLedger: cloneRelationMemoryLedger(snapshot.roundStartSnapshot.relationMemoryLedger ?? {}),
+                    playerSuspicionHeat: snapshot.roundStartSnapshot.playerSuspicionHeat ?? 0,
+                    invasionPressure: snapshot.roundStartSnapshot.invasionPressure ?? 0,
                     npcs: attachAvailableSchemes(
                         snapshot.roundStartSnapshot.npcs,
                         snapshot.roundStartSnapshot.currentRound,

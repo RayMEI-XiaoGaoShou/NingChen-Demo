@@ -3,6 +3,16 @@ import { chatCompletionJson } from '../ai/aiService'
 import { buildNorthSchemeParsePrompt, buildPolicyReasonParsePrompt, buildSchemeFollowUpParsePrompt } from '../ai/prompts'
 import { recordAiGameMasterDebug } from './aiGameMasterDebug'
 import { normalizeSchemeFollowUpParse } from './schemeFollowUp'
+import {
+    NORTH_EXECUTION_WORDS,
+    NORTH_EXPOSURE_WORDS,
+    NORTH_FINANCE_WORDS,
+    NORTH_GOVERNANCE_WORDS,
+    NORTH_GRAIN_WORDS,
+    NORTH_MILITARY_WORDS,
+    NORTH_SOCIAL_ORDER_WORDS,
+    NORTH_STRUCTURAL_WORDS,
+} from './semanticSignals'
 import type {
     AdvicePolarity,
     DelayedBacklash,
@@ -23,15 +33,6 @@ const NORTH_INTENTS: NorthDominantIntent[] = ['neutral', 'induce', 'threaten', '
 const POLICY_STANCES: PolicyStance[] = ['neutral', 'balanced', 'aggressive', 'conservative', 'expedient']
 const ADVICE_POLARITIES: AdvicePolarity[] = ['pro_state', 'pro_target_anti_state', 'neutral_or_vague']
 const OMEN_POLARITIES: OmenPolarity[] = ['legitimizing', 'destabilizing', 'vague_or_ceremonial']
-
-const NORTH_STRUCTURAL_WORDS = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛', '法统', '名分', '军令', '州郡', '接管']
-const NORTH_EXECUTION_WORDS = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度', '接管', '断粮', '编户', '屯田', '安置']
-const NORTH_EXPOSURE_WORDS = ['夺权', '逼宫', '起兵', '翻掉', '杀', '今夜', '一举', '反旗', '举兵']
-const NORTH_FINANCE_WORDS = ['财政', '国库', '赋税', '钱粮', '商道', '饷银', '军费', '开源', '节流', '库藏', '财用']
-const NORTH_GRAIN_WORDS = ['粮道', '军粮', '口粮', '转运', '漕运', '仓储', '屯田', '后勤', '补给', '仓廪', '粮秣']
-const NORTH_MILITARY_WORDS = ['兵权', '前线', '战线', '调兵', '帅印', '节度', '都督', '平叛', '守军', '军令', '边镇', '诸军', '将令']
-const NORTH_SOCIAL_ORDER_WORDS = ['流民', '民变', '人心', '骚乱', '州郡', '百姓', '安民', '哗变', '恐慌', '离散']
-const NORTH_GOVERNANCE_WORDS = ['中枢', '诏令', '门阀', '权柄', '体制', '调度', '执行', '都督', '节度', '官吏', '法令', '秩序', '接管', '州郡', '法统', '名分']
 
 export function clamp01(value: unknown): number {
     const numeric = typeof value === 'number' ? value : Number(value)
@@ -128,7 +129,7 @@ function includesAny(text: string, words: string[]): boolean {
     return words.some(word => word && text.includes(word))
 }
 
-function scoreMatches(text: string, words: string[]): number {
+function scoreMatches(text: string, words: readonly string[]): number {
     const matches = words.filter(word => word && text.includes(word))
     return Math.min(1, matches.length / Math.max(1, Math.min(words.length, 4)))
 }

@@ -25,4 +25,18 @@ describe('policyQuestions', () => {
         expect(first?.question).not.toContain('陛下')
         expect(POLICY_QUESTIONS.every(question => question.options.length === 4)).toBe(true)
     })
+
+    it('applies the revised strategic option wording for rounds 7, 9, 16 and 19', () => {
+        const round7 = getPolicyQuestionForRound(7, { shuCampaignState: 'idle', huainanCampaignState: 'idle' })
+        const round9 = getPolicyQuestionForRound(9, { shuCampaignState: 'idle', huainanCampaignState: 'idle' })
+        const round16 = getPolicyQuestionForRound(16, { shuCampaignState: 'idle', huainanCampaignState: 'idle' })
+        const round19 = getPolicyQuestionForRound(19, { shuCampaignState: 'idle', huainanCampaignState: 'idle' })
+
+        expect(round7?.background).toContain('江夏')
+        expect(round7?.options[2].content).toBe('江夏优先')
+        expect(round9?.options[2].content).toBe('有限试探')
+        expect(round16?.options[2].content).toBe('稳扎稳打')
+        expect(round19?.background).not.toContain('终局渐近')
+        expect(round19?.background).toContain('朝中急议渐多')
+    })
 })

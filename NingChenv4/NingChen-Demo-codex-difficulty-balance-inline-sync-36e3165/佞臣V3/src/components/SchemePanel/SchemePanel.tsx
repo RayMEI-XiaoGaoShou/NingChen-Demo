@@ -74,7 +74,7 @@ export function getSchemeSpeechFields(selectedScheme: SchemeType | null): Scheme
 
 function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalTiltLabel(alignmentBias) }
 
-function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalPostureLabel({ powerBase: 'external', externalStatus, loyaltyToCourt, alignmentBias }) }
+function getExternalPostureLabel(externalStatus: 'loyal' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalPostureLabel({ powerBase: 'external', externalStatus, loyaltyToCourt, alignmentBias }) }
 
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & { courtStatus?: CourtStatus }
@@ -313,6 +313,8 @@ export function SchemePanel() {
         openGameplayGuide,
         fengDaozhiAssistsRemaining,
         playerDangerStage,
+        playerSuspicionHeat,
+        invasionPressure,
         requestFengDaozhiDraft,
         shuCampaign,
         huainanCampaign,
@@ -431,6 +433,8 @@ export function SchemePanel() {
                 targetNpcId: selectedNpcId,
                 schemeType: selectedScheme,
                 playerDangerStage,
+                playerSuspicionHeat,
+                invasionPressure,
                 relatedNpcId: effectiveRelatedNpcId ?? undefined,
                 omenSpeechInput: selectedScheme === 'omen'
                     ? { omenText, interpretationText }
