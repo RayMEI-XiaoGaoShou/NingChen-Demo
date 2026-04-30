@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest'
 import type { NorthSchemeParseResult, SchemeAction, SchemeFollowUpParseResult } from './types'
 import {
     applySchemeFollowUpToNorthParse,
+    buildContextualFallbackFollowUpQuestion,
     extractFinalQuestion,
     extractTerminalQuestion,
     forceQuestionCandidateReplyText,
     forceStatementReplyText,
     getSchemeFollowUpImpactPresentation,
     normalizeSchemeFollowUpParse,
+    sanitizeSchemeFollowUpFinalReplyText,
     selectRequiredSchemeFollowUpCandidateId,
     selectSchemeFollowUpCandidateId,
     shouldBlockSettlementForFollowUp,
@@ -222,6 +224,41 @@ describe('schemeFollowUp helpers', () => {
 
         expect(reply).toContain('他把话听完，只说此事可慢慢筹划。')
         expect(extractTerminalQuestion(reply)).toBe('你究竟想让本公先压谁？')
+    })
+
+    it('promotes an embedded AI question instead of appending a fixed fallback hook', () => {
+        const reply = forceQuestionCandidateReplyText(
+            '他听到此处，先把话压低。你究竟想让我先疑谁？随后把话收住，说此事不可急。',
+            '你今日把这话递到我耳边，究竟想让我先疑谁？',
+        )
+
+        expect(reply).not.toContain('（稍作停顿）')
+        expect(reply).not.toContain('你今日把这话递到我耳边')
+        expect(extractTerminalQuestion(reply)).toBe('你究竟想让我先疑谁？')
+    })
+
+    it('builds contextual fallback questions from related npc and dominant dimension', () => {
+        const question = buildContextualFallbackFollowUpQuestion({
+            schemeType: 'alienate',
+            targetNpcName: '宗艾',
+            relatedNpcName: '令狐律光',
+            playerSpeech: '先查令狐律光粮道与军需调拨。',
+            northParse: makeNorthParse({
+                grainRelevance: 0.82,
+                militaryRelevance: 0.76,
+            }),
+        })
+
+        expect(question).toContain('令狐律光')
+        expect(question).toMatch(/粮道|军需/)
+        expect(question).not.toContain('究竟想让我先疑谁')
+    })
+
+    it('sanitizes follow-up final replies with rhetorical questions instead of dropping to fallback', () => {
+        const reply = sanitizeSchemeFollowUpFinalReplyText('他冷笑道：“你还要本官如何？”随即收住话锋，说此事先按账册查。')
+
+        expect(reply).toContain('随即收住话锋')
+        expect(reply).not.toMatch(/[?？]/)
     })
 
     it('blocks settlement while the single visible follow-up is available or being submitted', () => {

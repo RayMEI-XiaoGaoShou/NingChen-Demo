@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { chatCompletionJson } from '../ai/aiService'
+import { chatCompletionJson, chatCompletionJsonDetailed } from '../ai/aiService'
 import { clearAiGameMasterDebugRecords, getAiGameMasterDebugRecords } from './aiGameMasterDebug'
 import {
     fallbackNorthParseFromSpeech,
     fallbackPolicyParseFromReason,
+    parseSchemeFollowUpInputDetailed,
     parseSchemeFollowUpInput,
     parseNorthSchemeInput,
     normalizeNorthSchemeParse,
@@ -13,12 +14,15 @@ import {
 
 vi.mock('../ai/aiService', () => ({
     chatCompletionJson: vi.fn(),
+    chatCompletionJsonDetailed: vi.fn(),
 }))
 
 const chatCompletionJsonMock = vi.mocked(chatCompletionJson)
+const chatCompletionJsonDetailedMock = vi.mocked(chatCompletionJsonDetailed)
 
 beforeEach(() => {
     chatCompletionJsonMock.mockReset()
+    chatCompletionJsonDetailedMock.mockReset()
     clearAiGameMasterDebugRecords()
 })
 
@@ -405,7 +409,14 @@ describe('normalizePolicyReasonParse', () => {
 
 describe('parseSchemeFollowUpInput', () => {
     it('does not reward long but non-substantive fallback replies as successful clarification', async () => {
-        chatCompletionJsonMock.mockResolvedValue(null)
+        chatCompletionJsonDetailedMock.mockResolvedValue({
+            parsed: null,
+            text: '',
+            mode: 'deepseek',
+            source: 'ai',
+            parseFallbackReason: 'parse_invalid_json',
+            attempts: 1,
+        })
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
         const parsed = await parseSchemeFollowUpInput({
@@ -431,9 +442,51 @@ describe('parseSchemeFollowUpInput', () => {
         expect(parsed.contradictionRisk).toBeGreaterThan(0.2)
     })
 
+    it('reports why detailed follow-up parsing fell back to local scoring', async () => {
+        chatCompletionJsonDetailedMock.mockResolvedValue({
+            parsed: null,
+            text: '',
+            mode: 'deepseek',
+            source: 'fallback',
+            fallbackReason: 'request_failed',
+            parseFallbackReason: 'request_failed',
+            attempts: 1,
+        })
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
+
+        const result = await parseSchemeFollowUpInputDetailed({
+            round: 6,
+            eventName: 'test event',
+            eventBriefing: 'test briefing',
+            npc,
+            schemeType: 'advise',
+            originalSpeech: 'original speech',
+            originalParse: normalizeNorthSchemeParse({
+                characterFit: 0.52,
+                eventFit: 0.45,
+                structuralPenetration: 0.42,
+                executability: 0.5,
+                exposureRisk: 0.22,
+            }),
+            npcQuestion: 'What exactly should I do?',
+            playerReply: 'Turn the grain audit into a routine ledger review before asking the court to tighten transport.',
+        })
+
+        expect(result.source).toBe('invalid_ai_fallback')
+        expect(result.fallbackReason).toBe('request_failed')
+        expect(result.parse.successRateDelta).toBeGreaterThanOrEqual(0)
+    })
+
     it('falls back when remote follow-up parse lacks the required delta schema', async () => {
-        chatCompletionJsonMock.mockResolvedValue({
-            clarificationFit: 0.9,
+        chatCompletionJsonDetailedMock.mockResolvedValue({
+            parsed: {
+                clarificationFit: 0.9,
+            },
+            text: '{"clarificationFit":0.9}',
+            mode: 'deepseek',
+            source: 'ai',
+            parseFallbackReason: 'parse_invalid_json',
+            attempts: 1,
         })
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 

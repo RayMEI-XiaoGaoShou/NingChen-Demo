@@ -151,6 +151,59 @@ describe('npcMemoryLedger', () => {
         ]))
     })
 
+    it('uses causal event motion when recording hard-scheme pressure memories', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zongai')!, trust: 58 }
+        const causalMotion = 'CAUSAL_MEMORY_SENTINEL 宗艾扣住军需账册，转向御前递疑。'
+
+        const entries = deriveNpcMemoryEntriesForRound({
+            round: 10,
+            schemes: [{
+                targetNpcId: npc.id,
+                schemeType: 'slander',
+                playerSpeech: '先扣账册，再递疑心。',
+            }],
+            schemeResults: [
+                makeSchemeResult({
+                    success: true,
+                    personEffects: {
+                        trustDelta: -7,
+                        relatedTrustDelta: 0,
+                        loyaltyDelta: 0,
+                        relatedLoyaltyDelta: 0,
+                        alignmentShift: null,
+                        intelDelta: 0,
+                        externalStatus: null,
+                        militaryPowerDelta: 0,
+                    },
+                    causalEvent: {
+                        actionId: 'memory-causal',
+                        actorNpcId: npc.id,
+                        actorNpcName: npc.name,
+                        schemeType: 'slander',
+                        success: true,
+                        motionText: causalMotion,
+                        motionSource: 'fallback',
+                        primaryDimensions: ['governance'],
+                        secondaryDimensions: [],
+                        effectSummary: ['北周治理穿透力-0.4'],
+                        relatedImpactSummary: null,
+                    },
+                }),
+            ],
+            npcsBefore: [npc],
+            npcsAfter: [{ ...npc, trust: 51 }],
+            externalActionReports: [],
+        })
+
+        expect(entries).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                npcId: npc.id,
+                category: 'warning',
+                summary: expect.stringContaining('CAUSAL_MEMORY_SENTINEL'),
+            }),
+        ]))
+    })
+
     it('tracks power-shift memories for successful external escalation', () => {
         const npc = { ...INITIAL_NPCS.find(item => item.id === 'an_siming')!, externalStatus: 'loyal' as const }
         const report: ExternalActionReport = {

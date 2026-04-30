@@ -164,6 +164,62 @@ const initialSchemeOnboardingSeen = {
         expect((snapshot?.roundStartSnapshot as any)?.roundStartSnapshot).toBeUndefined()
     })
 
+    it('persists world memory ledger through save and load', () => {
+        const snapshot = buildPersistedSnapshot({
+            ...createBaseState(),
+            currentPhase: 'ROUND_END',
+            prologueStep: 'INGAME',
+            worldMemoryLedger: [{
+                id: 'world-1',
+                sourceRound: 4,
+                sourceActionId: 'scheme-1',
+                scope: 'chronicle_fact',
+                visibility: 'public',
+                involvedNpcIds: ['zuting'],
+                affectedFactionIds: ['empress'],
+                dimensions: ['grain'],
+                schemeType: 'advise',
+                summary: '祖珽前曾押下仓簿。',
+                reliability: 0.95,
+                secrecyRisk: 0.1,
+                tags: ['chronicle_fact'],
+            }],
+            roundStartSnapshot: {
+                ...createBaseState(),
+                currentRound: 4,
+                currentPhase: 'ROUND_START',
+                prologueStep: 'INGAME',
+                worldMemoryLedger: [{
+                    id: 'world-start',
+                    sourceRound: 3,
+                    sourceActionId: 'scheme-0',
+                    scope: 'court_public',
+                    visibility: 'public',
+                    involvedNpcIds: ['zuting'],
+                    affectedFactionIds: ['empress'],
+                    dimensions: ['finance'],
+                    schemeType: 'advise',
+                    summary: '旧日公议。',
+                    reliability: 0.7,
+                    secrecyRisk: 0.1,
+                    tags: ['court_public'],
+                }],
+            },
+        })
+
+        expect(snapshot?.worldMemoryLedger?.[0]?.summary).toBe('祖珽前曾押下仓簿。')
+        expect(snapshot?.roundStartSnapshot?.worldMemoryLedger?.[0]?.summary).toBe('旧日公议。')
+
+        const localStorage = createLocalStorageMock()
+        vi.stubGlobal('localStorage', localStorage)
+        if (!snapshot) throw new Error('Expected snapshot to be persisted')
+        saveGameSnapshot(snapshot)
+
+        const loaded = loadGameSnapshot()
+        expect(loaded?.worldMemoryLedger?.[0]?.summary).toBe('祖珽前曾押下仓簿。')
+        expect(loaded?.roundStartSnapshot?.worldMemoryLedger?.[0]?.summary).toBe('旧日公议。')
+    })
+
     it('preserves scheme follow-up parse data through save and load', () => {
         const snapshot = buildPersistedSnapshot({
             ...createBaseState(),

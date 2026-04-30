@@ -1,5 +1,6 @@
 import type { NPC, OmenSpeechInput, PolicyResolutionMeta, SchemeType } from '../../game/types'
 import { getAlignmentLabel, getExternalStatusLabel } from '../../game/types'
+import { buildCompactCanonBlock } from '../promptCanon'
 import type { ChatMessage } from './shared'
 import { STRUCTURED_PARSE_SYSTEM } from './shared'
 
@@ -94,6 +95,7 @@ export function buildNorthSchemeParsePrompt(params: {
 局势：${params.eventBriefing}
 ${targetTypeLine}
 目标人物：${params.npc.name}（${params.npc.title}），公开人设：${params.npc.publicPersona}
+${buildCompactCanonBlock()}
 公开立场：${params.npc.publicStance}
 性格：${params.npc.personality}
 软肋：${params.npc.softSpot}
@@ -164,6 +166,7 @@ export function buildPolicyReasonParsePrompt(params: {
 问政母题：${params.topic}
 题目：${params.question}
 附言：${params.reason}
+${buildCompactCanonBlock()}
 法统方向：${params.meta.legitimacyEffect ?? 'steady'}
 评分重点：${params.meta.aiScoringFocus ?? '未提供'}
 

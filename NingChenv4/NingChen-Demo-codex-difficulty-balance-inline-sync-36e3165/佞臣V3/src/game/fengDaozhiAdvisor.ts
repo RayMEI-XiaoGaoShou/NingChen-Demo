@@ -14,6 +14,7 @@ import type {
     RelationMemoryLedger,
     PlayerDangerStage,
     RoundHistoryEntry,
+    WorldMemoryLedger,
 } from './types'
 
 export interface FengDaozhiDraftContext {
@@ -33,6 +34,7 @@ export interface FengDaozhiDraftContext {
     factionPressure: string
     longTermMemorySummary?: string
     relationMemorySummary?: string
+    worldMemorySummary?: string
     relationshipSummary?: string
     courtSituationSummary?: string
     courtDispositionHint?: string
@@ -57,6 +59,7 @@ export function buildFengDaozhiDraftContext(params: {
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
     relationMemoryLedger?: RelationMemoryLedger
+    worldMemoryLedger?: WorldMemoryLedger
     relatedNpc?: NPC | null
 }): FengDaozhiDraftContext {
     const {
@@ -70,6 +73,7 @@ export function buildFengDaozhiDraftContext(params: {
         huainanCampaign,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         relatedNpc,
     } = params
     const situationSummary = buildFengDaozhiSituationSummary({
@@ -83,6 +87,7 @@ export function buildFengDaozhiDraftContext(params: {
         huainanCampaign,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         relatedNpcId: request.relatedNpcId,
         schemeType: request.schemeType,
     })
@@ -119,6 +124,7 @@ export function buildFengDaozhiDraftContext(params: {
         factionPressure: situationSummary.factionPressure,
         longTermMemorySummary: situationSummary.longTermMemorySummary,
         relationMemorySummary: situationSummary.relationMemorySummary,
+        worldMemorySummary: situationSummary.worldMemorySummary,
         relationshipSummary: situationSummary.relationshipSummary,
         courtSituationSummary: situationSummary.courtSituationSummary,
         courtDispositionHint: dispositionHint?.promptText,

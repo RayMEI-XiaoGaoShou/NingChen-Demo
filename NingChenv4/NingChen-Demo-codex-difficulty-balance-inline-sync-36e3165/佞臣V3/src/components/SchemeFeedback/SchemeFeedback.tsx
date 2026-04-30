@@ -1,29 +1,36 @@
 ﻿import { useEffect, useRef, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_FOLLOW_UP_TEACHING_CONTENT, FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { fallbackNorthParseFromSpeech, parseNorthSchemeInput, parseSchemeFollowUpInput } from '../../game/aiNativeEngine'
+import { fallbackNorthParseFromSpeech, parseNorthSchemeInput, parseSchemeFollowUpInputDetailed } from '../../game/aiNativeEngine'
 import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildNpcFollowUpFinalPrompt, buildNpcPrompt, buildOmenEchoPrompt, sanitizeNpcReplyText } from '../../ai/prompts'
-import { chatCompletion, getAiMode, getAiModeLabel } from '../../ai/aiService'
+import { chatCompletion, chatCompletionDetailed, getAiMode, getAiModeLabel, initAiService } from '../../ai/aiService'
+import { recordAiCallDiagnostic } from '../../ai/aiCallDiagnostics'
+import { generateEmpressReplyRecordForPolicy } from '../../ai/empressReplyOrchestrator'
+import { generateSchemeNpcActionsForSettlement } from '../../ai/schemeNpcActionOrchestrator'
 import { recordAiGameMasterDebug } from '../../game/aiGameMasterDebug'
 import { buildOmenEchoFallbackText, buildOmenEchoFeedbackPayload, selectOmenEchoSpeaker } from '../../game/omenEcho'
+import type { RoundSettlementResult } from '../../game/roundSettlement'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
 import { isSchemeReplyPrefetchInFlight } from '../../game/schemeReplyPrefetch'
 import {
+    buildContextualFallbackFollowUpQuestion,
     extractTerminalQuestion,
     forceQuestionCandidateReplyText,
     forceStatementReplyText,
     getSchemeFollowUpImpactPresentation,
     getVisibleAvailableSchemeFollowUpId,
     selectRequiredSchemeFollowUpCandidateId,
+    sanitizeSchemeFollowUpFinalReplyText,
     shouldBlockSettlementForFollowUp,
 } from '../../game/schemeFollowUp'
-import type { NPC, NorthSchemeParseResult, OmenEchoFeedback, RelationshipEdge, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeType } from '../../game/types'
+import type { NPC, NorthSchemeParseResult, OmenEchoFeedback, RelationshipEdge, SchemeAction, SchemeFollowUp, SchemeFollowUpAnswerMetadata, SchemeFollowUpFallbackReason, SchemeFollowUpParseResult } from '../../game/types'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
+import { buildSchemeResultEffectTags, getSchemeNpcActionDisplay } from './schemeResultDisplay'
 import './SchemeFeedback.css'
 
 const SCHEME_NAMES: Record<string, string> = {
@@ -39,17 +46,11 @@ const SCHEME_NAMES: Record<string, string> = {
     rebellion: '煽动造反',
 }
 
-const SCHEME_OUTCOME_LABEL_ORDER = ['国力影响', '朝堂政局'] as const
-const NORTH_DIMENSION_LABELS: Record<string, string> = {
-    finance: '财政',
-    grain: '粮赋',
-    military: '军事',
-    socialOrder: '社会秩序',
-    governance: '治理穿透力',
-}
-
 const LOCAL_REPLY_FALLBACK = '似有回应，却一时听不分明。'
 const FOLLOW_UP_REPLY_FALLBACK = '他收起锋芒，只留一句平静的回应。'
+const NPC_ACTION_FALLBACK_GRACE_MS = 15000
+const NPC_ACTION_BACKGROUND_ITEM_TIMEOUT_MS = 45000
+const NPC_ACTION_BACKGROUND_BATCH_TIMEOUT_MS = 60000
 const ZERO_DELTA_FOLLOW_UP_PARSE: SchemeFollowUpParseResult = {
     clarificationFit: 0,
     npcInterestFit: 0,
@@ -62,67 +63,36 @@ const ZERO_DELTA_FOLLOW_UP_PARSE: SchemeFollowUpParseResult = {
 }
 
 function sanitizeFollowUpReplyText(reply: string): string {
-    const cleaned = sanitizeNpcReplyText(reply)
-        .replace(/```[\s\S]*?```/g, ' ')
-        .replace(/[\r\n]+/g, ' ')
-        .replace(/\bJSON\b/gi, '')
-        .replace(/\bsystem\b/gi, '')
-        .trim()
-
-    if (!cleaned) return ''
-    if (/[{}\[\]`]/.test(cleaned)) return ''
-    if (/[?？]/.test(cleaned)) return ''
-
-    return cleaned
+    return sanitizeSchemeFollowUpFinalReplyText(sanitizeNpcReplyText(reply))
 }
 
 function buildFollowUpReplyFallback(targetNpcName: string): string {
     return `${targetNpcName}${FOLLOW_UP_REPLY_FALLBACK}`
 }
 
-function buildFallbackFollowUpQuestion(schemeType: SchemeType): string {
-    switch (schemeType) {
-        case 'probe':
-            return '你这番试探，究竟想听我吐哪一句真话？'
-        case 'advise':
-            return '你这番献策，究竟是替我谋利，还是想借我去动旁人的局？'
-        case 'slander':
-            return '你今日把这话递到我耳边，究竟想让我先疑谁？'
-        case 'alienate':
-            return '你把话锋引到这里，究竟想叫我与谁先起嫌隙？'
-        case 'frame':
-            return '你把局铺成这样，究竟想让谁先背上这层嫌疑？'
-        case 'proxy':
-            return '你劝我借势出手，究竟想让我替你压谁？'
-        case 'appeal':
-            return '你来求援，到底想让我替你担哪一道险？'
-        case 'omen':
-            return '你借这一句谶言敲我，究竟想叫我提防谁？'
-        case 'secession':
-            return '你把话说到这一步，究竟是想叫我先观望，还是先自保？'
-        case 'rebellion':
-            return '你把路逼到这一步，究竟是真想起事，还是想借我试朝廷深浅？'
-        default:
-            return '你这番话，究竟真正想让我做什么？'
-    }
+function recordFollowUpFallbackDiagnostic(params: {
+    tag: string
+    reason: SchemeFollowUpFallbackReason
+    mode?: ReturnType<typeof getAiMode>
+    messageCount?: number
+    maxTokens?: number
+    temperature?: number
+}): void {
+    recordAiCallDiagnostic({
+        tag: params.tag,
+        mode: params.mode ?? getAiMode(),
+        status: 'fallback',
+        fallbackReason: params.reason,
+        provider: 'scheme_feedback_follow_up',
+        messageCount: params.messageCount,
+        maxTokens: params.maxTokens,
+        temperature: params.temperature,
+    })
 }
 
 function buildOmenEchoParseSummary(parsed: Pick<NorthSchemeParseResult, 'omenPolarity' | 'omenAnchorStrength' | 'legitimacyCrack' | 'suspicionDirection' | 'evidence'>): string {
     const evidenceLine = parsed.evidence.slice(0, 2).join('；') || '暂无'
     return `omenPolarity=${parsed.omenPolarity}; omenAnchorStrength=${parsed.omenAnchorStrength}; legitimacyCrack=${parsed.legitimacyCrack}; suspicionDirection=${parsed.suspicionDirection}; evidence=${evidenceLine}`
-}
-
-function formatDelta(value: unknown): string | null {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
-    return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
-}
-
-function sanitizeDeltaRecord(record: Record<string, unknown> | null | undefined): Record<string, number> {
-    if (!record) return {}
-
-    return Object.fromEntries(
-        Object.entries(record).map(([key, value]) => [key, typeof value === 'number' && Number.isFinite(value) ? value : 0]),
-    )
 }
 
 export function getSchemeFeedbackProceedLabel(params: {
@@ -135,6 +105,31 @@ export function getSchemeFeedbackProceedLabel(params: {
     if (!params.allParsed) return '等待解析完成'
     if (!params.settlementRevealed) return '揭示筹算结果'
     return params.terminalResult ? '查看终局' : '进入女帝回信'
+}
+
+function buildNpcActionEnhancementKey(currentRound: number, actionIds: string[]): string {
+    return `${currentRound}:${actionIds.join('|')}`
+}
+
+function getEnhanceableFallbackActionIds(settlement: RoundSettlementResult): string[] {
+    return settlement.schemeResults.flatMap((result, index) => {
+        const action = settlement.processedSchemes[index]
+        return action?.id && result.npcAction?.source === 'fallback' && result.npcAction.text
+            ? [action.id]
+            : []
+    })
+}
+
+export function shouldDelaySchemeNpcActionFallback(params: {
+    settlement: RoundSettlementResult | null
+    resultIndex: number
+    revealedActionIds: ReadonlySet<string>
+}): boolean {
+    if (!params.settlement) return false
+
+    const result = params.settlement.schemeResults[params.resultIndex]
+    const action = params.settlement.processedSchemes[params.resultIndex]
+    return Boolean(action?.id && result?.npcAction?.source === 'fallback' && result.npcAction.text && !params.revealedActionIds.has(action.id))
 }
 
 export async function orchestrateOmenEchoFeedback(params: {
@@ -301,13 +296,19 @@ export function SchemeFeedback() {
         roundHistory,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         pendingStructuredSchemeIds,
         lastSettlement,
+        roundStartSnapshot,
+        empressReplyRecord,
         addNpcFeedback,
         updateNpcFeedback,
         updateNpcFeedbackOmenEcho,
+        updateSchemeNpcAction,
+        setEmpressReplyRecord,
         updateSchemeParse,
         markSchemeParsePending,
+        prepareSchemeSettlementForFeedback,
         setSchemeFollowUp,
         answerSchemeFollowUp,
         skipSchemeFollowUp,
@@ -324,8 +325,11 @@ export function SchemeFeedback() {
 
     const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, string>>({})
     const [submittingFollowUpId, setSubmittingFollowUpId] = useState<string | null>(null)
+    const [settlementVisible, setSettlementVisible] = useState(false)
     const [, setFeedbackBatchSettledKey] = useState<string | null>(null)
     const [orchestratingFeedbacks, setOrchestratingFeedbacks] = useState(false)
+    const [, setNpcActionEnhancing] = useState(false)
+    const [revealedNpcActionFallbackIds, setRevealedNpcActionFallbackIds] = useState<Set<string>>(() => new Set())
     const schemeBatchKey = currentSchemes
         .map(action => action.id ?? `${action.targetNpcId}:${action.schemeType}`)
         .join('|')
@@ -346,8 +350,9 @@ export function SchemeFeedback() {
     const followUpBlocked = shouldBlockSettlementForFollowUp(currentSchemes, submittingFollowUpId !== null)
     const visibleAvailableFollowUpId = getVisibleAvailableFollowUpId(currentSchemes)
     const canProceed = canProceedFromSchemeFeedback({ allDone, allParsed, followUpBlocked })
-    const settlementRevealed = Boolean(lastSettlement)
-    const canClickProceed = settlementRevealed || canProceed
+    const settlementRevealed = Boolean(lastSettlement && settlementVisible)
+    const npcActionFallbackGracePending = Boolean(settlementRevealed && lastSettlement && getEnhanceableFallbackActionIds(lastSettlement).some(actionId => !revealedNpcActionFallbackIds.has(actionId)))
+    const canClickProceed = !settlementVisible ? Boolean(lastSettlement) : (settlementRevealed || canProceed) && !npcActionFallbackGracePending
     const proceedLabel = getSchemeFeedbackProceedLabel({
         allDone,
         allParsed,
@@ -362,6 +367,11 @@ export function SchemeFeedback() {
         firstRoundGuideSeen.scheme_feedback &&
         !schemeOnboardingSeen.first_follow_up_teaching
     const settledBatchKeyRef = useRef<string | null>(null)
+    const settlementPrepareKeyRef = useRef<string | null>(null)
+    const settlementRevealIntentRef = useRef(false)
+    const empressReplyPreheatKeyRef = useRef<string | null>(null)
+    const npcActionEnhancementKeyRef = useRef<string | null>(null)
+    const npcActionFallbackTimersRef = useRef<Map<string, ReturnType<typeof globalThis.setTimeout>>>(new Map())
     const orchestrationStateRef = useRef<{
         npcFeedbacks: typeof npcFeedbacks
         currentSchemes: typeof currentSchemes
@@ -373,6 +383,7 @@ export function SchemeFeedback() {
         roundHistory: typeof roundHistory
         npcMemoryLedger: typeof npcMemoryLedger
         relationMemoryLedger: typeof relationMemoryLedger
+        worldMemoryLedger: typeof worldMemoryLedger
         pendingStructuredSchemeIds: typeof pendingStructuredSchemeIds
         currentRoundEvent: typeof currentRoundEvent
         addNpcFeedback: typeof addNpcFeedback
@@ -394,6 +405,7 @@ export function SchemeFeedback() {
         roundHistory,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         pendingStructuredSchemeIds,
         currentRoundEvent,
         addNpcFeedback,
@@ -406,9 +418,161 @@ export function SchemeFeedback() {
 
     useEffect(() => {
         settledBatchKeyRef.current = null
+        settlementPrepareKeyRef.current = null
+        settlementRevealIntentRef.current = false
+        empressReplyPreheatKeyRef.current = null
+        npcActionEnhancementKeyRef.current = null
+        npcActionFallbackTimersRef.current.forEach(timer => globalThis.clearTimeout(timer))
+        npcActionFallbackTimersRef.current.clear()
+        setSettlementVisible(false)
+        setRevealedNpcActionFallbackIds(new Set())
         setFeedbackBatchSettledKey(null)
         setOrchestratingFeedbacks(false)
+        setNpcActionEnhancing(false)
     }, [currentRound, schemeBatchKey])
+
+    useEffect(() => {
+        if (lastSettlement && settlementRevealIntentRef.current) {
+            settlementRevealIntentRef.current = false
+            setSettlementVisible(true)
+        }
+    }, [lastSettlement])
+
+    useEffect(() => {
+        if (!canProceed || lastSettlement) return
+        if (settlementPrepareKeyRef.current === schemeBatchKey) return
+        settlementPrepareKeyRef.current = schemeBatchKey
+        prepareSchemeSettlementForFeedback()
+    }, [canProceed, lastSettlement, prepareSchemeSettlementForFeedback, schemeBatchKey])
+
+    useEffect(() => {
+        if (!lastSettlement?.policyReport) return
+        if (empressReplyRecord?.sourceRound === currentRound) return
+
+        const preheatKey = `${currentRound}:${lastSettlement.policyReport.sourceRound}:${lastSettlement.policyReport.optionLabel}:${lastSettlement.policyReport.reason}`
+        if (empressReplyPreheatKeyRef.current === preheatKey) return
+        empressReplyPreheatKeyRef.current = preheatKey
+
+        let cancelled = false
+        void generateEmpressReplyRecordForPolicy({
+            currentRound,
+            policyReport: lastSettlement.policyReport,
+            policyAftereffect: lastSettlement.policyAftereffect,
+            southStatsAfter: lastSettlement.southStatsAfter,
+            playerDangerStage: roundStartSnapshot?.playerDangerStage ?? 'safe',
+            invasionSummary: lastSettlement.judgeFacts.invasionSummary,
+            worldMemoryLedger,
+            roundEvent: {
+                eventName: currentRoundEvent.eventName,
+                eventBriefing: currentRoundEvent.eventBriefing,
+            },
+            tag: 'empress_feedback_reply_page',
+        }).then(replyRecord => {
+            if (cancelled) return
+            setEmpressReplyRecord(replyRecord)
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [
+        currentRound,
+        currentRoundEvent.eventBriefing,
+        currentRoundEvent.eventName,
+        empressReplyRecord,
+        lastSettlement?.judgeFacts?.invasionSummary,
+        lastSettlement?.playerDangerStage,
+        lastSettlement?.policyAftereffect,
+        lastSettlement?.policyReport,
+        lastSettlement?.southStatsAfter,
+        roundStartSnapshot?.playerDangerStage,
+        setEmpressReplyRecord,
+        worldMemoryLedger,
+    ])
+
+    useEffect(() => {
+        if (!lastSettlement) return
+
+        const effectStillMountedRef = { current: true }
+        const fallbackActionIds = getEnhanceableFallbackActionIds(lastSettlement)
+        const unrevealedFallbackActionIds = fallbackActionIds.filter(actionId => !revealedNpcActionFallbackIds.has(actionId))
+        const enhancementKey = buildNpcActionEnhancementKey(currentRound, fallbackActionIds)
+
+        if (unrevealedFallbackActionIds.length === 0) {
+            setNpcActionEnhancing(false)
+            return
+        }
+
+        const revealFallbackIds = (actionIds: string[]) => {
+            setRevealedNpcActionFallbackIds(current => {
+                const next = new Set(current)
+                actionIds.forEach(actionId => next.add(actionId))
+                return next
+            })
+        }
+
+        if (getAiMode() === 'fallback') {
+            revealFallbackIds(unrevealedFallbackActionIds)
+        } else {
+            unrevealedFallbackActionIds.forEach(actionId => {
+                if (npcActionFallbackTimersRef.current.has(actionId)) return
+                const timer = globalThis.setTimeout(() => {
+                    npcActionFallbackTimersRef.current.delete(actionId)
+                    revealFallbackIds([actionId])
+                }, NPC_ACTION_FALLBACK_GRACE_MS)
+                npcActionFallbackTimersRef.current.set(actionId, timer)
+            })
+        }
+
+        if (npcActionEnhancementKeyRef.current === enhancementKey) return
+        npcActionEnhancementKeyRef.current = enhancementKey
+        setNpcActionEnhancing(true)
+
+        void initAiService().then(mode => {
+            if (mode === 'fallback') {
+                if (effectStillMountedRef.current) {
+                    revealFallbackIds(unrevealedFallbackActionIds)
+                }
+                recordAiCallDiagnostic({
+                    tag: 'scheme_npc_action_batch',
+                    mode,
+                    status: 'fallback',
+                    fallbackReason: 'fallback_mode',
+                    provider: 'scheme_feedback_npc_action_init',
+                })
+                return lastSettlement
+            }
+
+            return generateSchemeNpcActionsForSettlement({
+                settlement: lastSettlement,
+                npcs,
+                factions,
+                currentRound,
+                intelProgress,
+                roundHistory,
+                recentBacklash,
+                npcMemoryLedger,
+                relationMemoryLedger,
+                worldMemoryLedger,
+                roundEvent: currentRoundEvent,
+                itemTimeoutMs: NPC_ACTION_BACKGROUND_ITEM_TIMEOUT_MS,
+                batchTimeoutMs: NPC_ACTION_BACKGROUND_BATCH_TIMEOUT_MS,
+            })
+        }).then(patchedSettlement => {
+            if (!patchedSettlement) return
+            patchedSettlement.schemeResults.forEach((result, index) => {
+                const action = patchedSettlement.processedSchemes[index]
+                if (!action?.id || result.npcAction?.source !== 'ai') return
+                updateSchemeNpcAction(action.id, result.npcAction)
+            })
+        }).finally(() => {
+            if (effectStillMountedRef.current) setNpcActionEnhancing(false)
+        })
+
+        return () => {
+            effectStillMountedRef.current = false
+        }
+    }, [currentRound, currentRoundEvent.eventBriefing, currentRoundEvent.eventName, currentSchemes, factions, intelProgress, lastSettlement, npcMemoryLedger, npcs, recentBacklash, relationMemoryLedger, roundHistory, updateSchemeNpcAction, worldMemoryLedger])
 
     useEffect(() => {
         let cancelled = false
@@ -472,6 +636,7 @@ export function SchemeFeedback() {
                         recentBacklash: snapshot.recentBacklash,
                         npcMemoryLedger: snapshot.npcMemoryLedger,
                         relationMemoryLedger: snapshot.relationMemoryLedger,
+                        worldMemoryLedger: snapshot.worldMemoryLedger,
                         relatedNpcId: relatedNpc?.id,
                         currentRound,
                         schemeType: action.schemeType,
@@ -577,7 +742,13 @@ export function SchemeFeedback() {
                 if (cancelled) return
                 const existingFeedback = existingFeedbackMap.get(item.feedbackId)
                 const isFollowUpCandidate = Boolean(candidateId && item.action.id === candidateId && item.action.id)
-                const fallbackQuestion = buildFallbackFollowUpQuestion(item.action.schemeType)
+                const fallbackQuestion = buildContextualFallbackFollowUpQuestion({
+                    schemeType: item.action.schemeType,
+                    targetNpcName: item.targetNpc.name,
+                    relatedNpcName: item.relatedNpc?.name,
+                    playerSpeech: item.action.playerSpeech,
+                    northParse: item.parsed,
+                })
                 const normalizeReply = (rawReply: string) => {
                     const cleaned = sanitizeNpcReplyText(rawReply.trim())
                     const safeReply = cleaned || `${item.targetNpc.name}${LOCAL_REPLY_FALLBACK}`
@@ -649,6 +820,7 @@ export function SchemeFeedback() {
                             factionPressure: item.dynamicContext.factionPressure,
                             longTermMemorySummary: item.dynamicContext.longTermMemorySummary,
                             relationMemorySummary: item.dynamicContext.relationMemorySummary,
+                            worldMemorySummary: item.dynamicContext.worldMemorySummary,
                         }),
                         {
                             temperature: 0.75,
@@ -811,17 +983,34 @@ export function SchemeFeedback() {
         setSubmittingFollowUpId(actionId)
 
         try {
-            const followUpParse = await parseSchemeFollowUpInput({
-                round: currentRound,
-                eventName: currentRoundEvent.eventName,
-                eventBriefing: currentRoundEvent.eventBriefing,
-                npc: targetNpc,
-                schemeType: action.schemeType,
-                originalSpeech: action.playerSpeech,
-                originalParse: action.northParse,
-                npcQuestion: followUp.questionText,
-                playerReply,
-            })
+            let followUpParse = ZERO_DELTA_FOLLOW_UP_PARSE
+            const followUpMetadata: SchemeFollowUpAnswerMetadata = {
+                parseSource: 'invalid_ai_fallback',
+                parseFallbackReason: 'parse_exception',
+            }
+
+            try {
+                const followUpParseResult = await parseSchemeFollowUpInputDetailed({
+                    round: currentRound,
+                    eventName: currentRoundEvent.eventName,
+                    eventBriefing: currentRoundEvent.eventBriefing,
+                    npc: targetNpc,
+                    schemeType: action.schemeType,
+                    originalSpeech: action.playerSpeech,
+                    originalParse: action.northParse,
+                    npcQuestion: followUp.questionText,
+                    playerReply,
+                })
+                followUpParse = followUpParseResult.parse
+                followUpMetadata.parseSource = followUpParseResult.source
+                followUpMetadata.parseFallbackReason = followUpParseResult.fallbackReason
+            } catch {
+                recordFollowUpFallbackDiagnostic({
+                    tag: 'scheme_follow_up_parse',
+                    reason: 'parse_exception',
+                })
+            }
+
             const knownSecretThreads = targetNpc.secretThreads.slice(0, intelProgress[targetNpc.id] ?? 0)
             const dynamicContext = buildNpcPromptDynamicContext({
                 npc: targetNpc,
@@ -830,12 +1019,14 @@ export function SchemeFeedback() {
                 recentBacklash,
                 npcMemoryLedger,
                 relationMemoryLedger,
+                worldMemoryLedger,
                 relatedNpcId: relatedNpc?.id,
                 currentRound,
                 schemeType: action.schemeType,
             })
 
-            const finalReplyRaw = await chatCompletion(
+            const finalReplyTag = `scheme_follow_up_${action.schemeType}`
+            const finalReplyResult = await chatCompletionDetailed(
                 buildNpcFollowUpFinalPrompt({
                     npc: targetNpc,
                     schemeType: action.schemeType,
@@ -854,22 +1045,41 @@ export function SchemeFeedback() {
                     factionPressure: dynamicContext.factionPressure,
                     longTermMemorySummary: dynamicContext.longTermMemorySummary,
                     relationMemorySummary: dynamicContext.relationMemorySummary,
+                    worldMemorySummary: dynamicContext.worldMemorySummary,
                     relatedNpc,
                     northParse: action.northParse,
                 }),
                 {
                     temperature: 0.7,
                     maxTokens: 220,
-                    tag: `scheme_follow_up_${action.schemeType}`,
+                    tag: finalReplyTag,
                 },
             )
 
-            const cleanedFinalReply = sanitizeFollowUpReplyText(finalReplyRaw.trim())
+            const cleanedFinalReply = sanitizeFollowUpReplyText(finalReplyResult.text.trim())
+            if (cleanedFinalReply) {
+                followUpMetadata.finalNpcReplySource = finalReplyResult.source
+                followUpMetadata.finalNpcReplyFallbackReason = finalReplyResult.fallbackReason
+            } else {
+                followUpMetadata.finalNpcReplySource = 'fallback'
+                followUpMetadata.finalNpcReplyFallbackReason = finalReplyResult.source === 'fallback'
+                    ? finalReplyResult.fallbackReason ?? 'completion_exception'
+                    : 'sanitized_empty'
+                recordFollowUpFallbackDiagnostic({
+                    tag: finalReplyTag,
+                    reason: followUpMetadata.finalNpcReplyFallbackReason,
+                    mode: finalReplyResult.mode,
+                    messageCount: 1,
+                    maxTokens: 220,
+                    temperature: 0.7,
+                })
+            }
             answerSchemeFollowUp(
                 actionId,
                 playerReply,
                 followUpParse,
                 cleanedFinalReply || buildFollowUpReplyFallback(targetNpc.name),
+                followUpMetadata,
             )
             setFollowUpDrafts(current => {
                 const next = { ...current }
@@ -877,11 +1087,23 @@ export function SchemeFeedback() {
                 return next
             })
         } catch {
+            recordFollowUpFallbackDiagnostic({
+                tag: `scheme_follow_up_${action.schemeType}`,
+                reason: 'completion_exception',
+                maxTokens: 220,
+                temperature: 0.7,
+            })
             answerSchemeFollowUp(
                 actionId,
                 playerReply,
                 ZERO_DELTA_FOLLOW_UP_PARSE,
                 buildFollowUpReplyFallback(targetNpc.name),
+                {
+                    parseSource: 'invalid_ai_fallback',
+                    parseFallbackReason: 'parse_exception',
+                    finalNpcReplySource: 'fallback',
+                    finalNpcReplyFallbackReason: 'completion_exception',
+                },
             )
             setFollowUpDrafts(current => {
                 const next = { ...current }
@@ -891,6 +1113,21 @@ export function SchemeFeedback() {
         } finally {
             setSubmittingFollowUpId(null)
         }
+    }
+
+    const handleProceedClick = () => {
+        if (lastSettlement && !settlementVisible) {
+            setSettlementVisible(true)
+            return
+        }
+
+        if (!lastSettlement && canProceed) {
+            settlementRevealIntentRef.current = true
+            prepareSchemeSettlementForFeedback()
+            return
+        }
+
+        nextPhase()
     }
 
     return (
@@ -1061,7 +1298,7 @@ export function SchemeFeedback() {
                 })}
             </div>
 
-            {lastSettlement && (
+            {settlementRevealed && lastSettlement && (
                 <div className="scheme-feedback-settlement animate-slide-up animate-delay-3">
                     <h3 className="section-title">计谋筹算结果</h3>
                     <div className="scheme-feedback-results-list">
@@ -1074,10 +1311,25 @@ export function SchemeFeedback() {
                         {lastSettlement.schemeResults.map((result, index) => {
                             const action = lastSettlement.processedSchemes?.[index] ?? currentSchemes[index]
                             const npc = npcs.find(item => item.id === action?.targetNpcId)
-                            const explanation = lastSettlement.schemeOutcomeExplanations?.[index]
-                            const orderedExplanationSegments = SCHEME_OUTCOME_LABEL_ORDER
-                                .map(label => explanation?.segments.find(segment => segment.label === label))
-                                .filter((segment): segment is NonNullable<typeof explanation>['segments'][number] => Boolean(segment))
+                            const relatedNpc = action?.relatedNpcId
+                                ? npcs.find(item => item.id === action.relatedNpcId) ?? null
+                                : null
+                            const npcActionDisplay = getSchemeNpcActionDisplay({
+                                npcName: npc?.name,
+                                npcAction: result.npcAction,
+                                delayFallback: shouldDelaySchemeNpcActionFallback({
+                                    settlement: lastSettlement,
+                                    resultIndex: index,
+                                    revealedActionIds: revealedNpcActionFallbackIds,
+                                }),
+                            })
+                            const effectTags = buildSchemeResultEffectTags({
+                                result,
+                                action: action ?? null,
+                                targetNpc: npc ?? null,
+                                relatedNpc,
+                                factions,
+                            })
 
                             return (
                                 <div
@@ -1106,34 +1358,19 @@ export function SchemeFeedback() {
                                         </span>
                                     </div>
 
-                                    <p className="scheme-feedback-result-text">{result.feedbackText}</p>
-
-                                    {orderedExplanationSegments.length > 0 && (
-                                        <div className="scheme-feedback-explanation-stack">
-                                            {orderedExplanationSegments.map(segment => (
-                                                <p key={`${index}-${segment.label}`} className="scheme-feedback-result-text">
-                                                    <strong>{segment.label}</strong>
-                                                    ：{segment.text}
-                                                </p>
-                                            ))}
-                                        </div>
+                                    {npcActionDisplay && (
+                                        <p className="scheme-feedback-result-text">
+                                            <strong>{npcActionDisplay.label}</strong>
+                                            ：{npcActionDisplay.text}
+                                        </p>
                                     )}
 
                                     <div className="scheme-feedback-result-effects">
-                                        {result.trustChange !== 0 && (
-                                            <span className={`effect-tag ${result.trustChange > 0 ? 'positive' : 'negative'}`}>
-                                                {npc?.name} 信任 {result.trustChange > 0 ? '+' : ''}{result.trustChange}
+                                        {effectTags.map(tag => (
+                                            <span key={tag.label} className={`effect-tag ${tag.tone}`}>
+                                                {tag.label}
                                             </span>
-                                        )}
-                                        {Object.entries(sanitizeDeltaRecord(result.northDimensionChanges)).map(([dimension, value]) => {
-                                            const formattedDelta = formatDelta(value)
-                                            if (!formattedDelta) return null
-                                            return (
-                                                <span key={dimension} className={`effect-tag ${value > 0 ? 'positive' : 'negative'}`}>
-                                                    北周{NORTH_DIMENSION_LABELS[dimension] ?? dimension} {formattedDelta}
-                                                </span>
-                                            )
-                                        })}
+                                        ))}
                                     </div>
                                 </div>
                             )
@@ -1142,7 +1379,7 @@ export function SchemeFeedback() {
                 </div>
             )}
 
-            {lastSettlement?.borrowedBladeReports && lastSettlement.borrowedBladeReports.length > 0 && (
+            {settlementRevealed && lastSettlement?.borrowedBladeReports && lastSettlement.borrowedBladeReports.length > 0 && (
                 <div className="scheme-feedback-settlement animate-slide-up animate-delay-4">
                     <h3 className="section-title">朝堂收网</h3>
                     <div className="scheme-feedback-results-list scheme-feedback-results-list--court">
@@ -1171,7 +1408,7 @@ export function SchemeFeedback() {
             <div className="action-footer animate-slide-up animate-delay-4">
                 <button
                     className="btn-primary btn-proceed"
-                    onClick={nextPhase}
+                    onClick={handleProceedClick}
                     disabled={!canClickProceed}
                 >
                     {proceedLabel}

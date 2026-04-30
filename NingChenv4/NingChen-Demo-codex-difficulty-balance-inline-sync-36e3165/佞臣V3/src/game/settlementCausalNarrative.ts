@@ -40,7 +40,7 @@ export interface SettlementChronicleQuoteCandidate {
     speakerName: string
     sourceText: string
     schemeIndex: number
-    source: 'follow_up' | 'omen_echo' | 'npc_feedback'
+    source: 'omen_echo' | 'npc_feedback'
     priorityScore: number
 }
 
@@ -64,9 +64,10 @@ export function buildSettlementSchemeCausalEvents(input: {
         const targetName = target?.name ?? '目标人物'
         const relatedName = related?.name
         const effectLine = buildEffectLine(result, target, related)
-        const motionLine = action
+        const motionLine = result.causalEvent?.motionText || result.npcAction?.text || (action
             ? buildCausalMotion(action, result, targetName, relatedName)
-            : result.feedbackText
+            : result.feedbackText)
+        const promptMotionLine = shouldIncludeMotionInChroniclePrompt(result) ? motionLine : ''
         const explanationLine = compactText(
             input.explanations?.[index]?.segments
                 .map(segment => `${segment.label}：${segment.text}`)
@@ -74,7 +75,6 @@ export function buildSettlementSchemeCausalEvents(input: {
             140,
         )
         const npcReplyLine = compactText(feedback?.feedback ?? '', 120)
-        const followUpLine = compactText(action?.followUp?.finalNpcReply ?? '', 100)
         const omenEchoLine = compactText(feedback?.omenEcho?.text ?? '', 110)
         const playerSpeech = compactText(action?.playerSpeech ?? '', 90)
         const resultLabel = result.success ? '成功' : '失败'
@@ -89,9 +89,8 @@ export function buildSettlementSchemeCausalEvents(input: {
         const promptPieces = [
             `计谋${index + 1}：对${targetName}施“${schemeName}”${relatedPart}，${resultLabel}`,
             playerSpeech ? `玩家说辞：“${playerSpeech}”` : '',
-            `落地链：${motionLine}`,
+            promptMotionLine ? `落地链：${promptMotionLine}` : '',
             npcReplyLine ? `NPC回报：“${npcReplyLine}”` : '',
-            followUpLine ? `追问回应：“${followUpLine}”` : '',
             omenEchoLine ? `谶纬余音：“${omenEchoLine}”` : '',
             effectLine ? `数值后果：${effectLine}` : '',
             explanationLine ? `可解释性摘要：${explanationLine}` : '',
@@ -122,6 +121,14 @@ export function selectSettlementChronicleQuoteCandidate(
     })[0] ?? null
 }
 
+function shouldIncludeMotionInChroniclePrompt(result: SchemeResult): boolean {
+    const event = result.causalEvent
+    if (!event) return true
+    if (event.visibility === 'private') return false
+    if (event.eventKind === 'trust_only' || event.eventKind === 'intel_progress') return false
+    return true
+}
+
 function buildChronicleQuoteCandidate(input: {
     action: SchemeAction | undefined
     result: SchemeResult
@@ -132,19 +139,8 @@ function buildChronicleQuoteCandidate(input: {
     const { action, result, targetName, feedback, index } = input
     if (!action) return undefined
 
-    const followUpText = compactText(action.followUp?.finalNpcReply ?? '', 120)
     const omenEchoText = compactText(feedback?.omenEcho?.text ?? '', 120)
     const npcFeedbackText = compactText(feedback?.feedback ?? '', 120)
-
-    if (followUpText) {
-        return {
-            speakerName: targetName,
-            sourceText: followUpText,
-            schemeIndex: index,
-            source: 'follow_up',
-            priorityScore: buildQuotePriorityScore(result, 30),
-        }
-    }
 
     if (omenEchoText && feedback?.omenEcho?.speakerNpcName) {
         return {

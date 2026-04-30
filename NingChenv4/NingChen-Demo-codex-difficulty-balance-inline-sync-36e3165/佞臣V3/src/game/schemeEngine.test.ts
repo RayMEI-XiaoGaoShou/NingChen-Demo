@@ -395,6 +395,188 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(normal.trustChange).toBe(easy.trustChange)
     })
 
+    it('routes high-quality court advice through every strongly mentioned dimension with top dimensions hitting hardest', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 72 }
+        const result = settleScheme(
+            {
+                id: 'complex-court-advice',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '可借核账收财政，断粮道稳转运，再把军令与军需调度并入中枢，顺势压住河北流民与诏令乱口。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.88,
+                    eventFit: 0.84,
+                    structuralPenetration: 0.9,
+                    executability: 0.86,
+                    financeRelevance: 0.56,
+                    grainRelevance: 0.88,
+                    militaryRelevance: 0.92,
+                    socialOrderRelevance: 0.48,
+                    governanceRelevance: 0.62,
+                    stateBenefit: -0.78,
+                    targetBenefit: 0.82,
+                    advicePolarity: 'pro_target_anti_state',
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 2, difficulty: 'normal' },
+        )
+
+        expect(result.nationEffects.finance ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.grain ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.military ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.socialOrder ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.governance ?? 0).toBeLessThan(0)
+        expect(Math.abs(result.nationEffects.military ?? 0)).toBeGreaterThan(Math.abs(result.nationEffects.finance ?? 0))
+        expect(Math.abs(result.nationEffects.grain ?? 0)).toBeGreaterThan(Math.abs(result.nationEffects.socialOrder ?? 0))
+        expect(result.npcAction?.text).toBeTruthy()
+    })
+
+    it('keeps focused court advice from leaking into unmentioned dimensions', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 72 }
+        const result = settleScheme(
+            {
+                id: 'focused-court-advice',
+                targetNpcId: npc.id,
+                schemeType: 'advise',
+                playerSpeech: '只从度支账册入手，先把国库亏空与饷银去向查清。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.82,
+                    eventFit: 0.72,
+                    structuralPenetration: 0.78,
+                    executability: 0.8,
+                    financeRelevance: 0.9,
+                    grainRelevance: 0.18,
+                    militaryRelevance: 0.12,
+                    socialOrderRelevance: 0.16,
+                    governanceRelevance: 0.22,
+                    stateBenefit: -0.52,
+                    targetBenefit: 0.72,
+                    advicePolarity: 'pro_target_anti_state',
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 2, difficulty: 'normal' },
+        )
+
+        expect(result.nationEffects.finance ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.grain ?? 0).toBe(0)
+        expect(result.nationEffects.military ?? 0).toBe(0)
+        expect(result.nationEffects.socialOrder ?? 0).toBe(0)
+        expect(result.nationEffects.governance ?? 0).toBe(0)
+    })
+
+    it('narrates successful probe intel progress as npc口风', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 54 }
+        const result = settleScheme(
+            {
+                id: 'trust-only-probe',
+                targetNpcId: npc.id,
+                schemeType: 'probe',
+                playerSpeech: '只问一句风向，看看他是否愿意多吐半句口风。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.78,
+                    eventFit: 0.42,
+                    structuralPenetration: 0.18,
+                    executability: 0.82,
+                    financeRelevance: 0.08,
+                    grainRelevance: 0.06,
+                    militaryRelevance: 0.05,
+                    socialOrderRelevance: 0.08,
+                    governanceRelevance: 0.12,
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.trustChange).toBeGreaterThan(0)
+        expect(Object.values(result.nationEffects).some(Boolean)).toBe(false)
+        expect(result.personEffects.intelDelta).toBeGreaterThan(0)
+        expect(result.npcAction).toEqual(expect.objectContaining({ kind: 'intel' }))
+        expect(result.causalEvent as any).toEqual(expect.objectContaining({
+            eventKind: 'intel_progress',
+            visibility: 'south_intel_only',
+        }))
+    })
+
+    it('narrates failed schemes as counter events without adding nation effects', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!, trust: 54 }
+        const result = settleScheme(
+            {
+                id: 'failed-slander-counter',
+                targetNpcId: npc.id,
+                schemeType: 'slander',
+                playerSpeech: '拿旧账试探祖廷。',
+                resolutionRoll: 0.99,
+                northParse: makeNorthParse({
+                    characterFit: 0.18,
+                    eventFit: 0.16,
+                    structuralPenetration: 0.12,
+                    executability: 0.16,
+                    exposureRisk: 0.88,
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(false)
+        expect(result.trustChange).toBeLessThan(0)
+        expect(Object.values(result.nationEffects).some(Boolean)).toBe(false)
+        expect(result.npcAction).toEqual(expect.objectContaining({ kind: 'counter' }))
+        expect(result.causalEvent as any).toEqual(expect.objectContaining({
+            success: false,
+            eventKind: 'failure',
+            visibility: 'public',
+        }))
+    })
+
+    it('narrates trust-only success as private attitude event', () => {
+        const npc = { ...INITIAL_NPCS.find(candidate => candidate.id === 'duguwenyue')!, trust: 80 }
+        const result = settleScheme(
+            {
+                id: 'trust-only-appeal',
+                targetNpcId: npc.id,
+                schemeType: 'appeal',
+                playerSpeech: '只求他留一条私下退路。',
+                resolutionRoll: 0.01,
+                northParse: makeNorthParse({
+                    characterFit: 0.82,
+                    eventFit: 0.22,
+                    structuralPenetration: 0.12,
+                    executability: 0.72,
+                    exposureRisk: 0.08,
+                }),
+            },
+            { ...npc },
+            null,
+            0,
+            { round: 14, unlockedSecrets: 1, difficulty: 'normal' },
+        )
+
+        expect(result.success).toBe(true)
+        expect(result.trustChange).toBeGreaterThan(0)
+        expect(Object.values(result.nationEffects).some(Boolean)).toBe(false)
+        expect(result.npcAction).toEqual(expect.objectContaining({ kind: 'attitude' }))
+        expect(result.causalEvent as any).toEqual(expect.objectContaining({
+            eventKind: 'trust_only',
+            visibility: 'private',
+        }))
+    })
+
     it('does not offer any schemes once an external warlord has already turned secessionist', () => {
         const hebabogui = {
             ...INITIAL_NPCS.find(npc => npc.id.startsWith('hebabog'))!,
@@ -598,6 +780,206 @@ describe('schemeEngine contextual scheme rules', () => {
         expect(personalOnly.nationEffects.grain ?? 0).toBe(0)
         expect(Math.abs(structural.nationEffects.military ?? 0)).toBeGreaterThan(0)
         expect(Math.abs(structural.nationEffects.grain ?? 0)).toBeGreaterThan(0)
+    })
+
+    it('routes court alienation through an external related npc logistics loss', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 68 }
+        const linghu = { ...INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!, trust: 55 }
+
+        const result = settleScheme(
+            {
+                id: 'court-alienate-external-logistics',
+                targetNpcId: zongai.id,
+                schemeType: 'alienate',
+                relatedNpcId: linghu.id,
+                playerSpeech: '令狐律光的粮仓与兵器库若仍归他自调，宗艾迟早会疑他借军需自重，不如先断粮道再压军令。',
+                resolutionRoll: 0.02,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    grainRelevance: 0.88,
+                    militaryRelevance: 0.84,
+                    governanceRelevance: 0.56,
+                    socialOrderRelevance: 0.34,
+                    fractureTransmission: 0.86,
+                }),
+            },
+            zongai,
+            linghu,
+            0,
+            { round: 14, unlockedSecrets: 1 },
+        )
+
+        expect(result.personEffects.relatedMilitaryPowerDelta ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.grain ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.military ?? 0).toBeLessThan(0)
+        expect(result.relatedImpactSummary).toContain('令狐律光')
+        expect(result.npcAction?.text).toContain('令狐律光')
+        expect(result.npcAction?.text).toMatch(/粮|军|兵/)
+    })
+
+    it('keeps court related finance slander from leaking into grain or military', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 68 }
+        const yuwendi = { ...INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!, trust: 55 }
+
+        const result = settleScheme(
+            {
+                id: 'court-slander-finance-only',
+                targetNpcId: zongai.id,
+                schemeType: 'slander',
+                relatedNpcId: yuwendi.id,
+                playerSpeech: '只查燕王名下度支账册与库藏出入，不必牵扯军令粮道。',
+                resolutionRoll: 0.02,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    financeRelevance: 0.9,
+                    grainRelevance: 0.16,
+                    militaryRelevance: 0.14,
+                    socialOrderRelevance: 0.18,
+                    governanceRelevance: 0.22,
+                    suspicionTransmission: 0.82,
+                }),
+            },
+            zongai,
+            yuwendi,
+            0,
+            { round: 14, unlockedSecrets: 1 },
+        )
+
+        expect(result.factionEffects.emperor?.internalStability ?? 0).toBeLessThan(0)
+        expect(result.factionEffects.emperor?.militaryPower ?? 0).toBe(0)
+        expect(result.nationEffects.finance ?? 0).toBeLessThan(0)
+        expect(result.nationEffects.grain ?? 0).toBe(0)
+        expect(result.nationEffects.military ?? 0).toBe(0)
+        expect(result.nationEffects.socialOrder ?? 0).toBe(0)
+        expect(result.nationEffects.governance ?? 0).toBe(0)
+        expect(result.relatedImpactSummary).toContain('宇文棣')
+        expect(result.impactTrace?.directNationDimensions).toEqual(['finance'])
+        expect(result.impactTrace?.playerDirectNationDimensions).toEqual([])
+        expect(result.impactTrace?.relatedNationDimensions).toEqual(['finance'])
+        expect(result.impactTrace?.rippleNationDimensions).toEqual(['finance'])
+        expect(result.impactTrace?.nationImpactSources).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    dimension: 'finance',
+                    source: 'related_npc',
+                }),
+            ]),
+        )
+        expect(result.impactTrace?.nationImpactSources).not.toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    dimension: 'grain',
+                    source: 'faction_ripple',
+                }),
+                expect.objectContaining({
+                    dimension: 'military',
+                    source: 'faction_ripple',
+                }),
+            ]),
+        )
+        expect(result.impactTrace?.factionEffectSummary.join('；')).toContain('帝党')
+    })
+
+    it('builds a reusable causal event for successful visible scheme fallout', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 68 }
+        const linghu = { ...INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!, trust: 55 }
+
+        const result = settleScheme(
+            {
+                id: 'causal-event-related-logistics',
+                targetNpcId: zongai.id,
+                schemeType: 'alienate',
+                relatedNpcId: linghu.id,
+                playerSpeech: '令狐律光粮道与军需若仍自调，宗艾便可先扣住账册再断军令。',
+                resolutionRoll: 0.02,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    grainRelevance: 0.86,
+                    militaryRelevance: 0.82,
+                    governanceRelevance: 0.54,
+                    fractureTransmission: 0.84,
+                }),
+            },
+            zongai,
+            linghu,
+            0,
+            { round: 14, unlockedSecrets: 1 },
+        )
+
+        expect(result.causalEvent).toEqual(expect.objectContaining({
+            actionId: 'causal-event-related-logistics',
+            actorNpcId: zongai.id,
+            actorNpcName: zongai.name,
+            relatedNpcId: linghu.id,
+            relatedNpcName: linghu.name,
+            schemeType: 'alienate',
+            success: true,
+            relatedImpactSummary: expect.stringContaining(linghu.name),
+        }))
+        expect(result.causalEvent?.motionText).toContain(linghu.name)
+        expect(result.causalEvent?.primaryDimensions).toEqual(expect.arrayContaining(['grain', 'military']))
+        expect(result.causalEvent?.eventFrame).toEqual(expect.objectContaining({
+            actorNpcId: zongai.id,
+            actorNpcName: zongai.name,
+            relatedNpcId: linghu.id,
+            relatedNpcName: linghu.name,
+            schemeType: 'alienate',
+        }))
+        expect(result.causalEvent?.directEffects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    scope: 'nation',
+                    dimension: 'grain',
+                    source: 'related_npc',
+                }),
+                expect.objectContaining({
+                    scope: 'nation',
+                    dimension: 'military',
+                    source: 'related_npc',
+                }),
+            ]),
+        )
+        expect(result.causalEvent?.secondaryEffects).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    source: 'faction_ripple',
+                }),
+            ]),
+        )
+        expect(result.causalEvent?.effectSummary.join('；')).toContain('令狐律光')
+        expect(result.impactTrace?.relatedImpactSummary).toContain(linghu.name)
+    })
+
+    it('does not trigger related semantic impact when transmission is too low', () => {
+        const zongai = { ...INITIAL_NPCS.find(npc => npc.id === 'zongai')!, trust: 68 }
+        const linghu = { ...INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!, trust: 55 }
+
+        const result = settleScheme(
+            {
+                id: 'low-transmission-related-impact',
+                targetNpcId: zongai.id,
+                schemeType: 'alienate',
+                relatedNpcId: linghu.id,
+                playerSpeech: '军令粮道虽有可疑，但宗艾这一番话尚未真正传到令狐律光身上。',
+                resolutionRoll: 0.02,
+                northParse: makeNorthParse({
+                    dominantIntent: 'divide',
+                    grainRelevance: 0.82,
+                    militaryRelevance: 0.8,
+                    governanceRelevance: 0.5,
+                    fractureTransmission: 0.16,
+                }),
+            },
+            zongai,
+            linghu,
+            0,
+            { round: 14, unlockedSecrets: 1 },
+        )
+
+        expect(result.relatedImpactSummary).toBeNull()
+        expect(result.personEffects.relatedMilitaryPowerDelta ?? 0).toBe(0)
+        expect(result.nationEffects.grain ?? 0).toBe(0)
+        expect(result.nationEffects.military ?? 0).toBe(0)
     })
 
     it('lets external advise quietly grow military power when the plan consolidates troops and supplies', () => {

@@ -223,6 +223,17 @@ export interface RoundEvent {
 }
 
 export type SchemeFollowUpStatus = 'available' | 'answered' | 'skipped'
+export type SchemeFollowUpParseSource = 'ai' | 'invalid_ai_fallback'
+export type SchemeFollowUpTextSource = 'ai' | 'fallback'
+export type SchemeFollowUpFallbackReason =
+    | 'fallback_mode'
+    | 'request_failed'
+    | 'empty_response'
+    | 'parse_invalid_json'
+    | 'parse_exception'
+    | 'completion_exception'
+    | 'sanitized_empty'
+    | 'validation_failed'
 
 export interface SchemeFollowUpParseResult {
     clarificationFit: number
@@ -240,8 +251,17 @@ export interface SchemeFollowUp {
     playerReply?: string
     parse?: SchemeFollowUpParseResult
     finalNpcReply?: string
+    parseSource?: SchemeFollowUpParseSource
+    parseFallbackReason?: SchemeFollowUpFallbackReason
+    finalNpcReplySource?: SchemeFollowUpTextSource
+    finalNpcReplyFallbackReason?: SchemeFollowUpFallbackReason
     status: SchemeFollowUpStatus
 }
+
+export type SchemeFollowUpAnswerMetadata = Pick<
+    SchemeFollowUp,
+    'parseSource' | 'parseFallbackReason' | 'finalNpcReplySource' | 'finalNpcReplyFallbackReason'
+>
 
 export interface SchemeAction {
     id?: string
@@ -413,6 +433,33 @@ export interface RelationMemoryEntry {
 }
 
 export type RelationMemoryLedger = Record<string, RelationMemoryEntry[]>
+
+export type WorldMemoryScope =
+    | 'court_public'
+    | 'faction_private'
+    | 'local_rumor'
+    | 'south_intel'
+    | 'chronicle_fact'
+
+export type WorldMemoryVisibility = 'public' | 'limited' | 'secret'
+
+export interface WorldEventMemory {
+    id: string
+    sourceRound: number
+    sourceActionId?: string
+    scope: WorldMemoryScope
+    visibility: WorldMemoryVisibility
+    involvedNpcIds: string[]
+    affectedFactionIds: CourtFactionId[]
+    dimensions: Array<keyof NationDimensions>
+    schemeType?: SchemeType
+    summary: string
+    reliability: number
+    secrecyRisk: number
+    tags: string[]
+}
+
+export type WorldMemoryLedger = WorldEventMemory[]
 
 export interface AiNativeSummary {
     schemeHints: string[]

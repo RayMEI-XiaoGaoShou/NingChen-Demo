@@ -4,10 +4,13 @@ import { deriveCourtFavorHit } from '../../game/courtDispositionEngine'
 import { getNpcSelfReference, getNpcVoiceProfile } from '../../game/npcVoiceProfile'
 import { describeNpcPressureOverlay, describeNpcSchemeReactionProfile, getNpcReactionRole } from '../npcSchemeReactionProfile'
 import { describeNpcFollowUpFinalProfile } from '../npcFollowUpFinalProfile'
+import { buildAddressCanonBlock, buildCompactCanonBlock, buildWorldCanonBlock } from '../promptCanon'
 import type { ChatMessage, NpcFollowUpMode } from './shared'
 import { FACTION_LABELS, SCHEME_NAMES } from './shared'
 
-const NPC_SYSTEM = `你是《佞臣》中的 NPC 角色扮演引擎。你要代入指定人物，对萧宝颖刚刚施加的计谋作出回应。
+const NPC_SYSTEM = `${buildWorldCanonBlock()}
+
+你是《佞臣》中的 NPC 角色扮演引擎。你要代入指定人物，对萧宝颖刚刚施加的计谋作出回应。
 要求：
 - 回答通常 3 到 6 句，必要时可短到 2 句、长到 7 句；古典白话风，尽量在 110 到 240 字之间，不要为了凑字数硬拉长
 - 必须严格贴合该人物的官职、公开人设、公开立场、性格、软肋与逆鳞
@@ -208,6 +211,7 @@ export function buildNpcPrompt(params: {
     factionPressure?: string
     longTermMemorySummary?: string
     relationMemorySummary?: string
+    worldMemorySummary?: string
     relatedNpc?: NPC | null
     northParse?: NorthSchemeParseResult
 }): ChatMessage[] {
@@ -227,6 +231,7 @@ export function buildNpcPrompt(params: {
         factionPressure,
         longTermMemorySummary,
         relationMemorySummary,
+        worldMemorySummary,
         relatedNpc,
         northParse,
     } = params
@@ -246,10 +251,14 @@ export function buildNpcPrompt(params: {
     const relationMemoryLine = relationMemorySummary?.trim()
         ? `关系旧账：${relationMemorySummary}`
         : null
+    const worldMemoryLine = worldMemorySummary?.trim()
+        ? `近来公议：${worldMemorySummary}`
+        : null
     const relatedNpcLine = relatedNpc
         ? `牵连人物：${relatedNpc.name}（${relatedNpc.title}）`
         : null
     const voiceProfileLine = describeVoiceProfile(npc)
+    const addressCanonLine = buildAddressCanonBlock([npc.name, relatedNpc?.name])
     const selfReferenceLine = getNpcSelfReferenceLine(npc)
     const schemeReactionGuidance = getSchemeReactionGuidance({
         npc,
@@ -290,7 +299,9 @@ export function buildNpcPrompt(params: {
         { role: 'system', content: NPC_SYSTEM },
         {
             role: 'user',
-            content: `角色：${npc.name}（${npc.title}）
+            content: `${addressCanonLine}
+
+角色：${npc.name}（${npc.title}）
 公开人设：${npc.publicPersona}
 公开政治立场：${npc.publicStance}
 性格与行事风格：${npc.personality}
@@ -308,6 +319,7 @@ ${recentCourtFortuneLine}
 ${factionPressureLine}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}
 ${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
+${worldMemoryLine ? `${worldMemoryLine}\n` : ''}
 ${selfReferenceLine}
 ${schemeReactionGuidance}
 ${structuredSchemeReactionProfile ? `${structuredSchemeReactionProfile}\n` : ''}
@@ -354,6 +366,7 @@ export function buildSchemeFollowUpParsePrompt(params: {
 事件：${params.eventName}
 局势摘要：${params.eventBriefing}
 NPC：${params.npc.name}（${params.npc.title}）
+${buildCompactCanonBlock()}
 公开人设：${params.npc.publicPersona}
 公开立场：${params.npc.publicStance}
 性格与行事风格：${params.npc.personality}
@@ -383,7 +396,9 @@ NPC追问：${params.npcQuestion}
     ]
 }
 
-const NPC_FOLLOW_UP_FINAL_SYSTEM = `你是《佞臣》中的 NPC 回应引擎。你只能输出给玩家看的最终回应，不得输出 JSON、分数或系统判断。必须以陈述句收束，不要再问玩家新的问题。`
+const NPC_FOLLOW_UP_FINAL_SYSTEM = `${buildWorldCanonBlock()}
+
+你是《佞臣》中的 NPC 回应引擎。你只能输出给玩家看的最终回应，不得输出 JSON、分数或系统判断。必须以陈述句收束，不要再问玩家新的问题。`
 
 export function buildNpcFollowUpFinalPrompt(params: {
     npc: NPC
@@ -403,12 +418,14 @@ export function buildNpcFollowUpFinalPrompt(params: {
     factionPressure?: string
     longTermMemorySummary?: string
     relationMemorySummary?: string
+    worldMemorySummary?: string
     relatedNpc?: NPC | null
     northParse?: NorthSchemeParseResult
 }): ChatMessage[] {
     const evidenceLine = params.parseEvidence.length > 0 ? params.parseEvidence.join('；') : '暂无'
     const tone = getTrustTone(params.npc.trust)
     const voiceProfileLine = describeVoiceProfile(params.npc)
+    const addressCanonLine = buildAddressCanonBlock([params.npc.name, params.relatedNpc?.name])
     const selfReferenceLine = getNpcSelfReferenceLine(params.npc)
     const schemeReactionGuidance = getSchemeReactionGuidance({
         npc: params.npc,
@@ -463,6 +480,9 @@ export function buildNpcFollowUpFinalPrompt(params: {
     const relationMemoryLine = params.relationMemorySummary?.trim()
         ? `关系旧账：${params.relationMemorySummary}`
         : null
+    const worldMemoryLine = params.worldMemorySummary?.trim()
+        ? `近来公议：${params.worldMemorySummary}`
+        : null
     const relatedNpcLine = params.relatedNpc
         ? `牵连人物：${params.relatedNpc.name}（${params.relatedNpc.title}）`
         : null
@@ -474,13 +494,15 @@ export function buildNpcFollowUpFinalPrompt(params: {
         { role: 'system', content: NPC_FOLLOW_UP_FINAL_SYSTEM },
         {
             role: 'user',
-            content: `角色：${params.npc.name}（${params.npc.title}）
+            content: `${addressCanonLine}
+
+角色：${params.npc.name}（${params.npc.title}）
 ${roundLine ? `${roundLine}\n` : ''}${eventLine ? `${eventLine}\n` : ''}${briefingLine ? `${briefingLine}\n` : ''}${relatedNpcLine ? `${relatedNpcLine}\n` : ''}${knownSecretThreadsLine}
 ${previousDealingsLine}
 ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
 ${factionPressureLine}
-${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}${relationMemoryLine ? `${relationMemoryLine}\n` : ''}${originalStructureLine ? `${originalStructureLine}\n` : ''}人物态度：${tone.label}
+${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}${relationMemoryLine ? `${relationMemoryLine}\n` : ''}${worldMemoryLine ? `${worldMemoryLine}\n` : ''}${originalStructureLine ? `${originalStructureLine}\n` : ''}人物态度：${tone.label}
 语气要求：${tone.description}
 ${voiceProfileLine}
 ${selfReferenceLine}

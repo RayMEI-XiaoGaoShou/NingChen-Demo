@@ -304,6 +304,7 @@ export function SchemePanel() {
         roundHistory,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         firstRoundGuideSeen,
         schemeOnboardingSeen,
         markFirstRoundGuideSeen,
@@ -508,6 +509,7 @@ export function SchemePanel() {
             recentBacklash,
             npcMemoryLedger,
             relationMemoryLedger,
+            worldMemoryLedger,
             relatedNpcId: relatedNpcSnapshot?.id,
             currentRound,
             schemeType: action.schemeType,
@@ -548,6 +550,7 @@ export function SchemePanel() {
                         factionPressure: dynamicContext.factionPressure,
                         longTermMemorySummary: dynamicContext.longTermMemorySummary,
                         relationMemorySummary: dynamicContext.relationMemorySummary,
+                        worldMemorySummary: dynamicContext.worldMemorySummary,
                     }),
                     {
                         temperature: 0.75,

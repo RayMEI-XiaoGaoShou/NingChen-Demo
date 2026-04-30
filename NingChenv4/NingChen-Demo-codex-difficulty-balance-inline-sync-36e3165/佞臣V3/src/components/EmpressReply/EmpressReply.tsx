@@ -1,8 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import { chatCompletion } from '../../ai/aiService'
-import { buildEmpressFeedbackPrompt } from '../../ai/prompts'
+import { useEffect, useState } from 'react'
+import { generateEmpressReplyRecordForPolicy } from '../../ai/empressReplyOrchestrator'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
-import { buildEmpressFeedbackContext } from '../../game/empressFeedbackContext'
 import {
     buildSettlementDefaultEmpressReply,
     formatSignedDelta,
@@ -19,11 +17,13 @@ export function EmpressReply() {
         currentRound,
         nextPhase,
         lastSettlement,
+        roundStartSnapshot,
         empressReplyRecord,
         setEmpressReplyRecord,
         openGameplayGuide,
         shuCampaign,
         huainanCampaign,
+        worldMemoryLedger,
     } = useGameStore()
     const [isGenerating, setIsGenerating] = useState(false)
 
@@ -31,75 +31,54 @@ export function EmpressReply() {
     const policyReasonAuthored = hasPolicyReason(policyReport)
     const activeReply = empressReplyRecord?.sourceRound === currentRound ? empressReplyRecord : null
 
-    const empressFeedbackContext = useMemo(() => {
-        if (!lastSettlement?.policyReport) return null
-
-        const event = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
-
-        return buildEmpressFeedbackContext({
-            currentRound,
-            policyReport: lastSettlement.policyReport,
-            policyAftereffect: lastSettlement.policyAftereffect,
-            policyParse: lastSettlement.policyReport.policyParse,
-            southStatsAfter: lastSettlement.southStatsAfter,
-            northEventName: event.eventName,
-            northEventBriefing: event.eventBriefing,
-            northSummary: lastSettlement.judgeFacts.northSummary,
-            invasionSummary: lastSettlement.judgeFacts.invasionSummary,
-            playerDangerStage: lastSettlement.playerDangerStage,
-        })
-    }, [currentRound, huainanCampaign, lastSettlement, shuCampaign])
-
     useEffect(() => {
         let cancelled = false
 
         async function generateReply() {
-            if (!policyReport) return
+            if (!policyReport || !lastSettlement) return
             if (activeReply) return
 
-            const defaultText = buildSettlementDefaultEmpressReply(empressFeedbackContext ?? policyReport) ?? '朕已知之。'
-
-            if (!policyReasonAuthored || !empressFeedbackContext) {
-                setEmpressReplyRecord({
-                    sourceRound: currentRound,
-                    text: defaultText,
-                    mode: 'default',
-                })
-                return
-            }
-
             setIsGenerating(true)
-            try {
-                const reply = await chatCompletion(buildEmpressFeedbackPrompt(empressFeedbackContext), {
-                    temperature: 0.75,
-                    maxTokens: 220,
-                    tag: 'empress_feedback_reply_page',
-                })
-                if (cancelled) return
+            const event = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
+            const replyRecord = await generateEmpressReplyRecordForPolicy({
+                currentRound,
+                policyReport,
+                policyAftereffect: lastSettlement.policyAftereffect,
+                southStatsAfter: lastSettlement.southStatsAfter,
+                playerDangerStage: roundStartSnapshot?.playerDangerStage ?? 'safe',
+                invasionSummary: lastSettlement.judgeFacts.invasionSummary,
+                worldMemoryLedger,
+                roundEvent: {
+                    eventName: event.eventName,
+                    eventBriefing: event.eventBriefing,
+                },
+                tag: 'empress_feedback_reply_page',
+            })
+            if (cancelled) return
 
-                setEmpressReplyRecord({
-                    sourceRound: currentRound,
-                    text: reply.trim() || defaultText,
-                    mode: 'ai',
-                })
-            } catch {
-                if (cancelled) return
-                setEmpressReplyRecord({
-                    sourceRound: currentRound,
-                    text: defaultText,
-                    mode: 'fallback',
-                })
-            } finally {
-                if (!cancelled) setIsGenerating(false)
-            }
+            setEmpressReplyRecord({
+                sourceRound: replyRecord.sourceRound,
+                text: replyRecord.text,
+                mode: replyRecord.mode,
+            })
+            setIsGenerating(false)
         }
 
-        void generateReply()
+        void generateReply().catch(() => {
+            if (cancelled || !policyReport) return
+            const defaultText = buildSettlementDefaultEmpressReply(policyReport) ?? '朕已知之。'
+            setEmpressReplyRecord({
+                sourceRound: currentRound,
+                text: defaultText,
+                mode: 'fallback',
+            })
+            setIsGenerating(false)
+        })
 
         return () => {
             cancelled = true
         }
-    }, [activeReply, currentRound, empressFeedbackContext, policyReasonAuthored, policyReport, setEmpressReplyRecord])
+    }, [activeReply, currentRound, huainanCampaign, lastSettlement, policyReport, roundStartSnapshot?.playerDangerStage, setEmpressReplyRecord, shuCampaign, worldMemoryLedger])
 
     const replyText = activeReply?.text ?? (policyReport ? '女帝密批正在送达…' : '建康暂无回信，本回合南陈问政记录缺失。')
     const canContinue = !policyReport || Boolean(activeReply)

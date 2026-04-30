@@ -96,6 +96,34 @@ describe('buildEmpressFeedbackContext', () => {
         expect(context.policyImplementationHint).toContain('度支')
     })
 
+    it('adds south intel world memory as northbound news', () => {
+        const context = buildEmpressFeedbackContext({
+            currentRound: 8,
+            policyReport: {
+                sourceRound: 8,
+                topic: '江北粮道',
+                question: '江北粮道当如何筹措？',
+                optionLabel: 'A',
+                optionContent: '先核仓籍',
+                reason: '先稳住粮簿。',
+                effects: { grain: 1 },
+                effectSummary: '粮赋略稳。',
+                legitimacyTone: 'steady',
+                focusMatched: true,
+            },
+            southStatsAfter: SOUTH_STATS,
+            northEventName: '仓簿案起',
+            northEventBriefing: '北周朝堂正在核粮。',
+            northSummary: '北方粮簿一时不稳。',
+            worldIntelSummary: '祖珽前曾押下仓簿，后党由此多疑。',
+            invasionSummary: '南征风向仍待观察',
+            playerDangerStage: 'safe',
+        })
+
+        expect(context.worldIntelSummary).toBe('祖珽前曾押下仓簿，后党由此多疑。')
+        expect(context.northMirrorSummary).toContain('北来消息：祖珽前曾押下仓簿，后党由此多疑。')
+    })
+
     it('removes intimate address from high-risk empress concern openings', () => {
         const context = buildEmpressFeedbackContext({
             currentRound: 20,

@@ -45,7 +45,7 @@ function makeResult(overrides: Record<string, unknown> = {}) {
 }
 
 describe('buildSettlementSchemeCausalEvents', () => {
-    it('carries NPC feedback, follow-up reply, and numeric consequence into judge prompt lines', () => {
+    it('carries NPC feedback and numeric consequence into judge prompt lines without leaking follow-up replies', () => {
         const events = buildSettlementSchemeCausalEvents({
             actions: [{
                 id: 's1',
@@ -73,8 +73,164 @@ describe('buildSettlementSchemeCausalEvents', () => {
 
         expect(events[0]?.promptLine).toContain('对祖廷施“离间”，牵动贺拔伯圭，成功')
         expect(events[0]?.promptLine).toContain('NPC回报')
-        expect(events[0]?.promptLine).toContain('追问回应')
+        expect(events[0]?.promptLine).not.toContain('追问回应')
+        expect(events[0]?.promptLine).not.toContain('本官明日便以账册为由入奏帘前')
         expect(events[0]?.promptLine).toContain('北周粮赋-1')
+    })
+
+    it('uses concrete npc action narrative as settlement causal motion when present', () => {
+        const npcActionText = 'NPC_ACTION_SENTINEL moves grain and troops.'
+        const events = buildSettlementSchemeCausalEvents({
+            actions: [{
+                id: 's-action',
+                targetNpcId: 'zuting',
+                schemeType: 'advise',
+                playerSpeech: 'press the grain road and troop registers',
+            }],
+            results: [makeResult({
+                npcAction: { text: npcActionText, source: 'fallback' },
+                nationEffects: { grain: -1, military: -0.6 },
+                northDimensionChanges: { grain: -1, military: -0.6 },
+            })],
+            npcs: [{ id: 'zuting', name: '祖廷', powerBase: 'court' }] as any,
+        })
+
+        expect(events[0]?.promptLine).toContain(npcActionText)
+        expect(events[0]?.displayLine).toContain(npcActionText)
+    })
+
+    it('prefers structured causal event motion over legacy npc action text', () => {
+        const causalText = 'CAUSAL_EVENT_SENTINEL locks the grain road before the chronicle is written.'
+        const legacyText = 'LEGACY_NPC_ACTION should not be used when causal event is present.'
+        const events = buildSettlementSchemeCausalEvents({
+            actions: [{
+                id: 's-causal-event',
+                targetNpcId: 'zuting',
+                schemeType: 'advise',
+                playerSpeech: 'press the grain road',
+            }],
+            results: [makeResult({
+                npcAction: { text: legacyText, source: 'fallback' },
+                causalEvent: {
+                    actionId: 's-causal-event',
+                    actorNpcId: 'zuting',
+                    actorNpcName: '祖廷',
+                    schemeType: 'advise',
+                    success: true,
+                    motionText: causalText,
+                    motionSource: 'fallback',
+                    primaryDimensions: ['grain'],
+                    secondaryDimensions: [],
+                    effectSummary: ['北周粮赋-1'],
+                    relatedImpactSummary: null,
+                },
+            })],
+            npcs: [{ id: 'zuting', name: '祖廷', powerBase: 'court' }] as any,
+        })
+
+        expect(events[0]?.promptLine).toContain(causalText)
+        expect(events[0]?.promptLine).not.toContain(legacyText)
+        expect(events[0]?.displayLine).toContain(causalText)
+    })
+
+    it('includes hard failure counter events in chronicle prompt lines', () => {
+        const counterText = '祖廷按下话头，反令属吏收口并反查来路。'
+        const events = buildSettlementSchemeCausalEvents({
+            actions: [{
+                id: 'failed-hard',
+                targetNpcId: 'zuting',
+                schemeType: 'slander',
+                playerSpeech: '拿旧账试探祖廷。',
+            }],
+            results: [makeResult({
+                success: false,
+                trustChange: -6,
+                nationEffects: {},
+                northDimensionChanges: {},
+                npcAction: { text: counterText, source: 'fallback', kind: 'counter' },
+                causalEvent: {
+                    actionId: 'failed-hard',
+                    actorNpcId: 'zuting',
+                    actorNpcName: '祖廷',
+                    schemeType: 'slander',
+                    success: false,
+                    eventKind: 'failure',
+                    visibility: 'public',
+                    motionText: counterText,
+                    motionSource: 'fallback',
+                    primaryDimensions: [],
+                    secondaryDimensions: [],
+                    effectSummary: ['祖廷信任-6'],
+                    relatedImpactSummary: null,
+                },
+            })],
+            npcs: [{ id: 'zuting', name: '祖廷', powerBase: 'court' }] as any,
+        })
+
+        expect(events[0]?.promptLine).toContain('失败')
+        expect(events[0]?.promptLine).toContain(counterText)
+    })
+
+    it('keeps private trust and intel motions out of chronicle prompt lines', () => {
+        const privateText = '独孤文约把这句话记作私下情面。'
+        const intelText = '祖廷在问答间露出口风。'
+        const events = buildSettlementSchemeCausalEvents({
+            actions: [
+                { id: 'trust-private', targetNpcId: 'dugu', schemeType: 'appeal', playerSpeech: '留退路。' },
+                { id: 'intel-only', targetNpcId: 'zuting', schemeType: 'probe', playerSpeech: '探口风。' },
+            ] as any,
+            results: [
+                makeResult({
+                    nationEffects: {},
+                    northDimensionChanges: {},
+                    npcAction: { text: privateText, source: 'fallback', kind: 'attitude' },
+                    causalEvent: {
+                        actionId: 'trust-private',
+                        actorNpcId: 'dugu',
+                        actorNpcName: '独孤文约',
+                        schemeType: 'appeal',
+                        success: true,
+                        eventKind: 'trust_only',
+                        visibility: 'private',
+                        motionText: privateText,
+                        motionSource: 'fallback',
+                        primaryDimensions: [],
+                        secondaryDimensions: [],
+                        effectSummary: ['独孤文约信任+5'],
+                        relatedImpactSummary: null,
+                    },
+                }),
+                makeResult({
+                    nationEffects: {},
+                    northDimensionChanges: {},
+                    npcAction: { text: intelText, source: 'fallback', kind: 'intel' },
+                    causalEvent: {
+                        actionId: 'intel-only',
+                        actorNpcId: 'zuting',
+                        actorNpcName: '祖廷',
+                        schemeType: 'probe',
+                        success: true,
+                        eventKind: 'intel_progress',
+                        visibility: 'south_intel_only',
+                        motionText: intelText,
+                        motionSource: 'fallback',
+                        primaryDimensions: [],
+                        secondaryDimensions: [],
+                        effectSummary: ['祖廷信任+3', '暗线+1'],
+                        relatedImpactSummary: null,
+                    },
+                }),
+            ],
+            npcs: [
+                { id: 'dugu', name: '独孤文约', powerBase: 'external' },
+                { id: 'zuting', name: '祖廷', powerBase: 'court' },
+            ] as any,
+        })
+
+        expect(events.map(event => event.promptLine).join('\n')).not.toContain(privateText)
+        expect(events.map(event => event.promptLine).join('\n')).not.toContain(intelText)
+        expect(events.map(event => event.displayLine).join('\n')).toContain(privateText)
+        expect(events.map(event => event.displayLine).join('\n')).toContain(intelText)
     })
 
     it('explains external omen consequences through loyalty and military movement', () => {
@@ -123,7 +279,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
         expect(events[0]?.promptLine).toContain('粮道、军需与监军')
     })
 
-    it('prefers the final follow-up reply as the chronicle quote source', () => {
+    it('does not use the final follow-up reply as the chronicle quote source', () => {
         const events = buildSettlementSchemeCausalEvents({
             actions: [{
                 id: 's3',
@@ -148,8 +304,9 @@ describe('buildSettlementSchemeCausalEvents', () => {
         const candidate = selectSettlementChronicleQuoteCandidate(events)
 
         expect(candidate?.speakerName).toBe('祖廷')
-        expect(candidate?.source).toBe('follow_up')
-        expect(candidate?.sourceText).toContain('入奏帘前')
+        expect(candidate?.source).toBe('npc_feedback')
+        expect(candidate?.sourceText).toContain('确可一试')
+        expect(candidate?.sourceText).not.toContain('入奏帘前')
     })
 
     it('prefers successful strategic impact over trust-only feedback', () => {

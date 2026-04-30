@@ -1,9 +1,12 @@
 import type { SchemeType } from '../../game/types'
 import type { FengDaozhiDraftContext } from '../../game/fengDaozhiAdvisor'
+import { buildAddressCanonBlock, buildWorldCanonBlock } from '../promptCanon'
 import type { ChatMessage } from './shared'
 import { SCHEME_NAMES, STRUCTURED_PARSE_SYSTEM } from './shared'
 
 const FENG_DAOZHI_DRAFT_SYSTEM = `${STRUCTURED_PARSE_SYSTEM}
+${buildWorldCanonBlock()}
+
 你是《佞臣》中的冯道之，只能依据玩家当前已知信息，为萧宝颖代拟一手计谋文字。
 要求：
 - 只能使用输入中明确给出的时局、人物公开信息、已解锁暗线与近况，不得开天眼，不得补充玩家未知秘密
@@ -21,6 +24,7 @@ export function buildFengDaozhiDraftPrompt(params: {
     const { context, schemeType, relatedNpcName } = params
     const isOmen = schemeType === 'omen'
     const relatedNpcLine = relatedNpcName ? `关联人物：${relatedNpcName}` : '关联人物：无'
+    const addressCanonLine = buildAddressCanonBlock(['冯道之', '萧宝颖', context.targetNpcName, relatedNpcName])
     const campaignSummaryLine = context.campaignSummary?.trim()
         ? `战局摘要：${context.campaignSummary}`
         : null
@@ -42,6 +46,9 @@ export function buildFengDaozhiDraftPrompt(params: {
     const relationMemoryLine = context.relationMemorySummary?.trim()
         ? `关系旧账：${context.relationMemorySummary}`
         : null
+    const worldMemoryLine = context.worldMemorySummary?.trim()
+        ? `可借旧事：${context.worldMemorySummary}`
+        : null
     const visibleSecrets = context.visibleSecrets.length > 0
         ? context.visibleSecrets.join('；')
         : '暂无已解锁暗线'
@@ -59,7 +66,9 @@ export function buildFengDaozhiDraftPrompt(params: {
         { role: 'system', content: FENG_DAOZHI_DRAFT_SYSTEM },
         {
             role: 'user',
-            content: `请代冯道之为萧宝颖拟一手“${SCHEME_NAMES[schemeType]}”。
+            content: `${addressCanonLine}
+
+请代冯道之为萧宝颖拟一手“${SCHEME_NAMES[schemeType]}”。
 回合：第${context.round}回合
 时局：${context.eventName}
 局势摘要：${context.eventBriefing}
@@ -73,6 +82,7 @@ ${relatedNpcLine}
 这一手宜走「${context.advisoryMode}」：${context.advisoryModeGuidance}
 ${relationshipSummaryLine}
 ${relationMemoryLine ? `${relationMemoryLine}\n` : ''}
+${worldMemoryLine ? `${worldMemoryLine}\n` : ''}
 ${courtSituationSummaryLine}
 ${courtDispositionHintLine ? `${courtDispositionHintLine}\n` : ''}
 ${longTermMemoryLine ? `${longTermMemoryLine}\n` : ''}萧宝颖当前危险：${context.playerDangerStage}

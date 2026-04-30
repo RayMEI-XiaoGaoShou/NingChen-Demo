@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES } from '../../data/schemes'
 import { chatCompletion } from '../../ai/aiService'
 import { buildJudgePrompt } from '../../ai/prompts'
@@ -13,7 +12,9 @@ import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { buildSettlementDefaultEmpressReply, getSettlementPolicyFollowupText, hasPolicyReason } from '../../game/empressReplyPresentation'
 import { buildSettlementSchemeCausalEvents, selectSettlementChronicleQuoteCandidate } from '../../game/settlementCausalNarrative'
+import { selectWorldEventMemoriesForPrompt, summarizeWorldEventMemories } from '../../game/worldEventMemory'
 import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
+import { getChronicleTimeLabels, sanitizeChronicleNarration } from '../../game/chronicleTime'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
@@ -205,6 +206,7 @@ export function Settlement() {
         shuMomentum,
         huainanMomentum,
         empressReplyRecord,
+        worldMemoryLedger,
     } = useGameStore()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
@@ -269,7 +271,14 @@ export function Settlement() {
                 npcFeedbacks,
             })
             const northQuoteCandidate = selectSettlementChronicleQuoteCandidate(schemeCausalEvents)
-            const chronicleTimeLabel = ROUND_EVENTS[currentRound - 1]?.timeLabel ?? `第${currentRound}回合`
+            const worldMemorySummary = summarizeWorldEventMemories(selectWorldEventMemoriesForPrompt({
+                ledger: worldMemoryLedger,
+                scopes: ['chronicle_fact'],
+                currentRound,
+                includeCurrentRound: true,
+                limit: 3,
+            }))
+            const chronicleTimeLabels = getChronicleTimeLabels(currentRound)
             const southEmpressReply = empressReplyRecord?.sourceRound === currentRound
                 ? empressReplyRecord.text
                 : buildSettlementDefaultEmpressReply(lastSettlement.policyReport)
@@ -277,7 +286,8 @@ export function Settlement() {
             const messages = buildJudgePrompt({
                 round: currentRound,
                 eventName: event.eventName,
-                chronicleTimeLabel,
+                northChronicleTimeLabel: chronicleTimeLabels.north,
+                southChronicleTimeLabel: chronicleTimeLabels.south,
                 eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
                     schemeName: schemeName(processedSchemes[i]?.schemeType ?? ''),
@@ -287,6 +297,7 @@ export function Settlement() {
                     playerSpeech: processedSchemes[i]?.playerSpeech ?? '',
                 })),
                 schemeCausalEvents: schemeCausalEvents.map(event => event.promptLine),
+                worldMemorySummary,
                 northQuoteCandidate,
                 trustChangeSummary: trustSummary,
                 northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
@@ -302,11 +313,11 @@ export function Settlement() {
             try {
                 const narration = await chatCompletion(messages, {
                     temperature: 0.9,
-                    maxTokens: 480,
+                    maxTokens: 320,
                     tag: 'judge',
                 })
                 if (cancelled) return
-                setJudgeNarration(narration)
+                setJudgeNarration(sanitizeChronicleNarration(narration, chronicleTimeLabels))
             } catch {
                 if (cancelled) return
                 setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
@@ -325,7 +336,7 @@ export function Settlement() {
         return () => {
             cancelled = true
         }
-    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign])
+    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign, worldMemoryLedger])
 
     return (
         <div className="page-container settlement page-enter">

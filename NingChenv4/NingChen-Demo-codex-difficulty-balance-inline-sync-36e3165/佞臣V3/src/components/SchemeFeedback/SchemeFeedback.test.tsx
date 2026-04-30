@@ -7,6 +7,7 @@ import {
     getVisibleAvailableFollowUpId,
     orchestrateOmenEchoFeedback,
     shouldQueueRecoveryParse,
+    shouldDelaySchemeNpcActionFallback,
     shouldWaitForPrefetchedFeedback,
 } from './SchemeFeedback'
 import {
@@ -85,14 +86,17 @@ function createState(): any {
         recentBacklash: [],
         roundHistory: [],
         pendingStructuredSchemeIds: [],
+        empressReplyRecord: null,
         addNpcFeedback: vi.fn(),
         updateNpcFeedback: vi.fn(),
         updateNpcFeedbackOmenEcho: vi.fn(),
         updateSchemeParse: vi.fn(),
         markSchemeParsePending: vi.fn(),
+        prepareSchemeSettlementForFeedback: vi.fn(),
         setSchemeFollowUp: vi.fn(),
         answerSchemeFollowUp: vi.fn(),
         skipSchemeFollowUp: vi.fn(),
+        setEmpressReplyRecord: vi.fn(),
         nextPhase: vi.fn(),
         currentRound: 1,
         firstRoundGuideSeen: { scheme_feedback: true },
@@ -161,10 +165,49 @@ describe('SchemeFeedback orchestration', () => {
     it('renders settlement results and court net reports on the feedback page', () => {
         expect(schemeFeedbackSource).toContain('<h3 className="section-title">计谋筹算结果</h3>')
         expect(schemeFeedbackSource).toContain('lastSettlement.schemeResults.map')
-        expect(schemeFeedbackSource).toContain('lastSettlement.schemeOutcomeExplanations?.[index]')
+        expect(schemeFeedbackSource).toContain('buildSchemeResultEffectTags')
+        expect(schemeFeedbackSource).toContain('getSchemeNpcActionDisplay')
+        expect(schemeFeedbackSource).not.toContain('lastSettlement.schemeOutcomeExplanations?.[index]')
         expect(schemeFeedbackSource).toContain('<h3 className="section-title">朝堂收网</h3>')
         expect(schemeFeedbackSource).toContain('lastSettlement.borrowedBladeReports.map')
     })
+
+    it('waits for AI initialization before deciding whether to enhance npc actions', () => {
+        expect(schemeFeedbackSource).toContain('initAiService().then')
+        expect(schemeFeedbackSource).not.toContain("if (getAiMode() === 'fallback') return")
+    })
+
+    it('gives npc action AI a long background window after delayed fallback reveal', () => {
+        expect(schemeFeedbackSource).toContain('const NPC_ACTION_FALLBACK_GRACE_MS = 15000')
+        expect(schemeFeedbackSource).toContain('itemTimeoutMs: NPC_ACTION_BACKGROUND_ITEM_TIMEOUT_MS')
+        expect(schemeFeedbackSource).toContain('batchTimeoutMs: NPC_ACTION_BACKGROUND_BATCH_TIMEOUT_MS')
+        expect(schemeFeedbackSource).not.toContain('const NPC_ACTION_FALLBACK_GRACE_MS = 2500')
+    })
+
+    it('prepares settlement and npc actions before the settlement result is revealed', () => {
+        expect(schemeFeedbackSource).toContain('prepareSchemeSettlementForFeedback')
+        expect(schemeFeedbackSource).toContain('const [settlementVisible, setSettlementVisible]')
+        expect(schemeFeedbackSource).toContain('settlementRevealed = Boolean(lastSettlement && settlementVisible)')
+        expect(schemeFeedbackSource).toContain('prepareSchemeSettlementForFeedback()')
+        expect(schemeFeedbackSource).toContain('setSettlementVisible(true)')
+        expect(schemeFeedbackSource).toContain('!settlementVisible ? Boolean(lastSettlement) :')
+    })
+
+    it('preheats the independent empress reply from the feedback page without reading scheme results', () => {
+        expect(schemeFeedbackSource).toContain('generateEmpressReplyRecordForPolicy')
+        expect(schemeFeedbackSource).toContain('setEmpressReplyRecord(replyRecord)')
+        expect(schemeFeedbackSource).toContain("playerDangerStage: roundStartSnapshot?.playerDangerStage ?? 'safe'")
+        expect(schemeFeedbackSource).not.toContain('schemeResults: lastSettlement.schemeResults')
+        expect(schemeFeedbackSource).not.toContain('playerDangerStage: lastSettlement.playerDangerStage')
+    })
+
+    it('keeps npc action enhancement alive when fallback reveal state changes', () => {
+        expect(schemeFeedbackSource).toContain('const effectStillMountedRef = { current: true }')
+        expect(schemeFeedbackSource).toContain('if (!patchedSettlement) return')
+        expect(schemeFeedbackSource).not.toContain('if (cancelled || !patchedSettlement) return')
+        expect(schemeFeedbackSource).not.toContain('revealedNpcActionFallbackIds, roundHistory')
+    })
+
     it('uses full-body ghost portraits instead of small avatars in feedback cards', () => {
         expect(schemeFeedbackSource).toContain('className="feedback-ghost-portrait"')
         expect(schemeFeedbackSource).not.toContain('className="feedback-avatar"')
@@ -719,7 +762,7 @@ describe('SchemeFeedback', () => {
         expect(markup).toContain('发送回应')
     })
 
-    it('renders revealed settlement cards below NPC feedback before leaving the page', () => {
+    it('keeps prepared settlement cards hidden until the player reveals the settlement result', () => {
         state.schemeOnboardingSeen.first_follow_up_teaching = true
         state.currentSchemes = [
             {
@@ -731,6 +774,16 @@ describe('SchemeFeedback', () => {
             },
         ]
         state.npcs = [createNpc({ id: 'npc-1', name: '祖廷' })]
+        state.factions = [
+            {
+                id: 'empress',
+                name: '后党',
+                description: '',
+                militaryPower: 30,
+                courtInfluence: 40,
+                internalStability: 50,
+            },
+        ]
         state.npcFeedbacks = [
             {
                 id: 'scheme-1',
@@ -750,9 +803,25 @@ describe('SchemeFeedback', () => {
             schemeResults: [
                 {
                     success: true,
-                    feedbackText: '祖廷略作沉吟，显然已被你的献策拨动了算盘。',
+                    feedbackText: 'FEEDBACK_TEMPLATE_SENTINEL should be hidden.',
                     trustChange: 8,
                     northDimensionChanges: { governance: -0.2 },
+                    factionEffects: {
+                        empress: {
+                            courtInfluence: -2,
+                            internalStability: -1,
+                            militaryPower: 0,
+                        },
+                    },
+                    personEffects: {
+                        trustDelta: 8,
+                        relatedTrustDelta: 0,
+                        loyaltyDelta: 0,
+                        relatedLoyaltyDelta: 0,
+                        militaryPowerDelta: 0,
+                        relatedMilitaryPowerDelta: 0,
+                    },
+                    npcAction: { text: 'NPC_ACTION_SENTINEL secures the ledgers.', source: 'ai' },
                 },
             ],
             schemeOutcomeExplanations: [
@@ -777,11 +846,60 @@ describe('SchemeFeedback', () => {
 
         const markup = renderToStaticMarkup(<SchemeFeedback />)
 
-        expect(markup).toContain('计谋筹算结果')
-        expect(markup).toContain('国力影响')
-        expect(markup).toContain('朝堂政局')
-        expect(markup).toContain('朝堂收网')
-        expect(markup).toContain('进入女帝回信')
+        expect(markup).not.toContain('计谋筹算结果')
+        expect(markup).not.toContain('国力影响')
+        expect(markup).not.toContain('朝堂政局')
+        expect(markup).not.toContain('FEEDBACK_TEMPLATE_SENTINEL')
+        expect(markup).not.toContain('祖廷举措')
+        expect(markup).not.toContain('NPC_ACTION_SENTINEL secures the ledgers.')
+        expect(markup).not.toContain('后党 朝堂影响 -2')
+        expect(markup).not.toContain('后党 内部稳定 -1')
+        expect(markup).not.toContain('朝堂收网')
+        expect(markup).toContain('揭示筹算结果')
+    })
+
+    it('delays fallback npc actions only until that action has passed its grace window', () => {
+        const settlement = {
+            processedSchemes: [
+                {
+                    id: 'scheme-1',
+                    targetNpcId: 'npc-1',
+                    schemeType: 'advise',
+                    playerSpeech: 'offer advice',
+                },
+                {
+                    id: 'scheme-2',
+                    targetNpcId: 'npc-2',
+                    schemeType: 'advise',
+                    playerSpeech: 'offer other advice',
+                },
+            ],
+            schemeResults: [
+                {
+                    npcAction: { text: 'fallback action', source: 'fallback' },
+                },
+                {
+                    npcAction: { text: 'ai action', source: 'ai' },
+                },
+            ],
+        } as any
+
+        expect(shouldDelaySchemeNpcActionFallback({
+            settlement,
+            resultIndex: 0,
+            revealedActionIds: new Set(),
+        })).toBe(true)
+        expect(shouldDelaySchemeNpcActionFallback({
+            settlement,
+            resultIndex: 0,
+            revealedActionIds: new Set(['scheme-1']),
+        })).toBe(false)
+
+        expect(shouldDelaySchemeNpcActionFallback({
+            settlement,
+            resultIndex: 1,
+            revealedActionIds: new Set(),
+        })).toBe(false)
     })
 })
 

@@ -58,6 +58,7 @@ function resetStore() {
         roundHistory: [],
         npcMemoryLedger: {},
         relationMemoryLedger: {},
+        worldMemoryLedger: [],
         endingReport: null,
         battleReport: null,
         shuMomentum: 0,
@@ -159,6 +160,45 @@ describe('gameStore addScheme', () => {
             omenText: '石人一只眼，挑动黄河天下反',
             interpretationText: '此非独天灾，恐是名分失序之兆。',
         })
+    })
+
+    it('derives world memory ledger entries after round settlement', () => {
+        useGameStore.setState({
+            currentRound: 6,
+            currentPhase: 'SCHEME_FEEDBACK',
+            currentSchemes: [{
+                id: 'world-memory-scheme',
+                targetNpcId: 'zuting',
+                schemeType: 'advise',
+                playerSpeech: '请祖珽重核京畿仓簿与度支账册。',
+                resolutionRoll: 0.01,
+                northParse: {
+                    characterFit: 0.9,
+                    eventFit: 0.9,
+                    structuralPenetration: 0.9,
+                    executability: 0.9,
+                    exposureRisk: 0.1,
+                    financeRelevance: 0.8,
+                    grainRelevance: 0.9,
+                    militaryRelevance: 0.2,
+                    socialOrderRelevance: 0.2,
+                    governanceRelevance: 0.7,
+                    dominantIntent: 'strategize',
+                    stateBenefit: 0.1,
+                    targetBenefit: 0,
+                    factionBenefit: 0,
+                    advicePolarity: 'pro_target_anti_state',
+                    evidence: ['仓簿与度支账册'],
+                },
+            }],
+        })
+
+        useGameStore.getState().nextPhase()
+
+        const state = useGameStore.getState()
+        expect(state.worldMemoryLedger.some(memory => memory.sourceActionId === 'world-memory-scheme')).toBe(true)
+        expect(state.worldMemoryLedger.map(memory => memory.scope)).toEqual(expect.arrayContaining(['court_public', 'chronicle_fact']))
+        expect(state.worldMemoryLedger.map(memory => memory.summary).join('；')).not.toContain('南陈内应')
     })
 
     it('keeps existing schemes when leaving scheme page and entering it again in the same round', () => {
@@ -285,6 +325,98 @@ describe('gameStore addScheme', () => {
         expect(state.npcFeedbacks[0]?.omenEcho).toEqual(updatedEcho)
     })
 
+    it('patches finalized scheme npc action back into causal memory ledgers', () => {
+        const zongai = INITIAL_NPCS.find(npc => npc.id === 'zongai')!
+        const linghu = INITIAL_NPCS.find(npc => npc.id === 'linghuelvguang')!
+        const fallbackText = '宗艾开始疏远令狐律光的粮道与军需调度。'
+        const aiText = '宗艾暗查令狐律光的粮道与军需调拨，先扣住兵械文书，再把疑点递向御前。'
+
+        useGameStore.setState({
+            currentRound: 14,
+            lastSettlement: {
+                processedSchemes: [{
+                    id: 'scheme-ai-action',
+                    targetNpcId: zongai.id,
+                    relatedNpcId: linghu.id,
+                    schemeType: 'alienate',
+                    playerSpeech: '先查令狐律光粮道与军需。',
+                }],
+                schemeResults: [{
+                    success: true,
+                    npcAction: {
+                        text: fallbackText,
+                        source: 'fallback',
+                    },
+                    causalEvent: {
+                        actionId: 'scheme-ai-action',
+                        actorNpcId: zongai.id,
+                        actorNpcName: zongai.name,
+                        relatedNpcId: linghu.id,
+                        relatedNpcName: linghu.name,
+                        schemeType: 'alienate',
+                        success: true,
+                        motionText: fallbackText,
+                        motionSource: 'fallback',
+                        primaryDimensions: ['grain', 'military'],
+                        secondaryDimensions: [],
+                        effectSummary: ['令狐律光军力-1', '北周粮赋-0.4'],
+                        relatedImpactSummary: '令狐律光的粮道与军需军令受牵动',
+                    },
+                }],
+            } as any,
+            npcMemoryLedger: {
+                [zongai.id]: [{
+                    npcId: zongai.id,
+                    category: 'warning',
+                    sourceRound: 14,
+                    importance: 2,
+                    summary: `第14回合，${fallbackText}`,
+                    schemeType: 'alienate',
+                    tags: ['pressure', 'hard'],
+                }],
+            },
+            relationMemoryLedger: {
+                [zongai.id]: [{
+                    holderNpcId: zongai.id,
+                    subjectNpcId: linghu.id,
+                    stance: 'resentment',
+                    sourceRound: 14,
+                    importance: 2,
+                    summary: '第14回合，你把令狐律光记成了更容易结怨的人。',
+                    occurrences: 1,
+                }],
+            },
+            worldMemoryLedger: [{
+                id: '14:scheme-ai-action:court_public',
+                sourceRound: 14,
+                sourceActionId: 'scheme-ai-action',
+                scope: 'court_public',
+                visibility: 'public',
+                involvedNpcIds: [zongai.id, linghu.id],
+                affectedFactionIds: ['emperor'],
+                dimensions: ['grain', 'military'],
+                schemeType: 'alienate',
+                summary: fallbackText,
+                reliability: 0.72,
+                secrecyRisk: 0.12,
+                tags: ['court_public'],
+            }],
+        })
+
+        useGameStore.getState().updateSchemeNpcAction('scheme-ai-action', {
+            text: aiText,
+            source: 'ai',
+        })
+
+        const state = useGameStore.getState()
+        expect(state.lastSettlement?.schemeResults[0]?.causalEvent?.motionText).toBe(aiText)
+        expect(state.npcMemoryLedger[zongai.id]?.[0]?.summary).toContain(aiText)
+        expect(state.npcMemoryLedger[zongai.id]?.[0]?.summary).not.toContain(fallbackText)
+        expect(state.relationMemoryLedger[zongai.id]?.[0]?.summary).toContain(aiText)
+        expect(state.worldMemoryLedger[0]?.summary).toContain(aiText.replace(/。$/u, ''))
+        expect(state.worldMemoryLedger[0]?.summary).not.toContain(fallbackText)
+    })
+
     it('keeps only one unhandled scheme follow-up available in a round', () => {
         useGameStore.setState({
             currentPhase: 'SCHEME_PHASE',
@@ -348,6 +480,55 @@ describe('gameStore addScheme', () => {
         )
 
         expect(useGameStore.getState().currentSchemes[0]?.followUp).toBeUndefined()
+    })
+
+    it('stores AI fallback diagnostics when answering a scheme follow-up', () => {
+        const actionId = 'scheme-1'
+
+        useGameStore.setState({
+            currentPhase: 'SCHEME_PHASE',
+        })
+        useGameStore.getState().addScheme({
+            id: actionId,
+            targetNpcId: INITIAL_NPCS[0]!.id,
+            schemeType: 'advise',
+            playerSpeech: 'scheme one',
+            resolutionRoll: 0.1,
+        })
+        useGameStore.getState().setSchemeFollowUp(actionId, {
+            questionText: 'Question?',
+            status: 'available',
+        })
+
+        useGameStore.getState().answerSchemeFollowUp(
+            actionId,
+            'I can explain.',
+            {
+                clarificationFit: 0.5,
+                npcInterestFit: 0.4,
+                pressureControl: 0.3,
+                contradictionRisk: 0.2,
+                exposureRiskDelta: -0.01,
+                successRateDelta: 0.05,
+                effectMultiplierDelta: 0.02,
+                evidence: ['reply fit'],
+            },
+            'The NPC gives a measured response.',
+            {
+                parseSource: 'invalid_ai_fallback',
+                parseFallbackReason: 'request_failed',
+                finalNpcReplySource: 'fallback',
+                finalNpcReplyFallbackReason: 'sanitized_empty',
+            },
+        )
+
+        expect(useGameStore.getState().currentSchemes[0]?.followUp).toEqual(expect.objectContaining({
+            status: 'answered',
+            parseSource: 'invalid_ai_fallback',
+            parseFallbackReason: 'request_failed',
+            finalNpcReplySource: 'fallback',
+            finalNpcReplyFallbackReason: 'sanitized_empty',
+        }))
     })
 
     it('keeps the ending report available after game over', () => {
@@ -676,6 +857,21 @@ describe('gameStore guide and prologue state', () => {
         const state = useGameStore.getState()
         expect(state.currentRound).toBe(3)
         expect(state.fengDaozhiAssistsRemaining).toBe(1)
+    })
+
+    it('prepares scheme settlement while staying on the feedback page', () => {
+        useGameStore.setState({
+            currentPhase: 'SCHEME_FEEDBACK',
+            schemeCount: 3,
+            currentSchemes: [],
+            lastSettlement: null,
+        })
+
+        useGameStore.getState().prepareSchemeSettlementForFeedback()
+
+        const state = useGameStore.getState()
+        expect(state.currentPhase).toBe('SCHEME_FEEDBACK')
+        expect(state.lastSettlement).not.toBeNull()
     })
 
     it('hydrates old snapshots without prologueStep using the current phase as fallback', () => {

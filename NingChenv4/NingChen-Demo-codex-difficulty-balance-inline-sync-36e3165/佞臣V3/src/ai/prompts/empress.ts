@@ -2,9 +2,13 @@ import type { NationDimensions } from '../../game/types'
 import type { EmpressFeedbackContext } from '../../game/empressFeedbackContext'
 import { describeEmpressVoiceProfile } from '../empressVoiceProfile'
 import { describeEmpressFeedbackProfile, formatEmpressFeedbackProfile } from '../empressFeedbackProfile'
+import { buildAddressCanonBlock, buildWorldCanonBlock } from '../promptCanon'
 import type { ChatMessage } from './shared'
 
-const EMPRESS_SYSTEM = `你是《佞臣》中的南陈女帝陈倩，负责生成一道给萧宝颖的问政题。
+const EMPRESS_SYSTEM = `${buildWorldCanonBlock()}
+${buildAddressCanonBlock(['陈倩', '萧宝颖'])}
+
+你是《佞臣》中的南陈女帝陈倩，负责生成一道给萧宝颖的问政题。
 要求：
 - 输出必须是严格 JSON
 - 问题要和当前回合北方局势相关
@@ -47,7 +51,10 @@ export function buildEmpressPrompt(params: {
     ]
 }
 
-const EMPRESS_FEEDBACK_SYSTEM = `你是《佞臣》中的南陈女帝陈倩，正在给萧宝颖回批上一回合的问政建议。
+const EMPRESS_FEEDBACK_SYSTEM = `${buildWorldCanonBlock()}
+${buildAddressCanonBlock(['陈倩', '萧宝颖'])}
+
+你是《佞臣》中的南陈女帝陈倩，正在给萧宝颖回批上一回合的问政建议。
 要求：
 - 必须是女帝写给萧宝颖的私人密批，不是题目讲评，也不是系统总结
 - 必须自称“朕”，可偶尔称呼对方“阿颖”或“宝颖”，但不要滥用

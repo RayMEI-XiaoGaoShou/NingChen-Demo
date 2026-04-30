@@ -3,17 +3,17 @@ import empressReplySource from './EmpressReply.tsx?raw'
 
 describe('EmpressReply source contract', () => {
     it('generates and caches the empress reply before settlement', () => {
-        expect(empressReplySource).toContain('buildEmpressFeedbackPrompt(empressFeedbackContext)')
+        expect(empressReplySource).toContain('generateEmpressReplyRecordForPolicy')
         expect(empressReplySource).toContain("tag: 'empress_feedback_reply_page'")
+        expect(empressReplySource).toContain("playerDangerStage: roundStartSnapshot?.playerDangerStage ?? 'safe'")
         expect(empressReplySource).toContain('setEmpressReplyRecord({')
-        expect(empressReplySource).toContain("mode: 'ai'")
-        expect(empressReplySource).toContain("mode: 'default'")
         expect(empressReplySource).toContain("mode: 'fallback'")
+        expect(empressReplySource).not.toContain('playerDangerStage: lastSettlement.playerDangerStage')
     })
 
     it('skips the AI call when the player did not author a policy reason', () => {
-        expect(empressReplySource).toContain('if (!policyReasonAuthored || !empressFeedbackContext)')
-        expect(empressReplySource).toContain('buildSettlementDefaultEmpressReply(empressFeedbackContext ?? policyReport)')
+        expect(empressReplySource).toContain('generateEmpressReplyRecordForPolicy')
+        expect(empressReplySource).toContain('buildSettlementDefaultEmpressReply(policyReport)')
     })
 
     it('shows the policy question, selected option, current effects, and authored-reason status', () => {

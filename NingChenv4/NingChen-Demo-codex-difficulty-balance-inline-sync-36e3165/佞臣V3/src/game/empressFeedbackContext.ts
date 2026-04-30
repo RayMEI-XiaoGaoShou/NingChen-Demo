@@ -43,6 +43,7 @@ export interface EmpressFeedbackContext {
     recoveringDimensionLabel: string
     statePrioritySummary: string
     northMirrorSummary: string
+    worldIntelSummary?: string
     warWindow: boolean
     warWindowSummary: string
     playerDangerStage: PlayerDangerStage
@@ -233,6 +234,7 @@ export function buildEmpressFeedbackContext(params: {
     northEventName: string
     northEventBriefing: string
     northSummary: string
+    worldIntelSummary?: string
     invasionSummary?: string
     playerDangerStage: PlayerDangerStage
 }): EmpressFeedbackContext {
@@ -243,6 +245,8 @@ export function buildEmpressFeedbackContext(params: {
     const reasonQuality = summarizeReasonQuality(params.policyParse, params.policyReport.focusMatched)
     const concern = getEmpressConcernTemplate(params.policyReport.sourceRound)
     const concernOpening = adjustConcernOpeningForSafety(concern.opening, params.playerDangerStage)
+    const worldIntelSummary = params.worldIntelSummary?.trim()
+    const northMirrorSummary = `北方眼下是《${params.northEventName}》：${params.northEventBriefing} ${params.northSummary}${worldIntelSummary ? ` 北来消息：${worldIntelSummary}` : ''}`.trim()
 
     return {
         sourceRound: params.policyReport.sourceRound,
@@ -268,7 +272,8 @@ export function buildEmpressFeedbackContext(params: {
         recoveringDimension: recovering,
         recoveringDimensionLabel: DIMENSION_LABELS[recovering],
         statePrioritySummary: describeStatePriority(weakest, warWindow),
-        northMirrorSummary: `北方眼下是《${params.northEventName}》：${params.northEventBriefing} ${params.northSummary}`.trim(),
+        northMirrorSummary,
+        worldIntelSummary,
         warWindow,
         warWindowSummary: describeWarWindow(warWindow),
         playerDangerStage: params.playerDangerStage,

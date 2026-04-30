@@ -3,9 +3,11 @@ import { buildNorthSchemeParsePrompt, buildPolicyReasonParsePrompt } from '../..
 import {
     fallbackNorthParseFromSpeech,
     fallbackPolicyParseFromReason,
+} from '../aiNativeEngine'
+import {
     normalizeNorthSchemeParse,
     normalizePolicyReasonParse,
-} from '../aiNativeEngine'
+} from '../aiNativeValidation'
 import { ROUND_EVENTS } from '../../data/rounds'
 import type { NPC, OmenSpeechInput, PolicyResolutionMeta, SchemeType } from '../types'
 import type { LiveParseRecord } from './types'

@@ -23,6 +23,7 @@ import type {
     RoundPhase,
     SchemeOnboardingSeenMap,
     SchemeAction,
+    WorldMemoryLedger,
 } from './types'
 import type { NpcFeedback } from '../stores/gameStore'
 import { normalizeCourtDispositionNpcs } from './courtDisposition'
@@ -71,6 +72,7 @@ export interface GameSnapshotCore {
     roundHistory: RoundHistoryEntry[]
     npcMemoryLedger: NpcMemoryLedger
     relationMemoryLedger?: RelationMemoryLedger
+    worldMemoryLedger?: WorldMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -128,6 +130,7 @@ function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
         roundHistory: state.roundHistory,
         npcMemoryLedger: state.npcMemoryLedger,
         relationMemoryLedger: state.relationMemoryLedger ?? {},
+        worldMemoryLedger: state.worldMemoryLedger ?? [],
         endingReport: state.endingReport,
         battleReport: state.battleReport,
         shuCampaign: state.shuCampaign,
@@ -182,6 +185,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             huainanMomentum?: number
             npcMemoryLedger?: NpcMemoryLedger
             relationMemoryLedger?: RelationMemoryLedger
+            worldMemoryLedger?: WorldMemoryLedger
             empressReplyRecord?: EmpressReplyRecord | null
             playerSuspicionHeat?: number
             invasionPressure?: number
@@ -207,6 +211,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
                     ...parsed.roundStartSnapshot,
                     npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
                     relationMemoryLedger: parsed.roundStartSnapshot.relationMemoryLedger ?? {},
+                    worldMemoryLedger: parsed.roundStartSnapshot.worldMemoryLedger ?? [],
                     empressReplyRecord: parsed.roundStartSnapshot.empressReplyRecord ?? null,
                     playerSuspicionHeat: parsed.roundStartSnapshot.playerSuspicionHeat ?? 0,
                     invasionPressure: parsed.roundStartSnapshot.invasionPressure ?? 0,
@@ -219,6 +224,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             huainanMomentum: parsed.huainanMomentum ?? 0,
             npcMemoryLedger: parsed.npcMemoryLedger ?? {},
             relationMemoryLedger: parsed.relationMemoryLedger ?? {},
+            worldMemoryLedger: parsed.worldMemoryLedger ?? [],
         }
     } catch {
         return null

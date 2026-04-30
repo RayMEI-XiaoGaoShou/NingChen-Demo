@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest'
+import { CHARACTER_CANON_BY_ID } from '../ai/promptCanon'
+import { INITIAL_FACTIONS } from './factions'
 import { INITIAL_NPCS } from './npcs'
 
 describe('INITIAL_NPCS secret threads', () => {
@@ -18,5 +20,41 @@ describe('INITIAL_NPCS secret threads', () => {
             '他有意将自己打造成皇帝与各派之间不可替代的信息节点，谁都需要通过他接近皇帝，这就是他的权力基础。',
             '保皇线想借草原势力“清君侧”时，宗艾是宫中联络接口。',
         ])
+    })
+})
+
+describe('seed canon consistency', () => {
+    it('does not seed forbidden title combinations into data that prompts later reuse', () => {
+        const seedText = [
+            ...INITIAL_NPCS.flatMap(npc => [
+                npc.name,
+                npc.title,
+                npc.publicPersona,
+                npc.publicStance,
+                npc.personality,
+                ...npc.secretThreads,
+            ]),
+            ...INITIAL_FACTIONS.flatMap(faction => [
+                faction.name,
+                faction.description,
+            ]),
+        ].join('\n')
+
+        expect(seedText).not.toContain('少帝宇文棣')
+        expect(seedText).not.toContain('太子宇文棣')
+        expect(seedText).not.toContain('储君宇文棣')
+    })
+
+    it('keeps canonical interactive NPC titles explicit for high-risk characters', () => {
+        expect(INITIAL_NPCS.find(item => item.id === 'yuwendi')?.title).toBe('左丞相、燕王')
+        expect(INITIAL_NPCS.find(item => item.id === 'hebaqí')?.title).toBe('北周太后、摄政者')
+    })
+
+    it('has canonical address entries for every initial interactive NPC', () => {
+        const missingCanonEntries = INITIAL_NPCS
+            .filter(npc => !CHARACTER_CANON_BY_ID[npc.id])
+            .map(npc => npc.id)
+
+        expect(missingCanonEntries).toEqual([])
     })
 })

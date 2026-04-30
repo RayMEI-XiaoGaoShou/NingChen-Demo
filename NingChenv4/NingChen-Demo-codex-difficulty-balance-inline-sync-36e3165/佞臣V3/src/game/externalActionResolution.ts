@@ -1,11 +1,14 @@
 import type { CourtFactionId, NationDimensions, NPC } from './types'
-import type { FactionVector } from './schemeEngine'
+import type { FactionVector } from './schemeTemplates'
+import type { ExternalActionOutcomeCode } from './schemeCausalEvent'
+import { classifyExternalActionOutcome } from './schemePostResolutionOutcome'
 
 export interface ExternalActionReport {
     npcId: string
     npcName: string
     action: 'secession' | 'rebellion'
     outcome: string
+    outcomeCode?: ExternalActionOutcomeCode
     nationEffects: Partial<NationDimensions>
 }
 
@@ -31,6 +34,7 @@ export function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'reb
                     npcName: targetNpc.name,
                     action,
                     outcome: `${targetNpc.name}借乱局坐实地方自雄，明面仍奉朝廷，实则已成割据。`,
+                    outcomeCode: 'secession_established',
                     nationEffects: damage,
                 },
                 factionPenalty: linkedFactionPenalty(targetNpc, 1.4, 1.1),
@@ -40,14 +44,15 @@ export function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'reb
         targetNpc.externalStatus = 'loyal'
         targetNpc.loyaltyToCourt = clamp(targetNpc.loyaltyToCourt + 6)
         return {
-            report: {
-                npcId: targetNpc.id,
-                npcName: targetNpc.name,
-                action,
-                outcome: `${targetNpc.name}权衡之后仍未敢明牌，只是离心更重，暂观朝局。`,
-                nationEffects: {
-                    governance: -0.8,
-                    socialOrder: -0.5,
+                report: {
+                    npcId: targetNpc.id,
+                    npcName: targetNpc.name,
+                    action,
+                    outcome: `${targetNpc.name}权衡之后仍未敢明牌，只是离心更重，暂观朝局。`,
+                    outcomeCode: 'secession_hesitation',
+                    nationEffects: {
+                        governance: -0.8,
+                        socialOrder: -0.5,
                 },
             },
             factionPenalty: linkedFactionPenalty(targetNpc, 0.6, 0.4),
@@ -63,6 +68,7 @@ export function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'reb
                 npcName: targetNpc.name,
                 action,
                 outcome: `${targetNpc.name}击退平叛军队后割据一方，北周不得不正面应对其明旗反周之势。`,
+                outcomeCode: 'rebellion_established',
                 nationEffects: damage,
             },
             factionPenalty: linkedFactionPenalty(targetNpc, 2.4, 2.1),
@@ -79,6 +85,7 @@ export function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'reb
             npcName: targetNpc.name,
             action,
             outcome: `${targetNpc.name}起兵旋即为平叛军所剿，虽未坐大，却已逼北周为此折损兵粮。`,
+            outcomeCode: 'rebellion_crushed',
             nationEffects: downshiftDamage(damageByMilitaryTier(fallbackForce, 'rebellion')),
         },
         factionPenalty: linkedFactionPenalty(targetNpc, 1.8, 1.5),
@@ -155,3 +162,5 @@ function clamp(value: number, min = 0, max = 100): number {
 function round(value: number): number {
     return Math.round(value * 10) / 10
 }
+
+export { classifyExternalActionOutcome }

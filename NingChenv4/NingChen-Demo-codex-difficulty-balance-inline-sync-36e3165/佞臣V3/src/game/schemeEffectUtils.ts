@@ -1,4 +1,4 @@
-import type { FactionVector } from './schemeEngine'
+import type { FactionVector } from './schemeTemplates'
 import type {
     CourtFactionId,
     GameDifficulty,

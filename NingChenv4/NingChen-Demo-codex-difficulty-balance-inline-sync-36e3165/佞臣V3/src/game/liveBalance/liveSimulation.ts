@@ -3,7 +3,7 @@ import { INITIAL_NPCS } from '../../data/npcs'
 import { INITIAL_RELATIONSHIP_EDGES } from '../../data/npcRelationships'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../../data/nationStats'
 import { getPolicyQuestionForRound } from '../../data/policyQuestions'
-import { applyDelayedBacklashToState } from '../aiNativeEngine'
+import { applyDelayedBacklashToState } from '../aiNativeBacklash'
 import { applyDimensionChanges } from '../nationEngine'
 import { settleRound } from '../roundSettlement'
 import {

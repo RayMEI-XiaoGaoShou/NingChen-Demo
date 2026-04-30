@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
-import type { DelayedBacklash, RoundHistoryEntry } from './types'
+import type { DelayedBacklash, RoundHistoryEntry, WorldMemoryLedger } from './types'
 import { buildNpcPromptDynamicContext } from './npcPromptContext'
 import { createRelationMemoryEntry, mergeRelationMemoryEntries } from './npcRelationshipMemory'
 
@@ -194,5 +194,69 @@ describe('npcPromptContext', () => {
         expect(context.relationMemorySummary).toContain('fresh evidence on the grain route')
         expect(context.relationMemorySummary).toContain('x2')
         expect(context.relationMemorySummary).not.toContain('unrelated fear memory')
+    })
+
+    it('injects previous public world memory but not current-round or south intel memory', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const worldMemoryLedger: WorldMemoryLedger = [
+            {
+                id: 'public-old',
+                sourceRound: 3,
+                sourceActionId: 'a',
+                scope: 'court_public',
+                visibility: 'public',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['finance'],
+                schemeType: 'advise',
+                summary: '旧日朝堂公议',
+                reliability: 0.8,
+                secrecyRisk: 0.1,
+                tags: [],
+            },
+            {
+                id: 'current-public',
+                sourceRound: 4,
+                sourceActionId: 'b',
+                scope: 'court_public',
+                visibility: 'public',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['grain'],
+                schemeType: 'advise',
+                summary: '本回合朝堂公议',
+                reliability: 0.8,
+                secrecyRisk: 0.1,
+                tags: [],
+            },
+            {
+                id: 'south-only',
+                sourceRound: 3,
+                sourceActionId: 'c',
+                scope: 'south_intel',
+                visibility: 'secret',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['military'],
+                schemeType: 'advise',
+                summary: '南陈密线消息',
+                reliability: 0.8,
+                secrecyRisk: 0.6,
+                tags: [],
+            },
+        ]
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            currentRound: 4,
+            schemeType: 'advise',
+            worldMemoryLedger,
+        })
+
+        expect(context.worldMemorySummary).toContain('旧日朝堂公议')
+        expect(context.worldMemorySummary).not.toContain('本回合朝堂公议')
+        expect(context.worldMemorySummary).not.toContain('南陈密线消息')
     })
 })

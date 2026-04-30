@@ -985,6 +985,8 @@ describe('settleRound layered settlement', () => {
         expect(updatedAnSiming?.externalStatus).toBe('rebellion')
         expect(result.externalActionReports?.[0]?.action).toBe('rebellion')
         expect(result.externalActionReports?.[0]?.outcome).toContain('击退平叛军队后割据一方')
+        expect(result.schemeResults[0]?.causalEvent?.postResolutionEvent?.kind).toBe('external_action')
+        expect(result.schemeResults[0]?.causalEvent?.motionText).toMatch(/兵粮|平叛|起兵|折损/u)
     })
 
     it('lets frame and omen both erode dual court favor, but omen hits the nation harder', () => {
@@ -1414,6 +1416,8 @@ describe('settleRound layered settlement', () => {
         expect(updatedYuwendi?.deathCause).toBe('court_execution')
         expect(updatedYuwendi?.deathByNpcName).toBe('贺拔琪')
         expect(result.borrowedBladeReports?.[0]?.outcome).toBe('executed')
+        expect(result.schemeResults[0]?.causalEvent?.postResolutionEvent?.kind).toBe('borrowed_blade')
+        expect(result.schemeResults[0]?.causalEvent?.motionText).toContain('处决')
     })
 
     it('skips later same-round schemes once a court target has been executed', () => {
