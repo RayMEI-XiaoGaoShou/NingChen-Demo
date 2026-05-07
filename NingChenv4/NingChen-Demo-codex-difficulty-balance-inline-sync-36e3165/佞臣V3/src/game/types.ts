@@ -565,8 +565,8 @@ export function getPowerLevel(power: number): PowerLevel {
 
 export function getPowerLabel(power: number): string {
     const labels: Record<PowerLevel, string> = {
-        collapsed: '崩坏',
-        declining: '衰弱',
+        collapsed: '倾覆',
+        declining: '式微',
         moderate: '中平',
         strong: '强盛',
         peak: '鼎盛',

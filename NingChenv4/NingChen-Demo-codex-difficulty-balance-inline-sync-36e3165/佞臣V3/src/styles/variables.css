@@ -43,8 +43,8 @@
   --color-power-peak: #b83a3a;       /* 鼎盛：深红 */
   --color-power-strong: #d44c4c;     /* 强盛：红 */
   --color-power-moderate: #d4a04c;   /* 中平：黄 */
-  --color-power-declining: #4caf6e;  /* 衰弱：绿 */
-  --color-power-collapsed: #6a6a82;  /* 崩塌：灰 */
+  --color-power-declining: #4caf6e;  /* 式微：绿 */
+  --color-power-collapsed: #6a6a82;  /* 倾覆：灰 */
 
   /* === 字体 === */
   --font-primary: 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;

@@ -111,6 +111,7 @@ interface GameState {
     // 动作
     nextPhase: () => void
     prevPhase: () => void
+    completeSchemingIfReady: () => void
     advancePrologue: () => void
     setDifficulty: (difficulty: GameDifficulty) => void
     startNewGame: (difficulty: GameDifficulty) => void
@@ -272,7 +273,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     nextPhase: () => {
         const state = get()
-        const { currentPhase, currentRound, schemeCount, maxSchemes } = state
+        const { currentPhase, currentRound } = state
 
         switch (currentPhase) {
             case 'PROLOGUE':
@@ -291,9 +292,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             case 'SCHEME_PHASE':
                 // 三次计谋用完后进入女帝来信（AI在后台继续处理）
-                if (schemeCount >= maxSchemes) {
-                    set({ currentPhase: 'EMPRESS_LETTER' })
-                }
+                get().completeSchemingIfReady()
                 break
 
             case 'EMPRESS_LETTER':
@@ -554,6 +553,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
             default:
                 break
+        }
+    },
+
+    completeSchemingIfReady: () => {
+        const state = get()
+        if (state.schemeCount >= state.maxSchemes) {
+            set({ currentPhase: 'EMPRESS_LETTER' })
         }
     },
 

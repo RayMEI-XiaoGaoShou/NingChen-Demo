@@ -1,4 +1,5 @@
 ﻿import { useGameStore } from '../../stores/gameStore'
+import { useState } from 'react'
 import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
@@ -25,6 +26,8 @@ import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { SchemeComposer } from '../SchemePanel/SchemePanel'
+import { GameHudTools, HudStatusChip } from '../GameHud/GameHud'
 import './CourtView.css'
 
 function getFactionDoctrine(factionId: 'emperor' | 'empress') {
@@ -141,7 +144,474 @@ function buildExternalWhisper(
     return `冯道之密语：${npc.name} 这条线，眼下卡在「等窗口」。信任已够，忠心已冷，底牌已摸清——万事俱备，只差一个能逼他摊牌的时局窗口。下一手宜 ${progress.nextMoveLabel}。`
 }
 
+type CourtScope = 'overview' | 'court' | 'external'
+type CourtFactionGroup = {
+    id: 'emperor' | 'empress' | 'longxi' | 'prairie'
+    title: string
+    summary: string
+    artLabel: string
+    metricLabel: string
+    members: NPC[]
+}
+
+function isActiveCourtNpc(npc: NPC): boolean {
+    return npc.isAlive && getCourtStatus(npc) === 'active'
+}
+
+function isSelectableCourtNpc(npc: NPC): boolean {
+    return isActiveCourtNpc(npc) && !(isCourtDispositionTarget(npc) && getCourtStatus(npc) !== 'active')
+}
+
+function isSelectableExternalNpc(npc: NPC): boolean {
+    return npc.isAlive && !isTerminalExternalNpc(npc)
+}
+
+interface CourtTopBarProps {
+    backLabel: string
+    location: string
+    actionLabel?: string
+    powerLabel: string
+    invasionRisk: { label: string; className: string }
+    safetyRisk: { label: string; className: string }
+    remainingSchemes: number
+    maxSchemes: number
+    onBack: () => void
+    onAction?: () => void
+    onOpenGuide: () => void
+}
+
+function CourtTopBar({
+    backLabel,
+    location,
+    actionLabel,
+    powerLabel,
+    invasionRisk,
+    safetyRisk,
+    remainingSchemes,
+    maxSchemes,
+    onBack,
+    onAction,
+    onOpenGuide,
+}: CourtTopBarProps) {
+    return (
+        <div className="court-top-bar">
+            <button className="court-top-button court-back-button" onClick={onBack}>{backLabel}</button>
+            <span className="court-screen-hud-title">{location}</span>
+            <div className="court-screen-hud-state">
+                <HudStatusChip label="国力" value={powerLabel} valueClassName={`power-level-${powerLabel}`} />
+                <HudStatusChip label="南征" value={invasionRisk.label} valueClassName={invasionRisk.className} title={WAR_TREND_TOOLTIP} />
+                <HudStatusChip label="安危" value={safetyRisk.label} valueClassName={safetyRisk.className} title={SAFETY_RISK_TOOLTIP} />
+                <HudStatusChip label="计谋" value={`${remainingSchemes}/${maxSchemes}`} />
+            </div>
+            {actionLabel && onAction ? (
+                <button className="court-top-button court-hud-link" onClick={onAction}>{actionLabel}</button>
+            ) : actionLabel ? (
+                <span className="court-hud-link">{actionLabel}</span>
+            ) : (
+                <span className="court-hud-link court-hud-link-empty" aria-hidden="true" />
+            )}
+            <GameHudTools className="court-top-actions" onOpenGuide={onOpenGuide} />
+        </div>
+    )
+}
+
 export function CourtView() {
+    const {
+        currentRound,
+        difficulty,
+        completeSchemingIfReady,
+        northPower,
+        schemeCount,
+        maxSchemes,
+        npcs,
+        factions,
+        intelProgress,
+        currentSchemes,
+        prevPhase,
+        firstRoundGuideSeen,
+        markFirstRoundGuideSeen,
+        openGameplayGuide,
+        shuCampaign,
+        huainanCampaign,
+    } = useGameStore()
+    const { openNpcDetail } = useUiStore()
+    const [scope, setScope] = useState<CourtScope>('overview')
+    const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
+    const [schemeDrawerNpcId, setSchemeDrawerNpcId] = useState<string | null>(null)
+
+    const powerLabel = getPowerLabel(northPower)
+    const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
+    const externalNpcs = npcs.filter(npc => npc.powerBase === 'external' && npc.isAlive)
+    const emperorMembers = courtNpcs.filter(npc => npc.factionId === 'emperor')
+    const empressMembers = courtNpcs.filter(npc => npc.factionId === 'empress')
+    const longxiMembers = externalNpcs.filter(npc => npc.factionId === 'longxi')
+    const prairieMembers = externalNpcs.filter(npc => npc.factionId === 'prairie')
+    const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
+    const selectedNpc = selectedNpcId ? npcs.find(npc => npc.id === selectedNpcId) ?? null : null
+    const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(factions, npcs, currentRound)
+
+    const externalProgressMap = Object.fromEntries(
+        externalNpcs.map(npc => [
+            npc.id,
+            buildExternalLineProgress({
+                npc,
+                unlockedSecrets: intelProgress[npc.id] ?? 0,
+                difficulty,
+                round: currentRound,
+                externalActionEnabled: roundSupportsExternalAction(
+                    currentRound,
+                    npc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
+                ),
+            }),
+        ]),
+    )
+
+    const invasionRisk =
+        warRatio >= 1.2
+            ? { label: '箭在弦上', className: 'risk-critical' }
+            : warRatio >= 0.8
+                ? { label: '朝议煎沸', className: 'risk-warning' }
+                : { label: '偏安之局', className: 'risk-safe' }
+
+    const dangerNpcs = npcs.filter(
+        npc =>
+            npc.canExecute &&
+            npc.powerBase === 'court' &&
+            npc.trust <= 25 &&
+            (factions.find(faction => faction.id === npc.factionId)?.courtInfluence ?? 0) >= 55,
+    )
+
+    const safetyRisk =
+        dangerNpcs.some(npc => npc.trust <= 15)
+            ? { label: '祸生肘腋', className: 'risk-critical' }
+            : dangerNpcs.length > 0
+                ? { label: '风闻渐起', className: 'risk-warning' }
+                : { label: '尚可斡旋', className: 'risk-safe' }
+
+    const courtGroups: CourtFactionGroup[] = [
+        {
+            id: 'emperor',
+            ...getFactionDoctrine('emperor'),
+            artLabel: '军令 / 殿柱',
+            metricLabel: `综合实力 ${emperorInfluence.toFixed(1)}`,
+            members: emperorMembers,
+        },
+        {
+            id: 'empress',
+            ...getFactionDoctrine('empress'),
+            artLabel: '帘幕 / 朱批',
+            metricLabel: `综合实力 ${empressInfluence.toFixed(1)}`,
+            members: empressMembers,
+        },
+    ]
+
+    const externalGroups: CourtFactionGroup[] = [
+        {
+            id: 'longxi',
+            ...getExternalBlocDoctrine('longxi'),
+            artLabel: '边关 / 甲胄',
+            metricLabel: `在场军头 ${longxiMembers.length}`,
+            members: longxiMembers,
+        },
+        {
+            id: 'prairie',
+            ...getExternalBlocDoctrine('prairie'),
+            artLabel: '帐幕 / 雪原',
+            metricLabel: `在场军头 ${prairieMembers.length}`,
+            members: prairieMembers,
+        },
+    ]
+
+    const remainingSchemes = Math.max(0, maxSchemes - schemeCount)
+
+    const goScope = (nextScope: Exclude<CourtScope, 'overview'>) => {
+        setSelectedNpcId(null)
+        setSchemeDrawerNpcId(null)
+        setScope(nextScope)
+    }
+
+    const backToOverview = () => {
+        setSelectedNpcId(null)
+        setSchemeDrawerNpcId(null)
+        setScope('overview')
+    }
+
+    const enterSchemeWithNpc = (npc: NPC) => {
+        if (schemeCount >= maxSchemes || usedNpcIds.has(npc.id)) return
+        setSchemeDrawerNpcId(npc.id)
+    }
+
+    const handleTopBack = () => {
+        if (schemeDrawerNpcId) {
+            setSchemeDrawerNpcId(null)
+            return
+        }
+        if (scope === 'overview' && !selectedNpc) {
+            prevPhase()
+            return
+        }
+        if (selectedNpc) {
+            setSelectedNpcId(null)
+            return
+        }
+        backToOverview()
+    }
+
+    const renderHud = (location: string, actionLabel?: string, onAction?: () => void) => (
+        <CourtTopBar
+            backLabel={schemeDrawerNpcId ? '返回案卷' : scope === 'overview' && !selectedNpc ? '上一页' : '返回上一层'}
+            location={location}
+            actionLabel={actionLabel}
+            powerLabel={powerLabel}
+            invasionRisk={invasionRisk}
+            safetyRisk={safetyRisk}
+            remainingSchemes={remainingSchemes}
+            maxSchemes={maxSchemes}
+            onBack={handleTopBack}
+            onAction={onAction}
+            onOpenGuide={() => openGameplayGuide('gameplay')}
+        />
+    )
+
+    const renderSceneLayers = (variant: 'overview' | 'court' | 'external' | 'detail') => (
+        <div className={`court-scene-layers court-scene-${variant}`} aria-hidden="true">
+            <div className="court-art-layer court-art-background" />
+            <div className="court-art-layer court-art-foreground" />
+            <div className="court-art-layer court-art-atmosphere" />
+            <div className="court-art-layer court-art-particles" />
+        </div>
+    )
+
+    const renderNpcSeat = (npc: NPC) => {
+        const selectable = npc.powerBase === 'external'
+            ? isSelectableExternalNpc(npc)
+            : isSelectableCourtNpc(npc)
+        const alreadyUsed = usedNpcIds.has(npc.id)
+        const knownIntel = intelProgress[npc.id] ?? 0
+        const reaction = getNpcRoundReaction(currentRound, npc, knownIntel, {
+            shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
+            huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
+        })
+
+        return (
+            <button
+                key={npc.id}
+                className={`court-seat trust-${getTrustLevel(npc.trust)} ${!selectable ? 'is-disabled' : ''} ${alreadyUsed ? 'is-used' : ''}`}
+                onClick={() => selectable && setSelectedNpcId(npc.id)}
+                disabled={!selectable}
+            >
+                <NpcPortrait name={npc.name} className="court-seat-portrait" positionY="14%" zoom={1.08} />
+                <span className="court-seat-name">{npc.name}</span>
+                <span className="court-seat-title">{getDisplayedNpcTitle(npc)}</span>
+                <span className="court-seat-status">
+                    {alreadyUsed ? '今日已落子' : `${getTrustLabel(npc.trust)} · 暗线 ${knownIntel}/${npc.secretThreads.length}`}
+                </span>
+                <span className="court-seat-reaction">{reaction}</span>
+            </button>
+        )
+    }
+
+    const renderFactionScreen = () => {
+        const groups = scope === 'court' ? courtGroups : externalGroups
+        const scopeTitle = scope === 'court' ? '朝堂势力' : '地方军头'
+
+        return (
+            <section className={`court-game-screen court-faction-screen court-faction-screen-${scope}`}>
+                {renderSceneLayers(scope === 'court' ? 'court' : 'external')}
+                {renderHud(`朝堂总览 > ${scopeTitle}`, '返回总览', backToOverview)}
+                <div className="court-scroll-grid">
+                    {groups.map(group => (
+                        <article key={group.id} className={`court-faction-scroll court-faction-scroll-${group.id}`}>
+                            <div className="court-faction-scroll-head">
+                                <div>
+                                    <h3>{group.title}</h3>
+                                    <p>{group.summary}</p>
+                                </div>
+                                <span className="court-faction-mark">{group.artLabel}</span>
+                            </div>
+                            <div className="court-seat-rail">
+                                {group.members.map(renderNpcSeat)}
+                            </div>
+                            <span className="court-faction-metric">{group.metricLabel}</span>
+                        </article>
+                    ))}
+                </div>
+            </section>
+        )
+    }
+
+    const renderOverview = () => (
+        <section className="court-game-screen court-overview-screen">
+            {renderSceneLayers('overview')}
+            {renderHud(`第 ${currentRound} 回合`)}
+            <div className="court-gate-grid">
+                <button className="court-gate court-gate-court" onClick={() => goScope('court')}>
+                    <span className="court-gate-visual" aria-hidden="true">
+                        <span className="court-gate-art-mask">
+                            <span className="court-gate-art" />
+                            <span className="court-gate-atmosphere" />
+                        </span>
+                        <span className="court-gate-frame" />
+                        <span className="court-gate-frame-glow" />
+                    </span>
+                    <span
+                        className="court-gate-note"
+                        role="img"
+                        aria-label="总为浮云能蔽日，邺都不见使人愁"
+                    />
+                    <span className="court-gate-copy">
+                        <strong>朝堂势力</strong>
+                    </span>
+                </button>
+                <button className="court-gate court-gate-external" onClick={() => goScope('external')}>
+                    <span className="court-gate-visual" aria-hidden="true">
+                        <span className="court-gate-art-mask">
+                            <span className="court-gate-art" />
+                            <span className="court-gate-atmosphere" />
+                        </span>
+                        <span className="court-gate-frame" />
+                        <span className="court-gate-frame-glow" />
+                    </span>
+                    <span
+                        className="court-gate-note"
+                        role="img"
+                        aria-label="八百里分麾下炙，五十弦翻塞外声"
+                    />
+                    <span className="court-gate-copy">
+                        <strong>地方军头</strong>
+                    </span>
+                </button>
+            </div>
+        </section>
+    )
+
+    const renderNpcDetail = (npc: NPC) => {
+        const knownIntel = intelProgress[npc.id] ?? 0
+        const displayedTitle = getDisplayedNpcTitle(npc)
+        const roundReaction = getNpcRoundReaction(currentRound, npc, knownIntel, {
+            shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
+            huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
+        })
+        const knownThreads = npc.secretThreads.slice(0, knownIntel)
+        const isExternal = npc.powerBase === 'external'
+        const progress = isExternal ? externalProgressMap[npc.id] : null
+        const courtFavor = !isExternal ? getCourtFavor(npc) : null
+        const dispositionHint = !isExternal ? buildCourtDispositionHint(npc) : null
+        const canScheme = remainingSchemes > 0 && !usedNpcIds.has(npc.id)
+        const isComposing = schemeDrawerNpcId === npc.id
+
+        return (
+            <section className={`court-game-screen court-detail-screen ${isExternal ? 'court-detail-external' : 'court-detail-court'}`}>
+                {renderSceneLayers('detail')}
+                {renderHud(`${isExternal ? '地方军头' : '朝堂势力'} > ${npc.name}`, isExternal ? '返回地方' : '返回势力', () => {
+                    setSchemeDrawerNpcId(null)
+                    setSelectedNpcId(null)
+                    setScope(isExternal ? 'external' : 'court')
+                })}
+                <div className="court-character-stand">
+                    <NpcPortrait name={npc.name} className="court-detail-portrait" positionY="12%" zoom={1.04} />
+                    <span>{npc.name}</span>
+                </div>
+                <article className={`court-dossier ${isComposing ? 'court-dossier-composer' : ''}`}>
+                    {isComposing ? (
+                        <SchemeComposer
+                            mode="embedded"
+                            lockedNpcId={npc.id}
+                            onChangeTarget={() => {
+                                setSchemeDrawerNpcId(null)
+                                setSelectedNpcId(null)
+                                setScope(isExternal ? 'external' : 'court')
+                            }}
+                            onAfterSubmit={() => {
+                                setSchemeDrawerNpcId(null)
+                                completeSchemingIfReady()
+                            }}
+                        />
+                    ) : (
+                        <>
+                            <div className="court-dossier-head">
+                                <div>
+                                    <h3>{npc.name}</h3>
+                                    <p>{displayedTitle}</p>
+                                </div>
+                                <div className="court-dossier-actions">
+                                    <button className="court-small-link" onClick={() => openNpcDetail(npc.id)}>完整档案</button>
+                                    <button className="btn-primary court-seal-action court-dossier-scheme" onClick={() => enterSchemeWithNpc(npc)} disabled={!canScheme}>
+                                        {usedNpcIds.has(npc.id) ? '今日已落子' : remainingSchemes <= 0 ? '今日无子' : '对其施计'}
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="court-dossier-grid">
+                                <section>
+                                    <h4>本回合公开表态</h4>
+                                    <p>{roundReaction}</p>
+                                </section>
+                                <section>
+                                    <h4>可撬动点</h4>
+                                    <p>{npc.softSpot}；{npc.triggerPoint}</p>
+                                </section>
+                                <section>
+                                    <h4>{isExternal ? '边镇态势' : '御前牵制'}</h4>
+                                    {isExternal ? (
+                                        <p>
+                                            军力 {npc.militaryPower} · {getExternalMilitaryPostureLabel(npc.militaryPower)}
+                                            {' / '}
+                                            忠诚 {npc.loyaltyToCourt}
+                                            {' / '}
+                                            {getExternalTiltLabel(npc.alignmentBias)}
+                                        </p>
+                                    ) : courtFavor ? (
+                                        <p>
+                                            皇帝恩宠 {courtFavor.emperorFavor} · {getFavorPressureLabel('emperorFavor', courtFavor.emperorFavor)}
+                                            {' / '}
+                                            太后眷顾 {courtFavor.empressDowagerFavor} · {getFavorPressureLabel('empressDowagerFavor', courtFavor.empressDowagerFavor)}
+                                        </p>
+                                    ) : null}
+                                </section>
+                                <section>
+                                    <h4>已知情报</h4>
+                                    {knownThreads.length > 0 ? (
+                                        <ul>
+                                            {knownThreads.map((thread, index) => (
+                                                <li key={`${npc.id}-thread-${index}`}>{thread}</li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p>暗线未明，仍需试探。</p>
+                                    )}
+                                </section>
+                                <section className="court-dossier-wide">
+                                    <h4>冯道之密札</h4>
+                                    <p>
+                                        {isExternal && progress
+                                            ? buildExternalWhisper(npc, progress, knownIntel)
+                                            : dispositionHint?.shortText ?? '先看他今日表态，再挑一处最怕被人看见的心结。'}
+                                    </p>
+                                </section>
+                            </div>
+                        </>
+                    )}
+                </article>
+            </section>
+        )
+    }
+
+    return (
+        <div className="page-container court-view court-view-game page-enter">
+            {currentRound === 1 && !firstRoundGuideSeen.court_observe && (
+                <FirstRoundGuideModal
+                    title={FIRST_ROUND_GUIDE_CONTENT.court_observe.title}
+                    body={FIRST_ROUND_GUIDE_CONTENT.court_observe.body}
+                    onClose={() => markFirstRoundGuideSeen('court_observe')}
+                />
+            )}
+
+            {selectedNpc ? renderNpcDetail(selectedNpc) : scope === 'overview' ? renderOverview() : renderFactionScreen()}
+        </div>
+    )
+}
+
+export function LegacyCourtView() {
     const {
         currentRound,
         difficulty,
@@ -187,10 +657,10 @@ export function CourtView() {
 
     const invasionRisk =
         warRatio >= 1.2
-            ? { label: '南征箭在弦上', className: 'risk-critical' }
+            ? { label: '箭在弦上', className: 'risk-critical' }
             : warRatio >= 0.8
-                ? { label: '南征议势升温', className: 'risk-warning' }
-                : { label: '朝廷仍偏安内', className: 'risk-safe' }
+                ? { label: '朝议煎沸', className: 'risk-warning' }
+                : { label: '偏安之局', className: 'risk-safe' }
 
     const dangerNpcs = npcs.filter(
         npc =>
@@ -202,10 +672,10 @@ export function CourtView() {
 
     const safetyRisk =
         dangerNpcs.some(npc => npc.trust <= 15)
-            ? { label: '祸在帷幄', className: 'risk-critical' }
+            ? { label: '祸生肘腋', className: 'risk-critical' }
             : dangerNpcs.length > 0
-                ? { label: '暗流渐浓', className: 'risk-warning' }
-                : { label: '朝中尚可周旋', className: 'risk-safe' }
+                ? { label: '风闻渐起', className: 'risk-warning' }
+                : { label: '尚可斡旋', className: 'risk-safe' }
 
     return (
         <div className="page-container court-view page-enter">

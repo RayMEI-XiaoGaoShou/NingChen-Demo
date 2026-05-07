@@ -4,7 +4,7 @@
 // AI 在后台异步生成 NPC 反馈
 // ========================================
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import {
     EXTERNAL_LINE_TEACHING_CONTENT,
@@ -283,14 +283,38 @@ export function getSchemeUnlockHint(params: {
     return ''
 }
 
-export function SchemePanel() {
+export interface SchemeComposerProps {
+    mode?: 'standalone' | 'embedded'
+    lockedNpcId?: string | null
+    onChangeTarget?: () => void
+    onAfterSubmit?: () => void
+}
+
+export function useSchemeComposer({
+    mode = 'standalone',
+    lockedNpcId = null,
+    onChangeTarget,
+    onAfterSubmit,
+}: SchemeComposerProps = {}) {
+    return {
+        mode,
+        lockedNpcId,
+        onChangeTarget,
+        onAfterSubmit,
+        isEmbedded: mode === 'embedded',
+    }
+}
+
+export function SchemeComposer(props: SchemeComposerProps = {}) {
+    const composer = useSchemeComposer(props)
+    const { isEmbedded, lockedNpcId, onChangeTarget, onAfterSubmit } = composer
     const {
         currentRound,
         difficulty,
         schemeCount,
         maxSchemes,
         addScheme,
-        nextPhase,
+        completeSchemingIfReady,
         prevPhase,
         npcs,
         factions,
@@ -317,8 +341,8 @@ export function SchemePanel() {
         shuCampaign,
         huainanCampaign,
     } = useGameStore()
-
-    const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
+    const [selectedNpcId, setSelectedNpcId] = useState<string | null>(lockedNpcId ?? null)
+    const [targetLockedFromCourt, setTargetLockedFromCourt] = useState(Boolean(lockedNpcId))
     const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(null)
     const [relatedNpcId, setRelatedNpcId] = useState<string | null>(null)
     const [speech, setSpeech] = useState('')
@@ -331,7 +355,7 @@ export function SchemePanel() {
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId) ?? null
-    const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
+    const usedNpcIds = useMemo(() => new Set(currentSchemes.map(scheme => scheme.targetNpcId)), [currentSchemes])
     const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const availableSchemeTypes = selectedNpc
@@ -349,17 +373,46 @@ export function SchemePanel() {
         schemeOnboardingSeen,
         omenGuideSeen,
     })
-    const shouldShowOmenGuide = omenGuidePresentation === 'modal'
+    const shouldShowOmenGuide = !isEmbedded && omenGuidePresentation === 'modal'
     const shouldShowOmenInlineHint = omenGuidePresentation === 'inline'
     const shouldShowSchemeGuide =
+        !isEmbedded &&
         !shouldShowOmenGuide &&
         (((!schemeOnboardingSeen.scheme_master_guide && currentRound === 1) || showSchemeGuide))
     const shouldShowExternalLineGuide =
+        !isEmbedded &&
         !shouldShowSchemeGuide &&
         !shouldShowOmenGuide &&
         currentRound === 1 &&
         aliveNpcs.some(npc => npc.powerBase === 'external') &&
         !schemeOnboardingSeen.first_external_line_teaching
+
+    useEffect(() => {
+        if (!isEmbedded) return
+        if (!lockedNpcId) {
+            setSelectedNpcId(null)
+            setTargetLockedFromCourt(false)
+            return
+        }
+
+        const entryNpc = npcs.find(npc => npc.id === lockedNpcId)
+        const canUseEntryNpc =
+            entryNpc?.isAlive &&
+            !isTerminalExternalNpc(entryNpc) &&
+            getCourtStatus(entryNpc) === 'active' &&
+            !usedNpcIds.has(entryNpc.id)
+
+        if (entryNpc && canUseEntryNpc) {
+            setSelectedNpcId(entryNpc.id)
+            setSelectedScheme(null)
+            setRelatedNpcId(null)
+            setSpeech('')
+            setOmenText('')
+            setInterpretationText('')
+            setFengDraftPreview(null)
+            setTargetLockedFromCourt(true)
+        }
+    }, [isEmbedded, lockedNpcId, npcs, usedNpcIds])
     const speechFields = getSchemeSpeechFields(selectedScheme)
     const omenTargetHint =
         selectedScheme === 'omen' && selectedNpc
@@ -614,16 +667,18 @@ export function SchemePanel() {
             setOmenText('')
             setInterpretationText('')
             setFengDraftPreview(null)
+            setTargetLockedFromCourt(false)
             setJustSubmitted(false)
 
+            onAfterSubmit?.()
             if (schemeCount + 1 >= maxSchemes) {
-                nextPhase()
+                completeSchemingIfReady()
             }
         }, 800)
     }
 
     return (
-        <div className="page-container scheme-panel page-enter">
+        <div className={isEmbedded ? 'scheme-composer scheme-composer-embedded' : 'page-container scheme-panel page-enter'}>
             {shouldShowSchemeGuide && (
                 <SchemeOnboardingModal
                     open
@@ -659,6 +714,7 @@ export function SchemePanel() {
                 />
             )}
 
+            {!isEmbedded && (
             <div className="page-utility-row utility-split animate-slide-up">
                 <button className="btn-utility-secondary" onClick={prevPhase}>上一页</button>
                 <div className="scheme-toolbar-actions">
@@ -668,15 +724,22 @@ export function SchemePanel() {
                     <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
                 </div>
             </div>
+            )}
 
-            <div className="scheme-modal glass-panel animate-slide-up">
+            <div className={`scheme-modal ${isEmbedded ? 'scheme-modal-embedded' : 'glass-panel animate-slide-up'}`}>
                 <div className="scheme-header">
                     <h2 className="modal-title">施计</h2>
                     <div className="scheme-counter">
                         今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
                     </div>
+                    {isEmbedded && onChangeTarget && (
+                        <button className="btn-utility-secondary scheme-embedded-change-target" onClick={onChangeTarget}>
+                            更换目标
+                        </button>
+                    )}
                 </div>
 
+                {!isEmbedded && (
                 <div className="page-mission-strip scheme-mission-strip">
                     <div className="page-mission-item">
                         <span className="page-mission-label">选谁</span>
@@ -691,10 +754,27 @@ export function SchemePanel() {
                         <p className="page-mission-text">最后补一句说辞。切中人心时，计谋成败和影响幅度都会明显不同。</p>
                     </div>
                 </div>
+                )}
 
                 {shouldShowOmenInlineHint && (
                     <div className="scheme-inline-hint omen-hint">
                         谶纬偏灾异、法统、天命与人心，不宜写成兵粮调度。
+                    </div>
+                )}
+
+                {selectedNpc && targetLockedFromCourt && !isEmbedded && (
+                    <div className="scheme-entry-lock animate-slide-up">
+                        <div>
+                            <span className="scheme-entry-lock-kicker">朝堂案卷已锁定</span>
+                            <strong>{selectedNpc.name}</strong>
+                            <p>目标来自人物详情页。此处只需选择计谋、关联人物与说辞。</p>
+                        </div>
+                        <button
+                            className="btn-utility-secondary"
+                            onClick={() => setTargetLockedFromCourt(false)}
+                        >
+                            改选目标
+                        </button>
                     </div>
                 )}
 
@@ -707,6 +787,7 @@ export function SchemePanel() {
                     ) : (
                         <div className="scheme-workbench">
                             <div className="scheme-steps">
+                                {!isEmbedded && (
                                 <div className="step animate-slide-up animate-delay-1">
                                     <h3 className="step-title"><span className="step-num">壹</span> 选择目标</h3>
                                     <p className="focus-legend">暗金边框：冯道之锦囊点名的关键人物</p>
@@ -720,6 +801,7 @@ export function SchemePanel() {
                                                     disabled={alreadyUsed}
                                                     onClick={() => {
                                                         setSelectedNpcId(npc.id)
+                                                        setTargetLockedFromCourt(false)
                                                         setSelectedScheme(null)
                                                         setRelatedNpcId(null)
                                                         setSpeech('')
@@ -746,6 +828,7 @@ export function SchemePanel() {
                                         })}
                                     </div>
                                 </div>
+                                )}
 
                                 {selectedNpc && (
                                     <div className="step animate-slide-up">
@@ -833,7 +916,7 @@ export function SchemePanel() {
                             </div>
 
                             <div className="scheme-speech-column">
-                                {selectedNpc ? (
+                                {selectedNpc && !isEmbedded ? (
                                     <div className="step animate-slide-up animate-delay-1 scheme-preview-card">
                                         <h3 className="step-title"><span className="step-num">{currentSchemeData?.needsSecondTarget ? '肆' : '叁'}</span> 当前布局</h3>
                                         <div className="scheme-preview-main">
@@ -917,12 +1000,12 @@ export function SchemePanel() {
                                             </div>
                                         </div>
                                     </div>
-                                ) : (
+                                ) : !isEmbedded ? (
                                     <div className="step animate-slide-up animate-delay-1 scheme-empty-state">
                                         <h3 className="step-title"><span className="step-num">叁</span> 当前布局</h3>
                                         <p>先选定目标人物，再决定说辞和计谋方向。</p>
                                     </div>
-                                )}
+                                ) : null}
 
                                 {selectedScheme && (
                                     <div className="step animate-slide-up scheme-speech-step">
@@ -1014,4 +1097,8 @@ export function SchemePanel() {
             </div>
         </div>
     )
+}
+
+export function SchemePanel() {
+    return <SchemeComposer mode="standalone" />
 }

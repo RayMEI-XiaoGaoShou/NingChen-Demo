@@ -81,6 +81,7 @@ function App() {
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const isCoverStep = prologueStep === 'COVER'
     const isRoundStartFullscreenStep = shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
+    const isCourtStageStep = prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE'
     const hideGlobalHeader = shouldHideGlobalHeader(prologueStep, currentPhase)
 
     useEffect(() => {
@@ -145,7 +146,7 @@ function App() {
         : <PhaseCrashFallback phaseName={currentPhase} />
 
     return (
-        <div className={`app${isCoverStep ? ' app-cover-shell' : ''}${isRoundStartFullscreenStep ? ' app-roundstart-shell' : ''}`}>
+        <div className={`app${isCoverStep ? ' app-cover-shell' : ''}${isRoundStartFullscreenStep ? ' app-roundstart-shell' : ''}${isCourtStageStep ? ' app-court-shell' : ''}`}>
             {!hideGlobalHeader && (
                 <header className="app-header">
                     <span className="app-header-spacer" />
@@ -168,7 +169,7 @@ function App() {
             )}
             <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}`} phaseName={currentPhase} fallback={errorFallback}>
                 <>
-                    <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}`}>
+                    <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}${isCourtStageStep ? ' app-content-court' : ''}`}>
                         <Suspense fallback={<PhaseLoadingFallback />}>
                             {renderContent()}
                         </Suspense>

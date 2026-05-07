@@ -53,6 +53,14 @@ body {
     min-height: 100vh;
 }
 
+.app-court-shell {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    padding: 0;
+}
+
 .app::before {
     content: '';
     position: fixed;
@@ -118,6 +126,12 @@ body {
 }
 
 .app-content-cover {
+    padding: 0;
+}
+
+.app-content-court {
+    width: 100%;
+    min-height: 100dvh;
     padding: 0;
 }
 

@@ -43,9 +43,9 @@ export function getBacklashExplanation(backlash: DelayedBacklash): string {
 }
 
 function getSettlementSafetyRisk(stage: PlayerDangerStage | null | undefined) {
-    if (stage === 'under_review') return { label: '祸在帷幄', className: 'risk-critical' }
-    if (stage === 'under_watch') return { label: '暗流渐浓', className: 'risk-warning' }
-    return { label: '朝中尚可周旋', className: 'risk-safe' }
+    if (stage === 'under_review') return { label: '祸生肘腋', className: 'risk-critical' }
+    if (stage === 'under_watch') return { label: '风闻渐起', className: 'risk-warning' }
+    return { label: '尚可斡旋', className: 'risk-safe' }
 }
 
 export function getSafeSettlementJudgeFacts(
@@ -60,7 +60,7 @@ export function getSafeSettlementJudgeFacts(
         externalSummary: judgeFacts?.externalSummary ?? '边镇与外部势力仍在观望。',
         northSummary: judgeFacts?.northSummary ?? '北周国势暂无明显变化。',
         southSummary: judgeFacts?.southSummary ?? '南陈新政的后效仍在缓缓显形。',
-        invasionSummary: judgeFacts?.invasionSummary ?? '南征风向仍待观察',
+        invasionSummary: judgeFacts?.invasionSummary ?? '风信未彰',
         survivalSummary: judgeFacts?.survivalSummary ?? '风声暂稳。',
         aiNativeSummary: {
             schemeHints: judgeFacts?.aiNativeSummary?.schemeHints ?? [],
@@ -71,10 +71,10 @@ export function getSafeSettlementJudgeFacts(
 }
 
 export function getSettlementInvasionWindowLabel(ratio: number | null | undefined): string {
-    if (!isFiniteNumber(ratio)) return '南征风向仍待观察'
-    if (ratio >= 1.2) return '南征箭在弦上'
-    if (ratio >= 0.8) return '南征议势升温'
-    return '朝廷仍偏安内'
+    if (!isFiniteNumber(ratio)) return '风信未彰'
+    if (ratio >= 1.2) return '箭在弦上'
+    if (ratio >= 0.8) return '朝议煎沸'
+    return '偏安之局'
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -295,7 +295,7 @@ export function Settlement() {
                 northSummary: judgeFacts.northSummary,
                 southSummary: judgeFacts.southSummary,
                 southEmpressReply,
-                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征风向仍待观察',
+                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '风信未彰',
             })
 
             try {
