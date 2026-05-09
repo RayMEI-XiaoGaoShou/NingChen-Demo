@@ -79,7 +79,7 @@ describe('roundIntelEngine', () => {
     it('reveals sharper motive-facing reactions as intel depth increases', () => {
         const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
         const shallow = getNpcRoundReaction(14, yuwendi, 0)
-        const deep = getNpcRoundReaction(14, yuwendi, 3)
+        const deep = getNpcRoundReaction(14, yuwendi, 2)
 
         expect(shallow).not.toEqual(deep)
         expect(deep).toContain('归政')

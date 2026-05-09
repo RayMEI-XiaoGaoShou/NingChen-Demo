@@ -32,6 +32,7 @@ export function buildSchemeNpcActionContext(params: {
     relationMemorySummary?: string
     worldMemorySummary?: string
     relatedImpactSummary?: string | null
+    revealedSecretThread?: string | null
 }): string {
     const lines: string[] = []
     const faction = params.npc.powerBase === 'court'
@@ -58,8 +59,11 @@ export function buildSchemeNpcActionContext(params: {
         lines.push(`牵连人物公开身份：${params.relatedNpc.name}，${params.relatedNpc.title}；公开立场：${params.relatedNpc.publicStance}`)
     }
 
-    const knownSecrets = params.knownSecretThreads?.filter(Boolean) ?? []
-    lines.push(`已解锁暗线：${knownSecrets.length > 0 ? knownSecrets.join('；') : '暂无'}`)
+    lines.push(`人物内在利益与暗线：${formatNpcPersonalInterestThreads(params.npc)}`)
+    lines.push('暗线使用边界：这些是 NPC 自身利益、恐惧与长期盘算，可用于塑造其当回合举措；不要写成 NPC 对萧宝颖全盘自白，也不得泄露萧宝颖南陈身份。')
+    if (params.revealedSecretThread?.trim()) {
+        lines.push(`本次试探刚揭露暗线：${params.revealedSecretThread.trim()}`)
+    }
     if (params.previousDealings) lines.push(`上回往来：${params.previousDealings}`)
     if (params.relationshipTemperature) lines.push(`近两回合关系温度：${params.relationshipTemperature}`)
     if (params.recentCourtFortune) lines.push(`近来得失：${params.recentCourtFortune}`)
@@ -70,6 +74,11 @@ export function buildSchemeNpcActionContext(params: {
     if (params.relatedImpactSummary) lines.push(`牵连受损摘要：${params.relatedImpactSummary}`)
 
     return lines.join('\n')
+}
+
+function formatNpcPersonalInterestThreads(npc: NPC): string {
+    const threads = npc.secretThreads.filter(Boolean)
+    return threads.length > 0 ? threads.join('；') : '暂无'
 }
 
 export function buildSchemeNpcActionPrompt(params: {
@@ -85,6 +94,7 @@ export function buildSchemeNpcActionPrompt(params: {
     narrativeObligations?: Array<Pick<SchemeNarrativeObligation, 'dimension' | 'direction' | 'subjectLabel' | 'reasonCode'>>
     npcActionKind?: 'move' | 'counter' | 'attitude' | 'intel'
     postResolutionEvent?: SchemePostResolutionEvent | null
+    revealedSecretThread?: string | null
 }): ChatMessage[] {
     const relatedLine = params.relatedNpc
         ? `牵连人物：${params.relatedNpc.name}，${params.relatedNpc.title}`
@@ -103,6 +113,9 @@ export function buildSchemeNpcActionPrompt(params: {
         : ''
     const kindGuidance = getNpcActionKindGuidance(params.npcActionKind)
     const postResolutionBlock = formatPostResolutionPromptBlock(params.postResolutionEvent)
+    const revealedSecretGuidance = params.npcActionKind === 'intel' && params.revealedSecretThread?.trim()
+        ? `本次暗线举措要求：这是暗线/口风推进，必须围绕“${params.revealedSecretThread.trim()}”写 NPC 当回合如何露出口风、遮掩或反试探；不得写成通用“摸到旧线”，也不得让 NPC 直接承认完整真相。`
+        : ''
 
     return [
         { role: 'system', content: SCHEME_NPC_ACTION_SYSTEM },
@@ -132,6 +145,7 @@ ${postResolutionBlock}
 ${obligationLine}
 叙事类型要求：${kindGuidance}
 写作硬规则：必须包含“动作 + 影响介质 + 变化机制”。如果数值下降，写清受阻、亏空、迟滞、折损等损伤机制；如果数值上升，写清疏通、续上、补足、军令更顺等改善机制。不得把正向数值写成损伤，也不得把负向数值写成整顿见效。
+${revealedSecretGuidance ? `${revealedSecretGuidance}\n` : ''}
 ${specialGuidance}
 举措上下文：
 ${contextLine}

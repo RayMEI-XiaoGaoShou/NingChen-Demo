@@ -208,6 +208,8 @@ export function settleRound(params: {
         const relatedBefore = activeRelatedNpc ? { ...activeRelatedNpc } : null
         const factionsBeforeAction = factionsAfter.map(faction => ({ ...faction }))
 
+        const unlockedSecretsBeforeAction = (intelProgress[action.targetNpcId] ?? 0) + (intelUnlocks[action.targetNpcId] ?? 0)
+
         let result = settleScheme(
             action,
             targetNpc,
@@ -215,7 +217,7 @@ export function settleRound(params: {
             actionsPerNpc[action.targetNpcId] ?? 0,
             {
                 round,
-                unlockedSecrets: intelProgress[action.targetNpcId] ?? 0,
+                unlockedSecrets: unlockedSecretsBeforeAction,
                 difficulty,
             },
         )

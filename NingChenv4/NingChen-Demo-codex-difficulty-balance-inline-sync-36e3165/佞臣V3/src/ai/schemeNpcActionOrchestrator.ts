@@ -192,6 +192,7 @@ async function enhanceOneSchemeNpcAction(
         relationMemorySummary: dynamicContext.relationMemorySummary,
         worldMemorySummary: dynamicContext.worldMemorySummary,
         relatedImpactSummary: task.result.relatedImpactSummary ?? null,
+        revealedSecretThread: task.result.revealedSecretThread ?? null,
     })
 
     const baseMessages = buildSchemeNpcActionPrompt({
@@ -207,6 +208,7 @@ async function enhanceOneSchemeNpcAction(
         narrativeObligations: task.result.causalEvent?.narrativeObligations ?? [],
         npcActionKind: task.result.npcAction?.kind,
         postResolutionEvent: task.result.causalEvent?.postResolutionEvent ?? null,
+        revealedSecretThread: task.result.revealedSecretThread ?? null,
     })
 
     const response = await chatJson<{ text?: string }>(

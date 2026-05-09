@@ -26,6 +26,6 @@ describe('omen availability', () => {
             externalStatus: 'secession' as const,
         }
 
-        expect(getAvailableSchemesForNpc(terminalExternal, { round: 3, unlockedSecrets: 3 })).toEqual([])
+        expect(getAvailableSchemesForNpc(terminalExternal, { round: 3, unlockedSecrets: 2 })).toEqual([])
     })
 })

@@ -14,6 +14,7 @@ import { buildOmenEchoFallbackText, buildOmenEchoFeedbackPayload, selectOmenEcho
 import type { RoundSettlementResult } from '../../game/roundSettlement'
 import { previewSchemeSuccess } from '../../game/schemeEngine'
 import { isSchemeReplyPrefetchInFlight } from '../../game/schemeReplyPrefetch'
+import { getRevealedSecretThreadForScheme } from '../../game/revealedSecretThread'
 import {
     buildContextualFallbackFollowUpQuestion,
     extractTerminalQuestion,
@@ -799,6 +800,12 @@ export function SchemeFeedback() {
                         northParse: item.parsed,
                     },
                 )
+                const revealedSecretThread = getRevealedSecretThreadForScheme({
+                    npc: item.targetNpc,
+                    schemeType: item.action.schemeType,
+                    success,
+                    currentUnlockedSecrets: snapshot.intelProgress[item.targetNpc.id] ?? 0,
+                })
 
                 try {
                     const reply = await chatCompletion(
@@ -814,6 +821,7 @@ export function SchemeFeedback() {
                             eventName: snapshot.currentRoundEvent.eventName,
                             eventBriefing: snapshot.currentRoundEvent.eventBriefing,
                             knownSecretThreads: item.knownSecretThreads,
+                            revealedSecretThread,
                             previousDealings: item.dynamicContext.previousDealings,
                             relationshipTemperature: item.dynamicContext.relationshipTemperature,
                             recentCourtFortune: item.dynamicContext.recentCourtFortune,
@@ -1012,6 +1020,27 @@ export function SchemeFeedback() {
             }
 
             const knownSecretThreads = targetNpc.secretThreads.slice(0, intelProgress[targetNpc.id] ?? 0)
+            const actionIndex = currentSchemes.findIndex(item => item.id === actionId)
+            const previousActions = currentSchemes
+                .slice(0, Math.max(0, actionIndex))
+                .filter(item => item.targetNpcId === action.targetNpcId).length
+            const originalSuccess = previewSchemeSuccess(
+                { ...action, northParse: action.northParse },
+                targetNpc,
+                previousActions,
+                action.resolutionRoll ?? 0.5,
+                {
+                    round: currentRound,
+                    unlockedSecrets: intelProgress[targetNpc.id] ?? 0,
+                    northParse: action.northParse,
+                },
+            )
+            const revealedSecretThread = getRevealedSecretThreadForScheme({
+                npc: targetNpc,
+                schemeType: action.schemeType,
+                success: originalSuccess,
+                currentUnlockedSecrets: intelProgress[targetNpc.id] ?? 0,
+            })
             const dynamicContext = buildNpcPromptDynamicContext({
                 npc: targetNpc,
                 factions,
@@ -1039,6 +1068,7 @@ export function SchemeFeedback() {
                     eventName: currentRoundEvent.eventName,
                     eventBriefing: currentRoundEvent.eventBriefing,
                     knownSecretThreads,
+                    revealedSecretThread,
                     previousDealings: dynamicContext.previousDealings,
                     relationshipTemperature: dynamicContext.relationshipTemperature,
                     recentCourtFortune: dynamicContext.recentCourtFortune,

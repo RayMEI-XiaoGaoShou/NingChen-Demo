@@ -4,21 +4,25 @@ import { INITIAL_FACTIONS } from './factions'
 import { INITIAL_NPCS } from './npcs'
 
 describe('INITIAL_NPCS secret threads', () => {
-    it('keeps 贺拔伯圭暗线 aligned with NPC角色卡真源', () => {
+    it('compresses each NPC to two critical, non-duplicated secret threads', () => {
+        for (const npc of INITIAL_NPCS) {
+            expect(npc.secretThreads).toHaveLength(2)
+        }
+    })
+
+    it('keeps 贺拔伯圭暗线 aligned with the optimized secret-thread design', () => {
         const npc = INITIAL_NPCS.find(item => item.name === '贺拔伯圭')
         expect(npc?.secretThreads).toEqual([
-            '借西线危机将战时权固化为长期地方权，构筑“河西—关西—蜀地”的连续影响圈，使自己实质上成为北周的西部国中之国。',
-            '作为太后亲弟，有血缘保护伞，但他的膨胀速度让太后也开始不安。',
-            '与独孤文约表面结义，实则彼此提防，他始终要压独孤一头。',
+            '他真正要的是以护商道、镇边患为名，把河西、陇右一带的军府、关隘、粮道和商税变成贺拔家的长期私权，而不只是替朝廷临时守边。',
+            '他依仗太后血亲身份向朝廷索权，但最怕太后为稳局改扶独孤文约；凡能证明独孤比他更受中枢信任，都会触发他的嫉恨和抢先压制。',
         ])
     })
 
-    it('keeps 宗艾暗线 aligned with NPC角色卡真源', () => {
+    it('keeps 宗艾暗线 focused on personal interests rather than existing mechanics', () => {
         const npc = INITIAL_NPCS.find(item => item.name === '宗艾')
         expect(npc?.secretThreads).toEqual([
-            '宫人自汉末宦官专权以来屡遭打压，从三国至南北朝始终被文武两班排挤鄙夷，宗艾表面阿谀，实则内心极度渴望权力与尊严。',
-            '他有意将自己打造成皇帝与各派之间不可替代的信息节点，谁都需要通过他接近皇帝，这就是他的权力基础。',
-            '保皇线想借草原势力“清君侧”时，宗艾是宫中联络接口。',
+            '他最深的个人利益是摆脱“低贱宫人”的羞辱感，获得被文武两班承认的权力与尊严；轻贱宦官身份会激怒他，平等托付机密会打动他。',
+            '他与小皇帝是利益共同体而非帝党附庸：皇帝越能绕过太后与权臣亲自发号施令，宗艾越能抬高身价；若帝党士人只把他当脏手和传声筒，他也会反制。',
         ])
     })
 })

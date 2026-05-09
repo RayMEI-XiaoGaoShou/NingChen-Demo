@@ -227,6 +227,35 @@ describe('buildSchemeNpcActionPrompt', () => {
         expect(context).toContain('内部稳定')
     })
 
+    it('adds revealed secret thread guidance to intel npc action prompts', () => {
+        const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
+        const revealedSecretThread = npc.secretThreads[0]
+        const context = buildSchemeNpcActionContext({
+            npc,
+            factions: INITIAL_FACTIONS,
+            revealedSecretThread,
+        })
+
+        expect(context).toContain(`\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf\uff1a${revealedSecretThread}`)
+
+        const prompt = buildSchemeNpcActionPrompt({
+            npc,
+            action: {
+                schemeType: 'probe',
+                playerSpeech: 'probe the old concern',
+            },
+            effectSummary: 'intel +1',
+            fallbackText: 'fallback intel cue',
+            context,
+            npcActionKind: 'intel',
+            revealedSecretThread,
+        }).map(message => message.content).join('\n')
+
+        expect(prompt).toContain('\u672c\u6b21\u6697\u7ebf\u4e3e\u63aa\u8981\u6c42')
+        expect(prompt).toContain(revealedSecretThread)
+        expect(prompt).toContain('\u4e0d\u5f97\u5199\u6210\u901a\u7528\u201c\u6478\u5230\u65e7\u7ebf\u201d')
+    })
+
     it('includes external npc loyalty, military power, trust, and external status', () => {
         const npc = INITIAL_NPCS.find(item => item.id === 'duguwenyue')!
         const context = buildSchemeNpcActionContext({
@@ -241,7 +270,7 @@ describe('buildSchemeNpcActionPrompt', () => {
         expect(context).toContain('仍受节制')
     })
 
-    it('injects unlocked secrets and memory context without leaking locked secrets', () => {
+    it('injects all npc personal interests and memory context into npc action context', () => {
         const npc = INITIAL_NPCS.find(item => item.id === 'hebaqí')!
         const context = buildSchemeNpcActionContext({
             npc,
@@ -255,9 +284,11 @@ describe('buildSchemeNpcActionPrompt', () => {
             relationMemorySummary: '关系旧账：燕王近来屡以军议逼近帘前。',
         })
 
-        expect(context).toContain('已解锁暗线：')
-        expect(context).toContain(npc.secretThreads[0])
-        expect(context).not.toContain(npc.secretThreads[1])
+        expect(context).toContain('人物内在利益与暗线：')
+        expect(context).toContain('暗线使用边界：')
+        for (const thread of npc.secretThreads) {
+            expect(context).toContain(thread)
+        }
         expect(context).toContain('上回往来：上回你曾向她献策。')
         expect(context).toContain('长期旧账：旧账：她记得你曾递过一条可用线索。')
         expect(context).toContain('关系旧账：关系旧账：燕王近来屡以军议逼近帘前。')
@@ -286,7 +317,7 @@ describe('buildNpcPrompt', () => {
             round: 11,
             eventName: '蜀地战局僵持',
             eventBriefing: '北周上下正在争论西线兵权如何安置。',
-            knownSecretThreads: ['他把“无祖廷则国政不行”视为最高目标。'],
+            knownSecretThreads: ['他真正追求的是行政垄断。'],
             previousDealings: '上一回合你曾以“献策”试他，而且已然得手。',
             relationshipTemperature: '近两回合你时而拉拢、时而敲打，他眼下最拿不准的正是你究竟想把他往哪边推。',
             recentCourtFortune: '后党近来在朝中吃了亏，他如今比往日更在意先看风向。',
@@ -299,7 +330,11 @@ describe('buildNpcPrompt', () => {
         expect(messages[0].content).toContain('只可称“你”“翰林编修”或“萧编修”')
         expect(messages[1].content).toContain('当前回合：第11回合')
         expect(messages[1].content).toContain('本回合局势：蜀地战局僵持')
-        expect(messages[1].content).toContain('已解锁暗线：')
+        expect(messages[1].content).toContain('人物内在利益与暗线：')
+        expect(messages[1].content).toContain('暗线使用边界：')
+        for (const thread of npc.secretThreads) {
+            expect(messages[1].content).toContain(thread)
+        }
         expect(messages[1].content).toContain('上回往来：上一回合你曾以“献策”试他')
         expect(messages[1].content).toContain('近两回合关系温度：近两回合你时而拉拢、时而敲打')
         expect(messages[1].content).toContain('近来得失：后党近来在朝中吃了亏')
@@ -322,6 +357,40 @@ describe('buildNpcPrompt', () => {
         })
 
         expect(messages[1].content).toContain('近来公议：祖珽前曾押下仓簿，后党由此多疑。')
+    })
+
+    it('injects the newly revealed secret thread into npc replies when provided', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')!, trust: 35 }
+        const firstThread = npc.secretThreads[0]
+        const secondThread = npc.secretThreads[1]
+
+        const firstPrompt = buildNpcPrompt({
+            npc,
+            schemeType: 'probe',
+            speech: 'probe the first concern',
+            success: true,
+            revealedSecretThread: firstThread,
+        })[1].content
+
+        const secondPrompt = buildNpcPrompt({
+            npc,
+            schemeType: 'probe',
+            speech: 'probe the second concern',
+            success: true,
+            revealedSecretThread: secondThread,
+        })[1].content
+
+        const ordinaryPrompt = buildNpcPrompt({
+            npc,
+            schemeType: 'advise',
+            speech: 'ordinary advice',
+            success: true,
+        })[1].content
+
+        expect(firstPrompt).toContain(`\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf\uff1a${firstThread}`)
+        expect(secondPrompt).toContain(`\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf\uff1a${secondThread}`)
+        expect(firstPrompt).toContain('\u5fc5\u987b\u56f4\u7ed5\u8fd9\u6761\u65b0\u6697\u7ebf')
+        expect(ordinaryPrompt).not.toContain('\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf')
     })
 
     it('keeps relation memory out of the prompt when no related line is present', () => {
@@ -884,8 +953,11 @@ describe('buildNpcFollowUpFinalPrompt', () => {
             npcQuestion: '你到底想让我往哪边看？',
             playerReply: '我只是把更窄的政治风险说清楚。',
             parseEvidence: ['reply narrows the risk', 'keeps pressure contained'],
+            revealedSecretThread: npc.secretThreads[0],
         })[1].content
 
+        expect(prompt).toContain(`\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf\uff1a${npc.secretThreads[0]}`)
+        expect(prompt).toContain('\u6700\u7ec8\u56de\u5e94\u5fc5\u987b\u7ee7\u7eed\u6263\u4f4f\u8fd9\u6761\u6697\u7ebf')
         expect(prompt).toContain('2 到 4 句')
         expect(prompt).toContain('陈述句收束')
         expect(prompt).toContain('不要再问玩家新的问题')
@@ -1125,7 +1197,7 @@ describe('shared canon guardrails', () => {
                 targetNpcName: '贺拔琪',
                 targetNpcTitle: '北周太后、摄政者',
                 targetPersona: '铁腕太后，外示母仪天下，内里强硬平衡各方。',
-                visibleSecrets: ['她对宇文棣既利用又忌惮。'],
+                visibleSecrets: ['宇文棣若以宗室、皇帝、南征功业为名逼她还政，就是她最核心的政治威胁。'],
                 previousDealings: '上一回合你曾向她献策。',
                 relationshipTemperature: '近两回合她仍在衡量你是否好用。',
                 recentCourtFortune: '帝党借南征声势抬头。',
@@ -1170,7 +1242,7 @@ describe('shared canon guardrails', () => {
                 targetNpcName: '贺拔琪',
                 targetNpcTitle: '北周太后、摄政者',
                 targetPersona: '铁腕太后，已把持朝政五载。',
-                visibleSecrets: ['她对宇文棣既利用又忌惮。'],
+                visibleSecrets: ['宇文棣若以宗室、皇帝、南征功业为名逼她还政，就是她最核心的政治威胁。'],
                 previousDealings: '上一回合你曾试探她。',
                 relationshipTemperature: '她仍把你当可用之子。',
                 recentCourtFortune: '宗室借军议抬头。',

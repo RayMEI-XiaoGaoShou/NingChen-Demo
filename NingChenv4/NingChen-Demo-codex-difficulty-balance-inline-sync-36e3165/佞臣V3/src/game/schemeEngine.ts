@@ -25,6 +25,7 @@ import {
 } from './schemeFollowUp'
 import { deriveDelayedBacklash } from './schemeBacklash'
 import { generateFeedback } from './schemeFeedback'
+import { getRevealedSecretThreadForScheme } from './revealedSecretThread'
 import {
     buildSchemeCausalEventDraft,
     buildSchemeImpactTrace,
@@ -70,6 +71,7 @@ export interface SchemeResult {
     relatedImpactSummary?: string | null
     impactTrace?: SchemeImpactTrace | null
     causalEvent?: SchemeCausalEventDraft | null
+    revealedSecretThread?: string | null
 }
 
 export interface SchemeNpcActionNarrative {
@@ -130,7 +132,7 @@ export function getAvailableSchemesForNpc(
         canEscalateExternalAction &&
         npc.trust >= 85 &&
         npc.loyaltyToCourt <= 18 &&
-        unlockedSecrets >= 3 &&
+        unlockedSecrets >= 2 &&
         roundSupportsExternalAction(round, 'rebellion')
     ) {
         base.push('rebellion')
@@ -477,6 +479,12 @@ export function settleScheme(
         roll,
         context,
     )
+    const revealedSecretThread = getRevealedSecretThreadForScheme({
+        npc: targetNpc,
+        schemeType: action.schemeType,
+        success,
+        currentUnlockedSecrets: unlockedSecrets,
+    })
     const followUpEffectMultiplier = success ? getSchemeFollowUpEffectMultiplier(action.followUp) : 1
     const personMultiplier = success
         ? clamp(0.9 + northParse.characterFit * 0.85 + northParse.executability * 0.35, 0.8, 2.1) * followUpEffectMultiplier
@@ -619,6 +627,7 @@ export function settleScheme(
             nationEffects,
             specialAction: template.specialAction,
             relatedImpactSummary: relatedSemanticImpact.summary,
+            revealedSecretThread,
         },
         targetNpc,
         relatedNpc,
@@ -651,6 +660,7 @@ export function settleScheme(
         relatedImpactSummary: relatedSemanticImpact.summary,
         impactTrace,
         causalEvent,
+        revealedSecretThread,
     }
 }
 

@@ -39,7 +39,7 @@ const MAX_SCHEME_NPC_ACTION_TEXT_LENGTH = 220
 type VisibleImpactResult = Pick<
     SchemeResult,
     'success' | 'nationEffects' | 'factionEffects' | 'personEffects' | 'specialAction'
-> & Pick<Partial<SchemeResult>, 'relatedImpactSummary' | 'northParse'>
+> & Pick<Partial<SchemeResult>, 'relatedImpactSummary' | 'northParse' | 'revealedSecretThread'>
 
 type SchemeNpcActionKind = NonNullable<SchemeNpcActionNarrative['kind']>
 
@@ -240,7 +240,10 @@ function buildFallbackSchemeNpcActionText(input: {
     }
 
     if (kind === 'intel') {
-        return `${actorName}在问答间露出半句口风，你由此摸到一条可追的旧线；这桩线索暂只落在私下，还未转成朝堂动作。`
+        const secretCue = summarizeRevealedSecretThread(result.revealedSecretThread)
+        return secretCue
+            ? `${actorName}在问答间漏出与“${secretCue}”有关的半句口风，你由此摸到一条可追的旧线；这桩线索暂只落在私下，还未转成朝堂动作。`
+            : `${actorName}在问答间露出半句口风，你由此摸到一条可追的旧线；这桩线索暂只落在私下，还未转成朝堂动作。`
     }
 
     if (specialProfile && (action.schemeType === 'frame' || action.schemeType === 'omen')) {
@@ -279,6 +282,14 @@ function buildFallbackSchemeNpcActionText(input: {
         default:
             return `${actorName}把你的话转成可执行的动作，先从${focus}处落手，使这一步计谋不止停在口风上${changeClause}`
     }
+}
+
+function summarizeRevealedSecretThread(thread: string | null | undefined): string | null {
+    const cleaned = thread?.replace(/[“”"']/g, '').trim()
+    if (!cleaned) return null
+
+    const firstClause = cleaned.split(/[；。！？]/u)[0]?.trim() || cleaned
+    return firstClause.length > 42 ? `${firstClause.slice(0, 41)}…` : firstClause
 }
 
 function buildCounterActionText(action: SchemeAction, actorName: string, relatedName?: string): string {

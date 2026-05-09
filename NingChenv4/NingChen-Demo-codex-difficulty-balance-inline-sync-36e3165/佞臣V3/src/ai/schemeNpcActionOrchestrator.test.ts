@@ -393,6 +393,73 @@ describe('generateSchemeNpcActionsForSettlement', () => {
         expect(patched.schemeResults[0].nationEffects).toEqual(originalNationEffects)
     })
 
+    it('passes revealed secret thread into intel action prompts', async () => {
+        const settlement = makeSettlement()
+        const zongai = INITIAL_NPCS.find(npc => npc.id === 'zongai')!
+        const revealedSecretThread = zongai.secretThreads[0]
+        settlement.processedSchemes[0] = {
+            id: 'probe-intel-1',
+            targetNpcId: zongai.id,
+            schemeType: 'probe',
+            playerSpeech: 'probe the newly exposed private interest',
+        }
+        settlement.schemeResults[0] = {
+            ...settlement.schemeResults[0],
+            personEffects: {
+                ...settlement.schemeResults[0].personEffects,
+                intelDelta: 1,
+            },
+            nationEffects: {},
+            northDimensionChanges: {},
+            relatedImpactSummary: null,
+            revealedSecretThread,
+            npcAction: {
+                text: 'fallback intel cue',
+                source: 'fallback',
+                kind: 'intel',
+            },
+            causalEvent: {
+                actionId: 'probe-intel-1',
+                actorNpcId: zongai.id,
+                actorNpcName: zongai.name,
+                schemeType: 'probe',
+                success: true,
+                eventKind: 'intel_progress',
+                visibility: 'south_intel_only',
+                motionText: 'fallback intel cue',
+                motionSource: 'fallback',
+                primaryDimensions: [],
+                secondaryDimensions: [],
+                effectSummary: ['intel +1'],
+                relatedImpactSummary: null,
+            },
+        }
+        const chatCompletionJsonDetailedImpl = vi.fn(async () => ({
+            parsed: { text: `${zongai.name}按住宫门旧籍不肯多说，只漏出半句与内侍旧怨有关的口风，又命近侍遮掩往来名册。` },
+            text: '',
+            mode: 'deepseek',
+            source: 'ai',
+            attempts: 1,
+        }))
+
+        await generateSchemeNpcActionsForSettlement({
+            settlement,
+            npcs: INITIAL_NPCS,
+            factions: INITIAL_FACTIONS,
+            currentRound: 14,
+            intelProgress: {},
+            roundHistory: [],
+            getAiModeImpl: () => 'deepseek',
+            chatCompletionJsonDetailedImpl: chatCompletionJsonDetailedImpl as any,
+        })
+
+        const calls = chatCompletionJsonDetailedImpl.mock.calls as unknown as Array<[any[]]>
+        const prompt = calls[0][0].map((message: any) => message.content).join('\n')
+        expect(prompt).toContain(`\u672c\u6b21\u8bd5\u63a2\u521a\u63ed\u9732\u6697\u7ebf\uff1a${revealedSecretThread}`)
+        expect(prompt).toContain('\u672c\u6b21\u6697\u7ebf\u4e3e\u63aa\u8981\u6c42')
+        expect(prompt).toContain(revealedSecretThread)
+    })
+
     it('keeps fallback when ai text fails related npc validation', async () => {
         const settlement = makeSettlement()
         const patched = await generateSchemeNpcActionsForSettlement({

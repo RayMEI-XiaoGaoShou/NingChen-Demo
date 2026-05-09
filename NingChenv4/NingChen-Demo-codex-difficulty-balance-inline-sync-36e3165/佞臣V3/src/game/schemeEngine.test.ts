@@ -1,6 +1,7 @@
 ﻿import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
 import { calculateParsedSuccessRate, getAvailableSchemesForNpc, previewSchemeSuccess, settleScheme } from './schemeEngine'
+import { getRevealedSecretThreadForScheme } from './revealedSecretThread'
 import type { NorthSchemeParseResult } from './types'
 
 afterEach(() => {
@@ -33,6 +34,43 @@ function makeNorthParse(overrides: Partial<NorthSchemeParseResult> = {}): NorthS
         ...overrides,
     }
 }
+
+describe('getRevealedSecretThreadForScheme', () => {
+    it('uses the current intel cursor only for successful probes', () => {
+        const npc = INITIAL_NPCS.find(candidate => candidate.id === 'zuting')!
+
+        expect(getRevealedSecretThreadForScheme({
+            npc,
+            schemeType: 'probe',
+            success: true,
+            currentUnlockedSecrets: 0,
+        })).toBe(npc.secretThreads[0])
+        expect(getRevealedSecretThreadForScheme({
+            npc,
+            schemeType: 'probe',
+            success: true,
+            currentUnlockedSecrets: 1,
+        })).toBe(npc.secretThreads[1])
+        expect(getRevealedSecretThreadForScheme({
+            npc,
+            schemeType: 'advise',
+            success: true,
+            currentUnlockedSecrets: 0,
+        })).toBeNull()
+        expect(getRevealedSecretThreadForScheme({
+            npc,
+            schemeType: 'probe',
+            success: false,
+            currentUnlockedSecrets: 0,
+        })).toBeNull()
+        expect(getRevealedSecretThreadForScheme({
+            npc,
+            schemeType: 'probe',
+            success: true,
+            currentUnlockedSecrets: npc.secretThreads.length,
+        })).toBeNull()
+    })
+})
 
 describe('schemeEngine contextual scheme rules', () => {
     it('uses the normal difficulty profile to lower low-risk success rates', () => {
@@ -500,10 +538,13 @@ describe('schemeEngine contextual scheme rules', () => {
         )
 
         expect(result.success).toBe(true)
+        expect(result.revealedSecretThread).toBe(npc.secretThreads[1])
         expect(result.trustChange).toBeGreaterThan(0)
         expect(Object.values(result.nationEffects).some(Boolean)).toBe(false)
         expect(result.personEffects.intelDelta).toBeGreaterThan(0)
         expect(result.npcAction).toEqual(expect.objectContaining({ kind: 'intel' }))
+        expect(result.npcAction?.text).toContain(npc.secretThreads[1].replace(/[“”"']/g, '').slice(0, 10))
+        expect(result.npcAction?.text).toContain('\u6709\u5173\u7684\u534a\u53e5\u53e3\u98ce')
         expect(result.causalEvent as any).toEqual(expect.objectContaining({
             eventKind: 'intel_progress',
             visibility: 'south_intel_only',
@@ -585,7 +626,7 @@ describe('schemeEngine contextual scheme rules', () => {
             externalStatus: 'secession' as const,
         }
 
-        const schemes = getAvailableSchemesForNpc(hebabogui, { round: 18, unlockedSecrets: 3 })
+        const schemes = getAvailableSchemesForNpc(hebabogui, { round: 18, unlockedSecrets: 2 })
 
         expect(schemes).toEqual([])
     })

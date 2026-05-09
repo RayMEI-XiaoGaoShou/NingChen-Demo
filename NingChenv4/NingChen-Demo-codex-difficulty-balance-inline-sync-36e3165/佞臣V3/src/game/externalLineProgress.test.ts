@@ -25,7 +25,7 @@ describe('externalLineProgress', () => {
         expect(progress?.trustGap).toBeGreaterThan(0)
     })
 
-    it('recommends probing when rebellion-oriented targets still hide key secrets', () => {
+    it('recommends probing when rebellion-oriented targets still hide one key secret', () => {
         const progress = buildExternalLineProgress({
             round: 12,
             difficulty: 'normal',
@@ -45,7 +45,7 @@ describe('externalLineProgress', () => {
 
         expect(progress?.phase).toBe('探暗线')
         expect(progress?.nextMove).toBe('probe')
-        expect(progress?.secretsGap).toBe(2)
+        expect(progress?.secretsGap).toBe(1)
     })
 
     it('marks the line as ready to act only when the external window is open', () => {

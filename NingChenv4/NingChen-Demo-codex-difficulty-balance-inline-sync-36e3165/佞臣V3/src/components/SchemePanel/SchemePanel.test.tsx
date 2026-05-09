@@ -185,6 +185,8 @@ describe('SchemePanel execution path', () => {
     it('starts preliminary statement-only NPC reply generation inside the scheme page execution path', () => {
         expect(schemePanelSource).toContain('chatCompletion(')
         expect(schemePanelSource).toContain('buildNpcPrompt({')
+        expect(schemePanelSource).toContain('getRevealedSecretThreadForScheme({')
+        expect(schemePanelSource).toContain('revealedSecretThread,')
         expect(schemePanelSource).toContain("followUpMode: 'statement_only'")
         expect(schemePanelSource).toContain('forceStatementReplyText(')
     })

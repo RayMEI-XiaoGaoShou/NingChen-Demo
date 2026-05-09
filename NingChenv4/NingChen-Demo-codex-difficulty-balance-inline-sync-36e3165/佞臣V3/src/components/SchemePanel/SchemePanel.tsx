@@ -22,6 +22,7 @@ import { buildNpcPromptDynamicContext } from '../../game/npcPromptContext'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { getAvailableSchemesForNpc, previewSchemeSuccess } from '../../game/schemeEngine'
 import { forceStatementReplyText } from '../../game/schemeFollowUp'
+import { getRevealedSecretThreadForScheme } from '../../game/revealedSecretThread'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import {
@@ -528,6 +529,12 @@ export function SchemePanel() {
                     northParse: parsed,
                 },
             )
+            const revealedSecretThread = getRevealedSecretThreadForScheme({
+                npc: npcSnapshot,
+                schemeType: action.schemeType,
+                success,
+                currentUnlockedSecrets: intelProgress[npcSnapshot.id] ?? 0,
+            })
 
             markSchemeReplyPrefetchStarted(actionId)
             try {
@@ -544,6 +551,7 @@ export function SchemePanel() {
                         eventName: currentRoundEvent.eventName,
                         eventBriefing: currentRoundEvent.eventBriefing,
                         knownSecretThreads,
+                        revealedSecretThread,
                         previousDealings: dynamicContext.previousDealings,
                         relationshipTemperature: dynamicContext.relationshipTemperature,
                         recentCourtFortune: dynamicContext.recentCourtFortune,

@@ -221,6 +221,12 @@ describe('SchemeFeedback orchestration', () => {
         expect(schemeFeedbackSource).not.toContain('hasDeferredLoadingFeedback')
     })
 
+    it('passes newly revealed secret threads into npc reply prompts and follow-up finals', () => {
+        expect(schemeFeedbackSource).toContain('getRevealedSecretThreadForScheme({')
+        expect(schemeFeedbackSource).toContain('revealedSecretThread,')
+        expect(schemeFeedbackSource).toContain('buildNpcFollowUpFinalPrompt({')
+    })
+
     it('waits for prefetch work before orchestrating recovery on the feedback page', () => {
         expect(schemeFeedbackSource).toContain('shouldWaitForPrefetchedFeedback({')
     })

@@ -17,7 +17,8 @@ const NPC_SYSTEM = `${buildWorldCanonBlock()}
 - 要明显体现当前态度档位给出的语气要求
 - 要严格服从人物声音档案：自称、句式长短、起手习惯、常落话题与高压时偏移，都不能乱
 - 不同计谋类型的回应重心必须不同：试探要像多露半层口风，献策要像评策也评人，谗言/离间要像顺着旧疑旧怨往上推，设局嫁祸与谶纬都要写出人物的失态、自辩或压谣动作
-- 可以结合“本回合局势”“上回往来”“近两回合关系温度”“近来得失”“派系压力”“长期旧账”与“已解锁暗线”决定说话轻重，但不得跳出人设
+- 可以结合“本回合局势”“上回往来”“近两回合关系温度”“近来得失”“派系压力”“长期旧账”与“人物内在利益与暗线”决定说话轻重，但不得跳出人设；暗线只能作为自身利益、恐惧与长期盘算的隐性驱动，不要写成对萧宝颖全盘自白
+- 若输入包含“本次试探刚揭露暗线”，回应必须围绕这条暗线写一处口风、回避、反问、失态或防备；不要写成完整自白
 - 不得称主角为“计相”“计编修”或任何你自造的官称
 - 称呼主角时只可称“你”“翰林编修”或“萧编修”
 - 不要只回一句态度表态，要给出一层判断、一层情绪、再带一点试探、提醒或留扣
@@ -84,6 +85,21 @@ function describeVoiceProfile(npc: NPC): string {
         `- 高压偏移：${profile.pressureShift}`,
         `- 粗话规则：${profile.coarseLanguage}`,
         `- 易错提醒：${profile.pitfalls}`,
+    ].join('\n')
+}
+
+function formatNpcPersonalInterestThreads(npc: NPC): string {
+    const threads = npc.secretThreads.filter(Boolean)
+    return threads.length > 0 ? threads.join('；') : '暂无'
+}
+
+function formatRevealedSecretThreadPromptBlock(thread: string | null | undefined, npcName: string): string | null {
+    const trimmed = thread?.trim()
+    if (!trimmed) return null
+
+    return [
+        `本次试探刚揭露暗线：${trimmed}`,
+        `试探揭露写法：本次回应必须围绕这条新暗线露出一处口风、回避、反问、失态或防备；不要让${npcName}直白承认全部真相。`,
     ].join('\n')
 }
 
@@ -205,6 +221,7 @@ export function buildNpcPrompt(params: {
     eventName?: string
     eventBriefing?: string
     knownSecretThreads?: string[]
+    revealedSecretThread?: string | null
     previousDealings?: string
     relationshipTemperature?: string
     recentCourtFortune?: string
@@ -224,7 +241,7 @@ export function buildNpcPrompt(params: {
         round,
         eventName,
         eventBriefing,
-        knownSecretThreads = [],
+        revealedSecretThread,
         previousDealings,
         relationshipTemperature,
         recentCourtFortune,
@@ -241,6 +258,9 @@ export function buildNpcPrompt(params: {
     const roundLine = round ? `当前回合：第${round}回合` : '当前回合：未标明'
     const eventLine = eventName ? `本回合局势：${eventName}` : '本回合局势：未标明'
     const briefingLine = eventBriefing ? `局势摘要：${eventBriefing}` : '局势摘要：未提及'
+    const personalSecretThreadsLine = `人物内在利益与暗线：${formatNpcPersonalInterestThreads(npc)}`
+    const personalSecretThreadsBoundaryLine = '暗线使用边界：这些是角色自身利益、恐惧与长期盘算，可隐性影响判断、语气和留扣；不要把未被试探坐实的信息写成对萧宝颖的全盘自白。'
+    const revealedSecretThreadBlock = formatRevealedSecretThreadPromptBlock(revealedSecretThread, npc.name)
     const previousDealingsLine = `上回往来：${previousDealings ?? '上一回合你尚未与他正面过手。'}`
     const relationshipTemperatureLine = `近两回合关系温度：${relationshipTemperature ?? '近两回合你对他尚未形成稳定手法，他还在重新掂量你的来意。'}`
     const recentCourtFortuneLine = `近来得失：${recentCourtFortune ?? '近来朝局并无足以改写他心气的新波折。'}`
@@ -312,7 +332,9 @@ ${relatedNpcLine ? `${relatedNpcLine}\n` : ''}${voiceProfileLine}
 ${roundLine}
 ${eventLine}
 ${briefingLine}
-已解锁暗线：${knownSecretThreads.length > 0 ? knownSecretThreads.join('；') : '暂无'}
+${personalSecretThreadsLine}
+${personalSecretThreadsBoundaryLine}
+${revealedSecretThreadBlock ? `${revealedSecretThreadBlock}\n` : ''}
 ${previousDealingsLine}
 ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
@@ -412,6 +434,7 @@ export function buildNpcFollowUpFinalPrompt(params: {
     eventName?: string
     eventBriefing?: string
     knownSecretThreads?: string[]
+    revealedSecretThread?: string | null
     previousDealings?: string
     relationshipTemperature?: string
     recentCourtFortune?: string
@@ -470,6 +493,7 @@ export function buildNpcFollowUpFinalPrompt(params: {
     const knownSecretThreadsLine = params.knownSecretThreads && params.knownSecretThreads.length > 0
         ? `已解锁暗线：${params.knownSecretThreads.join('；')}`
         : '已解锁暗线：暂无'
+    const revealedSecretThreadBlock = formatRevealedSecretThreadPromptBlock(params.revealedSecretThread, params.npc.name)
     const previousDealingsLine = `上回往来：${params.previousDealings ?? '上一回合你尚未与他正面过手。'}`
     const relationshipTemperatureLine = `近两回合关系温度：${params.relationshipTemperature ?? '近两回合你对他尚未形成稳定手法，他还在重新掂量你的来意。'}`
     const recentCourtFortuneLine = `近来得失：${params.recentCourtFortune ?? '近来朝局并无足以改写他心气的新波折。'}`
@@ -498,6 +522,7 @@ export function buildNpcFollowUpFinalPrompt(params: {
 
 角色：${params.npc.name}（${params.npc.title}）
 ${roundLine ? `${roundLine}\n` : ''}${eventLine ? `${eventLine}\n` : ''}${briefingLine ? `${briefingLine}\n` : ''}${relatedNpcLine ? `${relatedNpcLine}\n` : ''}${knownSecretThreadsLine}
+${revealedSecretThreadBlock ? `${revealedSecretThreadBlock}\n` : ''}
 ${previousDealingsLine}
 ${relationshipTemperatureLine}
 ${recentCourtFortuneLine}
@@ -523,6 +548,7 @@ NPC追问：${params.npcQuestion}
 - 输出 2 到 4 句古典白话
 - 以陈述句收束，不要再问玩家新的问题
 - 不要输出 JSON、分数或系统判断
+- 若上文给出“本次试探刚揭露暗线”，最终回应必须继续扣住这条暗线的口风、遮掩或防备，不要漂回通用态度表态
 - 这是 NPC 面向玩家的最终回应，不要再留新的回话钩子`,
         },
     ]

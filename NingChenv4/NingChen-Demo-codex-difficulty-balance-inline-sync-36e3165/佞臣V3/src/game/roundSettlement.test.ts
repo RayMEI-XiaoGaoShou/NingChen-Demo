@@ -139,7 +139,7 @@ describe('settleRound layered settlement', () => {
                 loyaltyToCourt: npc.name === '贺拔伯圭' ? 18 : npc.loyaltyToCourt,
             })),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
-            intelProgress: { [hebabogui.id]: 3 },
+            intelProgress: { [hebabogui.id]: 2 },
             policyOptionIndex: null,
             policyReason: '',
         }) as any
@@ -260,7 +260,7 @@ describe('settleRound layered settlement', () => {
                     : { ...npc }
             )),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
-            intelProgress: { [hebabogui.id]: 3 },
+            intelProgress: { [hebabogui.id]: 2 },
             policyOptionIndex: null,
             policyReason: '',
         }) as any
@@ -404,6 +404,32 @@ describe('settleRound layered settlement', () => {
         }) as any
 
         expect(result.intelUnlocks?.zongai).toBeGreaterThan(0)
+    })
+
+    it('aligns probe revealed secret threads with event-driven unlock cursors', () => {
+        const zongai = INITIAL_NPCS.find(npc => npc.id === 'zongai')!
+
+        const result = settleRound({
+            round: 13,
+            schemes: [{
+                id: 'probe-after-event-intel',
+                targetNpcId: zongai.id,
+                schemeType: 'probe',
+                playerSpeech: '只问宫门旧事，看宗艾是否漏出口风。',
+                resolutionRoll: 0.01,
+            }],
+            northStats: { ...NORTH_INITIAL },
+            southStats: { ...SOUTH_INITIAL },
+            npcs: INITIAL_NPCS.map(npc => ({ ...npc, trust: npc.id === zongai.id ? 72 : npc.trust })),
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            intelProgress: {},
+            policyOptionIndex: null,
+            policyReason: '',
+        }) as any
+
+        expect(result.schemeResults[0]?.success).toBe(true)
+        expect(result.schemeResults[0]?.revealedSecretThread).toBe(zongai.secretThreads[1])
+        expect(result.intelUnlocks?.zongai).toBeGreaterThanOrEqual(2)
     })
 
     it('adds faction and nation penalties when a key structure is destabilized', () => {
@@ -974,7 +1000,7 @@ describe('settleRound layered settlement', () => {
                     : { ...npc }
             )),
             factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
-            intelProgress: { [anSiming.id]: 3 },
+            intelProgress: { [anSiming.id]: 2 },
             policyOptionIndex: null,
             policyReason: '',
         }) as any
