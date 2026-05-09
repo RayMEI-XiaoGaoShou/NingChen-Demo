@@ -5,7 +5,7 @@ import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
 import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
-import { getNpcRoundReaction } from '../../game/roundIntelEngine'
+import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import {
     explainExternalActionUnlock,
@@ -33,14 +33,14 @@ import './CourtView.css'
 function getFactionDoctrine(factionId: 'emperor' | 'empress') {
     if (factionId === 'emperor') {
         return {
-            title: '帝党：力主南征',
-            summary: '帝党觉得，通过南征重塑皇室威严，统一全国军事调度，是小皇帝收权的必经之路。',
+            title: '帝党',
+            summary: '',
         }
     }
 
     return {
-        title: '后党：优先安内',
-        summary: '后党认为，先稳摄政秩序、中枢调度与地方控制，再谈大举南征，才不至于把全局推向失控。',
+        title: '后党',
+        summary: '',
     }
 }
 
@@ -145,13 +145,29 @@ function buildExternalWhisper(
 }
 
 type CourtScope = 'overview' | 'court' | 'external'
+type CourtStrengthPart = {
+    label: string
+    value: number
+}
 type CourtFactionGroup = {
     id: 'emperor' | 'empress' | 'longxi' | 'prairie'
     title: string
-    summary: string
-    artLabel: string
+    summary?: string
+    artLabel?: string
     metricLabel: string
     members: NPC[]
+    emblemLabel?: string
+    strengthValue?: number
+    strengthParts?: CourtStrengthPart[]
+}
+
+function getPipCount(value: number): number {
+    if (value >= 80) return 5
+    if (value >= 65) return 4
+    if (value >= 50) return 3
+    if (value >= 35) return 2
+    if (value > 0) return 1
+    return 0
 }
 
 function isActiveCourtNpc(npc: NPC): boolean {
@@ -162,8 +178,27 @@ function isSelectableCourtNpc(npc: NPC): boolean {
     return isActiveCourtNpc(npc) && !(isCourtDispositionTarget(npc) && getCourtStatus(npc) !== 'active')
 }
 
+function orderCourtFactionMembers(members: NPC[], centerName: string): NPC[] {
+    const center = members.find(npc => npc.name === centerName)
+    if (!center) return members
+
+    const flankers = members.filter(npc => npc.id !== center.id)
+    return [flankers[0], center, ...flankers.slice(1)].filter(Boolean) as NPC[]
+}
+
 function isSelectableExternalNpc(npc: NPC): boolean {
     return npc.isAlive && !isTerminalExternalNpc(npc)
+}
+
+type CourtLeaderIdentity = {
+    emblem: 'emperor' | 'empress'
+    lines: string[]
+}
+
+function getCourtLeaderIdentity(npc: NPC): CourtLeaderIdentity | null {
+    if (npc.name === '宗艾') return { emblem: 'emperor', lines: ['代言皇帝', '帝党魁首'] }
+    if (npc.name === '贺拔琪') return { emblem: 'empress', lines: ['摄政', '后党魁首'] }
+    return null
 }
 
 interface CourtTopBarProps {
@@ -242,11 +277,20 @@ export function CourtView() {
     const powerLabel = getPowerLabel(northPower)
     const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
     const externalNpcs = npcs.filter(npc => npc.powerBase === 'external' && npc.isAlive)
-    const emperorMembers = courtNpcs.filter(npc => npc.factionId === 'emperor')
-    const empressMembers = courtNpcs.filter(npc => npc.factionId === 'empress')
+    const emperorMembers = orderCourtFactionMembers(
+        courtNpcs.filter(npc => npc.factionId === 'emperor'),
+        '宗艾',
+    )
+    const empressMembers = orderCourtFactionMembers(
+        courtNpcs.filter(npc => npc.factionId === 'empress'),
+        '贺拔琪',
+    )
     const longxiMembers = externalNpcs.filter(npc => npc.factionId === 'longxi')
     const prairieMembers = externalNpcs.filter(npc => npc.factionId === 'prairie')
+    const emperorFaction = factions.find(faction => faction.id === 'emperor')
+    const empressFaction = factions.find(faction => faction.id === 'empress')
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
+    const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const selectedNpc = selectedNpcId ? npcs.find(npc => npc.id === selectedNpcId) ?? null : null
     const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(factions, npcs, currentRound)
 
@@ -292,16 +336,28 @@ export function CourtView() {
         {
             id: 'emperor',
             ...getFactionDoctrine('emperor'),
-            artLabel: '军令 / 殿柱',
             metricLabel: `综合实力 ${emperorInfluence.toFixed(1)}`,
             members: emperorMembers,
+            emblemLabel: '龙',
+            strengthValue: emperorInfluence,
+            strengthParts: [
+                { label: '军力', value: emperorFaction?.militaryPower ?? 0 },
+                { label: '内稳', value: emperorFaction?.internalStability ?? 0 },
+                { label: '朝堂影响', value: emperorFaction?.courtInfluence ?? 0 },
+            ],
         },
         {
             id: 'empress',
             ...getFactionDoctrine('empress'),
-            artLabel: '帘幕 / 朱批',
             metricLabel: `综合实力 ${empressInfluence.toFixed(1)}`,
             members: empressMembers,
+            emblemLabel: '凤',
+            strengthValue: empressInfluence,
+            strengthParts: [
+                { label: '军力', value: empressFaction?.militaryPower ?? 0 },
+                { label: '内稳', value: empressFaction?.internalStability ?? 0 },
+                { label: '朝堂影响', value: empressFaction?.courtInfluence ?? 0 },
+            ],
         },
     ]
 
@@ -382,12 +438,78 @@ export function CourtView() {
         </div>
     )
 
-    const renderNpcSeat = (npc: NPC) => {
+    const renderPips = (value: number) => (
+        <span className="court-pips" aria-label={`${getPipCount(value)}档`}>
+            {Array.from({ length: 5 }, (_, index) => (
+                <span key={index} className={`court-pip ${index < getPipCount(value) ? 'is-lit' : ''}`} />
+            ))}
+        </span>
+    )
+
+    const renderFactionStrength = (group: CourtFactionGroup) => {
+        if (!group.strengthParts || group.strengthValue === undefined) return null
+        const roundedStrength = Math.round(group.strengthValue)
+
+        return (
+            <div
+                className="court-faction-strength"
+                tabIndex={0}
+                aria-label={`${group.title}综合实力${roundedStrength}`}
+            >
+                <span className="court-strength-label">综合实力</span>
+                <strong>{roundedStrength}</strong>
+                <span className="court-strength-caret" aria-hidden="true">⌄</span>
+                <div className="court-strength-popover">
+                    {group.strengthParts.map(part => (
+                        <div key={part.label} className="court-strength-row">
+                            <span className="court-strength-icon" aria-hidden="true" />
+                            <span>{part.label}</span>
+                            {renderPips(part.value)}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    const renderNpcIntel = (npc: NPC) => {
+        const alreadyUsed = usedNpcIds.has(npc.id)
+        const knownIntel = intelProgress[npc.id] ?? 0
+        const courtFavor = getCourtFavor(npc)
+        const leaderIdentity = getCourtLeaderIdentity(npc)
+
+        return (
+            <span className="court-seat-intel">
+                <span className="court-seat-status">
+                    {alreadyUsed ? '今日已落子' : `暗线 ${knownIntel}/${npc.secretThreads.length}`}
+                </span>
+                {leaderIdentity ? (
+                    <span className={`court-seat-leader-lines court-seat-leader-lines-${leaderIdentity.emblem}`}>
+                        {leaderIdentity.lines.map(line => <span key={line}>{line}</span>)}
+                    </span>
+                ) : (
+                    <>
+                        <span className="court-seat-pip-row">
+                            <span>皇帝恩宠</span>
+                            {renderPips(courtFavor.emperorFavor)}
+                        </span>
+                        <span className="court-seat-pip-row">
+                            <span>太后眷顾</span>
+                            {renderPips(courtFavor.empressDowagerFavor)}
+                        </span>
+                    </>
+                )}
+            </span>
+        )
+    }
+
+    const renderNpcSeat = (npc: NPC, index = 0, showIntel = true) => {
         const selectable = npc.powerBase === 'external'
             ? isSelectableExternalNpc(npc)
             : isSelectableCourtNpc(npc)
         const alreadyUsed = usedNpcIds.has(npc.id)
         const knownIntel = intelProgress[npc.id] ?? 0
+        const isAdvisorMentioned = highlightedNpcIds.has(npc.id)
         const reaction = getNpcRoundReaction(currentRound, npc, knownIntel, {
             shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
             huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
@@ -396,16 +518,38 @@ export function CourtView() {
         return (
             <button
                 key={npc.id}
-                className={`court-seat trust-${getTrustLevel(npc.trust)} ${!selectable ? 'is-disabled' : ''} ${alreadyUsed ? 'is-used' : ''}`}
+                className={`court-seat court-seat-index-${index} trust-${getTrustLevel(npc.trust)} ${!selectable ? 'is-disabled' : ''} ${alreadyUsed ? 'is-used' : ''} ${isAdvisorMentioned ? 'is-advisor-mentioned' : ''}`}
                 onClick={() => selectable && setSelectedNpcId(npc.id)}
                 disabled={!selectable}
             >
-                <NpcPortrait name={npc.name} className="court-seat-portrait" positionY="14%" zoom={1.08} />
-                <span className="court-seat-name">{npc.name}</span>
-                <span className="court-seat-title">{getDisplayedNpcTitle(npc)}</span>
-                <span className="court-seat-status">
-                    {alreadyUsed ? '今日已落子' : `${getTrustLabel(npc.trust)} · 暗线 ${knownIntel}/${npc.secretThreads.length}`}
+                <span className="court-seat-portrait-stack">
+                    <NpcPortrait
+                        name={npc.name}
+                        className="court-seat-portrait court-seat-portrait-fullbody court-seat-portrait-dark"
+                        positionY="50%"
+                        zoom={1}
+                        variant="courtFullbody"
+                    />
+                    <NpcPortrait
+                        name={npc.name}
+                        className="court-seat-portrait court-seat-portrait-fullbody court-seat-portrait-bright"
+                        alt=""
+                        positionY="50%"
+                        zoom={1}
+                        variant="courtFullbody"
+                    />
                 </span>
+                {isAdvisorMentioned && (
+                    <span className="court-seat-advisor-mark" aria-label="冯道之锦囊提及">
+                        <span className="court-seat-advisor-spark" aria-hidden="true" />
+                        <span className="court-seat-advisor-tooltip" role="tooltip">冯道之锦囊提及</span>
+                    </span>
+                )}
+                <span className="court-seat-label">
+                    <span className="court-seat-name">{npc.name}</span>
+                    <span className="court-seat-title">{getDisplayedNpcTitle(npc)}</span>
+                </span>
+                {showIntel && renderNpcIntel(npc)}
                 <span className="court-seat-reaction">{reaction}</span>
             </button>
         )
@@ -414,6 +558,7 @@ export function CourtView() {
     const renderFactionScreen = () => {
         const groups = scope === 'court' ? courtGroups : externalGroups
         const scopeTitle = scope === 'court' ? '朝堂势力' : '地方军头'
+        const showCourtStageForeground = scope === 'court'
 
         return (
             <section className={`court-game-screen court-faction-screen court-faction-screen-${scope}`}>
@@ -423,19 +568,52 @@ export function CourtView() {
                     {groups.map(group => (
                         <article key={group.id} className={`court-faction-scroll court-faction-scroll-${group.id}`}>
                             <div className="court-faction-scroll-head">
-                                <div>
+                                <div className="court-faction-heading">
+                                    {group.emblemLabel && (
+                                        <span className="court-faction-emblem" aria-hidden="true">{group.emblemLabel}</span>
+                                    )}
+                                    <div>
                                     <h3>{group.title}</h3>
-                                    <p>{group.summary}</p>
+                                    {group.summary && <p>{group.summary}</p>}
+                                    </div>
                                 </div>
-                                <span className="court-faction-mark">{group.artLabel}</span>
+                                {renderFactionStrength(group)}
+                                {!group.strengthParts && group.artLabel && <span className="court-faction-mark">{group.artLabel}</span>}
                             </div>
                             <div className="court-seat-rail">
-                                {group.members.map(renderNpcSeat)}
+                                {scope === 'court' ? (
+                                    <>
+                                        <div className="court-stage-actors">
+                                            {group.members.map((member, index) => renderNpcSeat(member, index, false))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    group.members.map((member, index) => renderNpcSeat(member, index))
+                                )}
                             </div>
-                            <span className="court-faction-metric">{group.metricLabel}</span>
+                            {!group.strengthParts && <span className="court-faction-metric">{group.metricLabel}</span>}
                         </article>
                     ))}
                 </div>
+                {showCourtStageForeground && (
+                    <>
+                        <div className="court-faction-bottom-foreground" aria-hidden="true" />
+                        <div className="court-faction-global-intel-track">
+                            {courtGroups.map(group => (
+                                <div key={`${group.id}-global-intel`} className={`court-faction-intel-group court-faction-intel-group-${group.id}`}>
+                                    {group.members.map((member, index) => (
+                                        <span
+                                            key={`${member.id}-global-intel`}
+                                            className={`court-stage-intel-slot court-stage-intel-slot-${index}`}
+                                        >
+                                            {renderNpcIntel(member)}
+                                        </span>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
             </section>
         )
     }

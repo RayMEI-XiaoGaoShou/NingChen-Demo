@@ -716,6 +716,10 @@ body {
         padding: var(--spacing-lg);
     }
 
+    .app-content-court {
+        padding: 0;
+    }
+
     .page-mission-strip {
         grid-template-columns: 1fr;
     }

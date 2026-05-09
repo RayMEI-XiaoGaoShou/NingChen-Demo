@@ -565,3 +565,638 @@
         grid-template-columns: 1fr;
     }
 }
+
+.app-roundstart-shell,
+.app-roundstart-shell .app-content {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    padding: 0;
+}
+
+.round-start-compact.roundstart-game-screen {
+    width: 100%;
+    max-width: none;
+    min-height: 100dvh;
+    margin: 0;
+    padding: clamp(14px, 1.5vw, 24px) clamp(18px, 2.4vw, 42px) clamp(12px, 1.3vw, 22px);
+    display: grid;
+    grid-template-rows: auto auto minmax(360px, 1fr) auto;
+    gap: clamp(10px, 1.2vw, 18px);
+    align-items: stretch;
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+    overflow-y: auto;
+    background-image:
+        radial-gradient(circle at 50% 18%, rgba(224, 184, 92, 0.11), transparent 34%),
+        linear-gradient(180deg, rgba(7, 8, 12, 0.42), rgba(7, 8, 12, 0.78)),
+        var(--roundstart-bg);
+    background-size: cover;
+    background-position: center;
+}
+
+.round-start-compact.roundstart-game-screen::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background:
+        linear-gradient(90deg, rgba(0, 0, 0, 0.44), transparent 22%, transparent 78%, rgba(0, 0, 0, 0.48)),
+        radial-gradient(circle at 50% 110%, rgba(0, 0, 0, 0.72), transparent 42%);
+    pointer-events: none;
+}
+
+.roundstart-volume-hud {
+    width: min(100%, 1800px);
+    aspect-ratio: 1800 / 194;
+    justify-self: center;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 20px;
+    min-height: auto;
+    padding: clamp(14px, 1.18vw, 24px) clamp(54px, 5vw, 96px);
+    border: 0;
+    background-image: var(--hud-art);
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(0 14px 26px rgba(0, 0, 0, 0.42));
+    min-width: 0;
+}
+
+.roundstart-volume-title-plaque {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 14px;
+    height: 100%;
+    padding: 0 clamp(8px, 1vw, 18px);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.roundstart-volume-seal {
+    width: clamp(48px, 3.8vw, 64px);
+    height: clamp(48px, 3.8vw, 64px);
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.56));
+}
+
+.roundstart-title-line {
+    min-width: 0;
+    color: #f3dfb8;
+    font-family: var(--font-heading);
+    font-size: clamp(1.36rem, 1.06rem + 1vw, 2.15rem);
+    font-weight: 700;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.76);
+}
+
+.roundstart-volume-hud .game-hud-tools {
+    flex-wrap: nowrap;
+    gap: 11px;
+}
+
+.roundstart-volume-hud .game-hud-icon-button {
+    width: clamp(40px, 2.8vw, 48px);
+    height: clamp(40px, 2.8vw, 48px);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.roundstart-scroll-briefing {
+    position: relative;
+    width: min(100%, 1600px);
+    aspect-ratio: 1600 / 585;
+    justify-self: center;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    min-height: auto;
+    padding: clamp(86px, 7vw, 118px) clamp(104px, 8.8vw, 150px) clamp(72px, 5.8vw, 104px);
+    color: #302516;
+    overflow: visible;
+    filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.38));
+}
+
+.roundstart-scroll-briefing::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: var(--scroll-art);
+    background-size: 100% auto;
+    background-repeat: no-repeat;
+    background-position: center;
+    z-index: -1;
+}
+
+.roundstart-section-kicker {
+    display: inline-block;
+    margin-bottom: 2px;
+    color: #5b2b1b;
+    font-family: KaiTi, STKaiti, "Noto Serif SC", serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.roundstart-scroll-copy {
+    min-width: 0;
+    width: 100%;
+    position: relative;
+}
+
+.roundstart-scroll-paragraphs {
+    overflow: visible;
+}
+
+.roundstart-scroll-paragraphs p {
+    color: #24180d;
+    font-family: KaiTi, STKaiti, "Noto Serif SC", serif;
+    font-size: clamp(1rem, 0.88rem + 0.28vw, 1.12rem);
+    font-weight: 600;
+    line-height: 1.52;
+    text-shadow: 0 1px 0 rgba(255, 245, 213, 0.72);
+}
+
+.roundstart-scroll-paragraphs p + p {
+    margin-top: 3px;
+}
+
+.roundstart-war-board-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(12px, 1.4vw, 22px);
+    min-height: 0;
+}
+
+.roundstart-war-board {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(8, 8, 10, 0.06), rgba(5, 6, 9, 0.16)),
+        var(--board-bg, linear-gradient(180deg, #17130f, #07080b));
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 24px 44px rgba(0, 0, 0, 0.46);
+}
+
+.roundstart-war-board::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background-image: var(--board-frame);
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+    opacity: 0.98;
+    mix-blend-mode: screen;
+}
+
+.roundstart-war-board::after {
+    content: '';
+    position: absolute;
+    inset: 7%;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 42%, rgba(255, 224, 142, 0.08), transparent 46%);
+}
+
+.roundstart-power-board-north {
+    background-position: center top;
+}
+
+.roundstart-power-board-south {
+    background-position: center center;
+}
+
+.roundstart-board-content {
+    position: relative;
+    z-index: 1;
+    height: 100%;
+    min-height: 0;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: clamp(8px, 1vw, 14px);
+    padding: clamp(22px, 2.1vw, 34px) clamp(24px, 2.25vw, 38px) clamp(22px, 2.05vw, 34px);
+}
+
+.roundstart-board-header {
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.roundstart-board-header h2 {
+    margin: 0;
+    color: #f3dfb8;
+    font-family: var(--font-heading);
+    font-size: clamp(1.08rem, 0.95rem + 0.42vw, 1.48rem);
+    letter-spacing: 0;
+    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.72);
+    text-align: center;
+}
+
+.roundstart-power-core {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.roundstart-world-board {
+    background:
+        linear-gradient(180deg, rgba(14, 13, 10, 0.92), rgba(5, 6, 9, 0.94)),
+        var(--texture-ink);
+}
+
+.roundstart-world-map-shell {
+    min-height: 0;
+    display: grid;
+    place-items: center;
+    padding: clamp(6px, 0.8vw, 12px);
+    border: 1px solid rgba(230, 199, 119, 0.18);
+    background: radial-gradient(circle at 50% 42%, rgba(201, 176, 101, 0.13), rgba(0, 0, 0, 0.18));
+}
+
+.roundstart-map-image {
+    width: 100%;
+    height: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border: 0;
+    background: transparent;
+    filter: brightness(1.28) contrast(1.06) drop-shadow(0 12px 18px rgba(0, 0, 0, 0.38));
+}
+
+.roundstart-action-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 0;
+    padding: 8px 12px 8px clamp(14px, 1.4vw, 22px);
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.roundstart-enter-btn {
+    min-width: 176px;
+    min-height: 40px;
+    margin: 0;
+    padding: 9px 26px;
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+
+@media (max-width: 1280px) {
+    .round-start-compact.roundstart-game-screen {
+        padding-left: 18px;
+        padding-right: 18px;
+        gap: 10px;
+    }
+
+    .roundstart-scroll-briefing {
+        padding-left: clamp(96px, 8.8vw, 118px);
+        padding-right: clamp(96px, 8.8vw, 118px);
+    }
+
+    .roundstart-board-content {
+        padding: 24px 26px;
+    }
+
+    .roundstart-power-core .radar-chart {
+        transform: scale(0.94);
+    }
+}
+
+.round-start-compact.roundstart-game-screen.roundstart-single-screen-art {
+    height: 100dvh;
+    min-height: 720px;
+    box-sizing: border-box;
+    padding: 14px 18px 12px;
+    grid-template-rows: 76px 138px minmax(0, 1fr) 48px;
+    gap: 10px;
+    overflow: hidden;
+    background-color: transparent;
+    background-image: var(--roundstart-bg);
+}
+
+.round-start-compact.roundstart-game-screen.roundstart-single-screen-art::before {
+    display: none;
+}
+
+.roundstart-single-screen-art .roundstart-volume-hud {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 0;
+    padding: 8px clamp(104px, 8.6vw, 138px) 8px clamp(96px, 8.1vw, 128px);
+    background-size: 100% 100%;
+    background-color: transparent;
+    filter: none;
+}
+
+.roundstart-single-screen-art .roundstart-volume-title-plaque {
+    gap: 10px;
+    padding: 0;
+    transform: translateY(-3px);
+}
+
+.roundstart-single-screen-art .roundstart-volume-seal {
+    width: 44px;
+    height: 44px;
+}
+
+.roundstart-single-screen-art .roundstart-title-line {
+    font-size: clamp(1.45rem, 1.04rem + 1.16vw, 2rem);
+}
+
+.roundstart-single-screen-art .roundstart-volume-hud .game-hud-tools {
+    gap: 8px;
+    transform: translateY(-3px);
+}
+
+.roundstart-single-screen-art .roundstart-volume-hud .game-hud-icon-button {
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
+    background-color: transparent;
+    background-image:
+        url('../../assets/ui/hud/hud-button-frame.png'),
+        radial-gradient(circle at 50% 44%, rgba(201, 176, 101, 0.08), rgba(0, 0, 0, 0.7) 72%);
+    background-position: center, center;
+    background-size: 100% 100%, calc(100% - 18px) calc(100% - 18px);
+    background-repeat: no-repeat;
+}
+
+.roundstart-single-screen-art .roundstart-scroll-briefing {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 0;
+    padding: 15px clamp(74px, 6.5vw, 92px) 10px;
+    overflow: hidden;
+    background-size: 100% 100%;
+    background-color: transparent;
+    filter: none;
+}
+
+.roundstart-single-screen-art .roundstart-section-kicker {
+    margin-bottom: 2px;
+    font-size: 15px;
+}
+
+.roundstart-single-screen-art .roundstart-scroll-paragraphs p {
+    font-size: clamp(0.92rem, 0.84rem + 0.2vw, 1.04rem);
+    line-height: 1.32;
+    font-weight: 600;
+}
+
+.roundstart-single-screen-art .roundstart-scroll-paragraphs p + p {
+    margin-top: 1px;
+}
+
+.roundstart-single-screen-art .roundstart-war-board-grid {
+    min-height: 0;
+    gap: 12px;
+}
+
+.roundstart-single-screen-art .roundstart-war-board {
+    background-color: transparent;
+    background-image: var(--board-bg, none);
+    box-shadow: none;
+}
+
+.roundstart-single-screen-art .roundstart-war-board::after {
+    display: none;
+}
+
+.roundstart-single-screen-art .roundstart-world-board {
+    background: transparent;
+}
+
+.roundstart-single-screen-art .roundstart-board-content {
+    padding: 30px 20px 16px;
+    gap: 2px;
+}
+
+.roundstart-single-screen-art .roundstart-world-board .roundstart-board-content {
+    grid-template-rows: 34px minmax(0, 1fr);
+    padding: 24px 10px 6px;
+    gap: 0;
+}
+
+.roundstart-single-screen-art .roundstart-board-header h2 {
+    font-size: clamp(1.08rem, 0.96rem + 0.32vw, 1.3rem);
+}
+
+.roundstart-single-screen-art .roundstart-power-core {
+    overflow: visible;
+}
+
+.roundstart-single-screen-art .roundstart-power-core .radar-chart {
+    transform: scale(0.92);
+}
+
+.roundstart-single-screen-art .roundstart-world-map-shell {
+    align-self: stretch;
+    justify-self: stretch;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
+
+.roundstart-single-screen-art .roundstart-map-image {
+    display: block;
+    width: auto;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+}
+
+.roundstart-single-screen-art .roundstart-action-bar {
+    min-height: 0;
+    padding: 0;
+}
+
+.roundstart-single-screen-art .roundstart-enter-btn {
+    min-height: 40px;
+    padding: 8px 24px;
+}
+
+.round-start-compact.roundstart-game-screen.roundstart-wireframe-screen {
+    height: 100dvh;
+    min-height: 720px;
+    box-sizing: border-box;
+    padding: 14px 18px 12px;
+    grid-template-rows: 76px 138px minmax(0, 1fr) 48px;
+    gap: 10px;
+    overflow: hidden;
+    background:
+        linear-gradient(180deg, rgba(18, 20, 23, 0.98), rgba(8, 9, 11, 0.98)),
+        radial-gradient(circle at 50% 18%, rgba(201, 176, 101, 0.08), transparent 36%);
+}
+
+.roundstart-wireframe-screen.round-start-compact.roundstart-game-screen::before {
+    display: none;
+}
+
+.roundstart-wireframe-screen .animate-slide-up,
+.roundstart-wireframe-screen .animate-fade-in {
+    animation: none;
+    opacity: 1;
+    transform: none;
+}
+
+.roundstart-wireframe-screen .roundstart-volume-hud {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 0;
+    padding: 8px 14px;
+    border: 1px solid rgba(226, 198, 124, 0.42);
+    background: rgba(13, 15, 18, 0.72);
+    background-image: none;
+    box-shadow: inset 0 0 0 1px rgba(255, 239, 180, 0.08);
+    filter: none;
+}
+
+.roundstart-wireframe-screen .roundstart-volume-title-plaque {
+    gap: 10px;
+    padding: 0;
+}
+
+.roundstart-wireframe-screen .roundstart-volume-seal {
+    display: none;
+}
+
+.roundstart-wireframe-screen .roundstart-title-line {
+    color: #f3dfb8;
+    font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.05rem);
+    text-shadow: none;
+}
+
+.roundstart-wireframe-screen .roundstart-volume-hud .game-hud-tools {
+    gap: 8px;
+}
+
+.roundstart-wireframe-screen .roundstart-volume-hud .game-hud-icon-button {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+    border: 1px solid rgba(226, 198, 124, 0.38);
+    background: rgba(9, 10, 12, 0.52);
+    background-image: none;
+}
+
+.roundstart-wireframe-screen .roundstart-scroll-briefing {
+    width: 100%;
+    aspect-ratio: auto;
+    min-height: 0;
+    padding: 12px 18px;
+    border: 1px solid rgba(226, 198, 124, 0.4);
+    background: rgba(238, 219, 177, 0.1);
+    color: #eadab3;
+    overflow: hidden;
+    filter: none;
+}
+
+.roundstart-wireframe-screen .roundstart-scroll-briefing::before {
+    display: none;
+}
+
+.roundstart-wireframe-screen .roundstart-section-kicker {
+    margin-bottom: 2px;
+    color: #d8b978;
+    font-size: 14px;
+}
+
+.roundstart-wireframe-screen .roundstart-scroll-paragraphs p {
+    color: #efe2c2;
+    font-size: clamp(0.9rem, 0.82rem + 0.18vw, 1rem);
+    line-height: 1.42;
+    font-weight: 500;
+    text-shadow: none;
+}
+
+.roundstart-wireframe-screen .roundstart-scroll-paragraphs p + p {
+    margin-top: 2px;
+}
+
+.roundstart-wireframe-screen .roundstart-war-board-grid {
+    min-height: 0;
+    gap: 12px;
+}
+
+.roundstart-wireframe-screen .roundstart-war-board {
+    min-height: 0;
+    border: 1px solid rgba(226, 198, 124, 0.34);
+    background: rgba(13, 15, 18, 0.66);
+    box-shadow: none;
+}
+
+.roundstart-wireframe-screen .roundstart-war-board::before,
+.roundstart-wireframe-screen .roundstart-war-board::after {
+    display: none;
+}
+
+.roundstart-wireframe-screen .roundstart-board-content {
+    padding: 14px 16px;
+    gap: 8px;
+}
+
+.roundstart-wireframe-screen .roundstart-board-header h2 {
+    color: #f3dfb8;
+    font-size: clamp(1.04rem, 0.92rem + 0.3vw, 1.24rem);
+    text-shadow: none;
+}
+
+.roundstart-wireframe-screen .roundstart-power-core {
+    overflow: hidden;
+}
+
+.roundstart-wireframe-screen .roundstart-power-core .radar-chart {
+    transform: scale(0.94);
+}
+
+.roundstart-wireframe-screen .roundstart-world-map-shell {
+    min-height: 0;
+    overflow: hidden;
+    border: 1px solid rgba(226, 198, 124, 0.22);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+.roundstart-wireframe-screen .roundstart-map-image {
+    filter: none;
+}
+
+.roundstart-wireframe-screen .roundstart-action-bar {
+    min-height: 0;
+    padding: 0;
+}
+
+.roundstart-wireframe-screen .roundstart-enter-btn {
+    min-height: 40px;
+    padding: 8px 24px;
+}

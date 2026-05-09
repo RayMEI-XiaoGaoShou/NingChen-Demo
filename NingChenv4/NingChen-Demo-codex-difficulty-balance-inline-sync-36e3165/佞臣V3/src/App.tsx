@@ -26,7 +26,7 @@ export function shouldUseRoundStartFullscreenShell(
     currentPhase: string,
     currentRound: number,
 ) {
-    return prologueStep === 'INGAME' && currentPhase === 'ROUND_START' && currentRound >= 1
+    return prologueStep === 'INGAME' && (currentPhase === 'ROUND_START' || currentPhase === 'PROLOGUE') && currentRound >= 1
 }
 
 export function shouldHideGlobalHeader(prologueStep: string, currentPhase: string) {

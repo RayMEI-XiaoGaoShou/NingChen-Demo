@@ -3,6 +3,39 @@
     flex-direction: column;
     align-items: center;
     gap: 0;
+    --radar-glow-core: rgba(201, 176, 101, 0.18);
+    --radar-fill-core: rgba(201, 176, 101, 0.34);
+    --radar-fill-mid: rgba(201, 176, 101, 0.2);
+    --radar-fill-edge: rgba(201, 176, 101, 0.07);
+    --radar-line-start: rgba(245, 221, 149, 0.95);
+    --radar-line-end: rgba(201, 176, 101, 0.78);
+    --radar-grid: rgba(201, 176, 101, 0.13);
+    --radar-axis: rgba(201, 176, 101, 0.16);
+    --radar-marker: rgba(245, 221, 149, 0.95);
+}
+
+.radar-tone-north {
+    --radar-glow-core: rgba(222, 174, 78, 0.2);
+    --radar-fill-core: rgba(190, 122, 38, 0.46);
+    --radar-fill-mid: rgba(224, 176, 82, 0.28);
+    --radar-fill-edge: rgba(255, 225, 132, 0.08);
+    --radar-line-start: rgba(255, 222, 137, 0.98);
+    --radar-line-end: rgba(191, 126, 48, 0.88);
+    --radar-grid: rgba(227, 176, 86, 0.2);
+    --radar-axis: rgba(227, 176, 86, 0.18);
+    --radar-marker: rgba(255, 222, 137, 0.98);
+}
+
+.radar-tone-south {
+    --radar-glow-core: rgba(61, 188, 174, 0.18);
+    --radar-fill-core: rgba(27, 111, 114, 0.42);
+    --radar-fill-mid: rgba(56, 177, 160, 0.24);
+    --radar-fill-edge: rgba(143, 238, 214, 0.08);
+    --radar-line-start: rgba(143, 238, 214, 0.96);
+    --radar-line-end: rgba(44, 155, 151, 0.9);
+    --radar-grid: rgba(99, 218, 198, 0.2);
+    --radar-axis: rgba(99, 218, 198, 0.18);
+    --radar-marker: rgba(143, 238, 214, 0.98);
 }
 
 .radar-label {
@@ -26,6 +59,31 @@
     filter: drop-shadow(0 16px 26px rgba(0, 0, 0, 0.28));
 }
 
+.radar-grid-polygon {
+    stroke: var(--radar-grid);
+}
+
+.radar-axis-line {
+    stroke: var(--radar-axis);
+}
+
+.radar-data-group {
+    transform-box: fill-box;
+    transform-origin: center;
+}
+
+.radar-data-polygon {
+    filter: drop-shadow(0 0 12px rgba(0, 0, 0, 0.24));
+}
+
+.radar-chart-war-board .radar-svg {
+    filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.4));
+}
+
+.radar-chart-war-board .radar-data-group {
+    animation: radarUnfurl 680ms cubic-bezier(0.18, 0.9, 0.2, 1) both;
+}
+
 .radar-center-ring {
     fill: rgba(9, 10, 18, 0.92);
     stroke: rgba(201, 176, 101, 0.32);
@@ -38,12 +96,35 @@
     stroke-width: 0.8;
 }
 
+.radar-chart-war-board .radar-center-ring {
+    fill: rgba(9, 10, 13, 0.84);
+    stroke: var(--radar-line-end);
+}
+
+.radar-chart-war-board .radar-center-core {
+    fill: var(--radar-fill-mid);
+    stroke: var(--radar-line-start);
+}
+
 .radar-center-score {
     fill: var(--color-text-primary);
     font-family: var(--font-heading);
     font-size: 24px;
     letter-spacing: 1px;
     filter: drop-shadow(0 3px 10px rgba(0, 0, 0, 0.45));
+}
+
+.radar-point-value {
+    fill: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: 12px;
+    letter-spacing: 0;
+    paint-order: stroke;
+    stroke: rgba(3, 4, 7, 0.88);
+    stroke-width: 3px;
+    stroke-linejoin: round;
+    opacity: 0.94;
+    animation: radarValueFade 720ms ease-out 160ms both;
 }
 
 .radar-chip {
@@ -72,4 +153,95 @@
     color: var(--color-accent-gold-light);
     font-family: var(--font-heading);
     font-size: 12px;
+}
+
+.radar-chip-war-board {
+    flex-direction: column;
+    gap: 3px;
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+}
+
+.radar-chip-war-board.radar-chip-pos-top {
+    transform: translate(-50%, -100%);
+}
+
+.radar-chip-war-board.radar-chip-pos-right {
+    transform: translate(0, -50%);
+}
+
+.radar-chip-war-board.radar-chip-pos-bottom-right {
+    transform: translate(0, 0);
+}
+
+.radar-chip-war-board.radar-chip-pos-bottom-left {
+    transform: translate(-100%, 0);
+}
+
+.radar-chip-war-board.radar-chip-pos-left {
+    transform: translate(-100%, -50%);
+}
+
+.radar-chip-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: contain;
+    flex: 0 0 auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.62));
+}
+
+.radar-chip-war-board .radar-chip-label {
+    color: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: 15px;
+    line-height: 1;
+    -webkit-text-stroke: 2px rgba(3, 4, 7, 0.62);
+    paint-order: stroke fill;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.64);
+}
+
+.radar-chart-war-board circle[stroke="rgba(245,221,149,0.95)"] {
+    stroke: var(--radar-marker);
+}
+
+.radar-chart-war-board circle[fill="rgba(245,221,149,0.95)"] {
+    fill: var(--radar-marker);
+}
+
+@keyframes radarUnfurl {
+    from {
+        opacity: 0;
+        transform: scale(0.08);
+    }
+
+    70% {
+        opacity: 1;
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes radarValueFade {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+
+    to {
+        opacity: 0.94;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .radar-chart-war-board .radar-data-group,
+    .radar-point-value {
+        animation: none;
+    }
 }

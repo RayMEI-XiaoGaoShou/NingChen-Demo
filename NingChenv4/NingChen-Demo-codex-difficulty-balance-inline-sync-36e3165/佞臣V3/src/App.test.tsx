@@ -42,6 +42,7 @@ describe('App shell helpers', () => {
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'ROUND_START', 1)).toBe(true)
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'ROUND_START', 2)).toBe(true)
         expect(shouldUseRoundStartFullscreenShell('INGAME', 'ROUND_START', 20)).toBe(true)
+        expect(shouldUseRoundStartFullscreenShell('INGAME', 'PROLOGUE', 1)).toBe(true)
     })
 
     it('keeps the standard shell for cover, prologue, and non-round-start phases', () => {

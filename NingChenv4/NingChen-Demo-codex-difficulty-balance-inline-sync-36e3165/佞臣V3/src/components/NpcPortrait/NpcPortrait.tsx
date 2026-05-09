@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react'
 import { useMemo, useState } from 'react'
-import { getNpcPortraitPath } from '../../data/mediaAssets'
+import { getNpcPortraitPath, type NpcPortraitVariant } from '../../data/mediaAssets'
 
 interface NpcPortraitProps {
     name: string
@@ -9,6 +9,7 @@ interface NpcPortraitProps {
     positionY?: string
     zoom?: number
     framed?: boolean
+    variant?: NpcPortraitVariant
 }
 
 export function NpcPortrait({
@@ -18,9 +19,10 @@ export function NpcPortrait({
     positionY,
     zoom,
     framed = false,
+    variant = 'default',
 }: NpcPortraitProps) {
     const [failed, setFailed] = useState(false)
-    const src = useMemo(() => getNpcPortraitPath(name), [name])
+    const src = useMemo(() => getNpcPortraitPath(name, variant), [name, variant])
     const portraitStyle = {
         '--npc-portrait-position-y': positionY ?? '50%',
         '--npc-portrait-scale': String(zoom ?? 1),

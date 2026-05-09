@@ -1,9 +1,11 @@
+import type { CSSProperties } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { ROUND_START_RICH_BRIEFINGS } from '../../data/roundStartRichBriefings'
 import { ROUND_CONTEXT_NOTES } from '../../data/roundContext'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getRoundStartCampaignDisplay } from '../../game/campaignDisplayEngine'
+import type { NationDimensions } from '../../game/types'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { getRoundAdvisorHint } from '../../game/roundIntelEngine'
@@ -13,6 +15,34 @@ import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './RoundStart.css'
+
+const ROUND_START_ASSETS = {
+    courtBackground: new URL('../../assets/ui/court-overview/court-bg-lacquer-v3.jpg', import.meta.url).href,
+    hudStrip: new URL('../../assets/ui/round-start/roundstart-hud-frame-single-screen.png', import.meta.url).href,
+    naturalHudStrip: new URL('../../assets/ui/round-start/roundstart-hud-strip.png', import.meta.url).href,
+    volumeSeal: new URL('../../assets/ui/round-start/roundstart-volume-seal.png', import.meta.url).href,
+    briefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll-single-screen.png', import.meta.url).href,
+    naturalBriefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll.png', import.meta.url).href,
+    boardFrame: new URL('../../assets/ui/round-start/roundstart-board-frame.jpg', import.meta.url).href,
+    northPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-north.jpg', import.meta.url).href,
+    southPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-south.jpg', import.meta.url).href,
+}
+
+const ROUND_START_STAT_ICONS: Record<keyof NationDimensions, string> = {
+    finance: new URL('../../assets/ui/round-start/stat-finance-coin.png', import.meta.url).href,
+    governance: new URL('../../assets/ui/round-start/stat-governance.png', import.meta.url).href,
+    socialOrder: new URL('../../assets/ui/round-start/stat-social-order.png', import.meta.url).href,
+    grain: new URL('../../assets/ui/round-start/stat-grain.png', import.meta.url).href,
+    military: new URL('../../assets/ui/round-start/stat-military.png', import.meta.url).href,
+}
+
+type RoundStartStyle = CSSProperties & {
+    '--roundstart-bg'?: string
+    '--hud-art'?: string
+    '--scroll-art'?: string
+    '--board-bg'?: string
+    '--board-frame'?: string
+}
 
 function stripAdvisorPrefix(text: string | null | undefined): string {
     if (!text) return ''
@@ -29,17 +59,88 @@ function stripAdvisorPrefix(text: string | null | undefined): string {
     return cleaned
 }
 
+function toChineseNumber(value: number): string {
+    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
+
+    if (value <= 10) return digits[value] ?? String(value)
+    if (value < 20) return `十${digits[value - 10]}`
+    if (value < 100) {
+        const tens = Math.floor(value / 10)
+        const ones = value % 10
+        return `${digits[tens]}十${ones > 0 ? digits[ones] : ''}`
+    }
+
+    return String(value)
+}
+
 function buildRoundStartTitle(currentRound: number, eventTitle?: string, timeLabel?: string): string {
-    const titleParts = [`第 ${currentRound} 回合`]
+    const titleParts = [`第${toChineseNumber(currentRound)}卷`]
 
     if (eventTitle) titleParts.push(eventTitle)
     else if (timeLabel) titleParts.push(timeLabel)
 
-    return titleParts.join(' · ')
+    return titleParts.join('：')
 }
 
 export function shouldUseCompactRoundStartLayout(currentRound: number) {
     return currentRound >= 1
+}
+
+export function getRoundStartLayoutMode(search?: string): 'art' | 'wireframe' | 'natural' {
+    const query = search ?? (typeof window === 'undefined' ? '' : window.location.search)
+    const params = new URLSearchParams(query)
+    const mode = params.get('roundStartLayout')
+
+    if (mode === 'wireframe') return 'wireframe'
+    if (mode === 'natural') return 'natural'
+
+    return 'art'
+}
+
+interface RoundPowerBoardProps {
+    title: string
+    tone: 'north' | 'south'
+    stats: NationDimensions
+    backgroundImage?: string
+    showStatIcons?: boolean
+}
+
+function RoundPowerBoard({
+    title,
+    tone,
+    stats,
+    backgroundImage,
+    showStatIcons = true,
+}: RoundPowerBoardProps) {
+    const boardStyle = backgroundImage
+        ? ({
+            '--board-bg': `url(${backgroundImage})`,
+            '--board-frame': `url(${ROUND_START_ASSETS.boardFrame})`,
+        } as RoundStartStyle)
+        : undefined
+
+    return (
+        <article
+            className={`roundstart-war-board roundstart-power-board roundstart-power-board-${tone}`}
+            style={boardStyle}
+        >
+            <div className="roundstart-board-content">
+                <header className="roundstart-board-header">
+                    <h2>{title}</h2>
+                </header>
+
+                <div className="roundstart-power-core">
+                    <RadarChart
+                        data={stats}
+                        size={300}
+                        variant="warBoard"
+                        tone={tone}
+                        dimensionIcons={showStatIcons ? ROUND_START_STAT_ICONS : undefined}
+                    />
+                </div>
+            </div>
+        </article>
+    )
 }
 
 export function RoundStart() {
@@ -95,11 +196,15 @@ export function RoundStart() {
         huainanMomentum,
         campaignReports: [],
     })
-    const aftereffectSummary = [
-        previousPolicyAftereffect ? { label: '问政余波', summary: previousPolicyAftereffect.summary } : null,
-        recentBacklash[0] ? { label: '朝局反噬', summary: recentBacklash[0].summary } : null,
-    ].filter((item): item is { label: string; summary: string } => Boolean(item))
     const showCompactLayout = shouldUseCompactRoundStartLayout(currentRound)
+    const layoutMode = getRoundStartLayoutMode()
+    const useWireframeLayout = showCompactLayout && layoutMode === 'wireframe'
+    const useNaturalArtLayout = showCompactLayout && layoutMode === 'natural'
+    const compactModeClass = useWireframeLayout
+        ? ' roundstart-wireframe-screen'
+        : useNaturalArtLayout
+            ? ' roundstart-natural-art-screen'
+            : ' roundstart-single-screen-art'
     const guideModal = currentRound === 1 && !firstRoundGuideSeen.round_start ? (
         <FirstRoundGuideModal
             title={FIRST_ROUND_GUIDE_CONTENT.round_start.title}
@@ -107,126 +212,94 @@ export function RoundStart() {
             onClose={() => markFirstRoundGuideSeen('round_start')}
         />
     ) : null
+    const compactRootStyle = {
+        '--roundstart-bg': `url(${ROUND_START_ASSETS.courtBackground})`,
+    } as RoundStartStyle
+    const hudStyle = {
+        '--hud-art': `url(${useNaturalArtLayout ? ROUND_START_ASSETS.naturalHudStrip : ROUND_START_ASSETS.hudStrip})`,
+    } as RoundStartStyle
+    const scrollBriefingStyle = {
+        '--scroll-art': `url(${useNaturalArtLayout ? ROUND_START_ASSETS.naturalBriefingScroll : ROUND_START_ASSETS.briefingScroll})`,
+    } as RoundStartStyle
+    const framedBoardStyle = {
+        '--board-frame': `url(${ROUND_START_ASSETS.boardFrame})`,
+    } as RoundStartStyle
 
     if (showCompactLayout) {
         return (
-            <div className="page-container round-start round-start-compact page-enter">
+            <div
+                className={`page-container round-start round-start-compact roundstart-game-screen page-enter${compactModeClass}`}
+                style={useWireframeLayout ? undefined : compactRootStyle}
+            >
                 {guideModal}
 
-                <div className="roundstart-toolbar animate-slide-up">
-                    <div className="roundstart-toolbar-actions">
-                        <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
-                    </div>
-                </div>
-
-                <div className="roundstart-title-wrap animate-slide-up animate-delay-1">
-                    <h1 className="roundstart-title-line">{roundTitleLine}</h1>
-                </div>
-
-                <section className="glass-panel roundstart-briefing-card animate-slide-up animate-delay-2">
-                    <div className="roundstart-briefing-copy">
-                        <h2 className="roundstart-section-title">朝堂简报</h2>
-                        {roundBriefingParagraphs.map(paragraph => (
-                            <p key={paragraph}>{paragraph}</p>
-                        ))}
-                    </div>
-
-                    <div className="roundstart-briefing-sidebands">
-                        <article className="gold-panel roundstart-briefing-band">
-                            <h3 className="roundstart-band-title">北周风云</h3>
-                            <p>{event?.northDescription}</p>
-                        </article>
-                        <article className="gold-panel roundstart-briefing-band">
-                            <h3 className="roundstart-band-title">南陈时局</h3>
-                            <p>{event?.southDescription}</p>
-                        </article>
-                    </div>
-                </section>
-
-                <section className="roundstart-intelligence-grid animate-slide-up animate-delay-3">
-                    <article className="glass-panel roundstart-power-card">
-                        <h2 className="roundstart-section-title">国力对照</h2>
-                        <div className="roundstart-radar-stack">
-                            <div className="roundstart-radar-item">
-                                <span className="roundstart-radar-label">北周</span>
-                                <RadarChart data={northStats} size={244} />
-                            </div>
-                            <div className="roundstart-radar-item">
-                                <span className="roundstart-radar-label">南陈</span>
-                                <RadarChart data={southStats} size={244} />
-                            </div>
-                        </div>
-                    </article>
-
-                    <article className="gold-panel roundstart-map-card">
-                        <h2 className="roundstart-section-title">天下形势图</h2>
+                <header className="roundstart-volume-hud animate-slide-up" style={useWireframeLayout ? undefined : hudStyle}>
+                    <div className="roundstart-volume-title-plaque">
                         <img
-                            className="roundstart-map-image"
-                            src={campaignMap.src}
-                            alt={`当前战局地图：${campaignMap.label}`}
+                            className="roundstart-volume-seal"
+                            src={ROUND_START_ASSETS.volumeSeal}
+                            alt=""
+                            aria-hidden="true"
+                            draggable={false}
                         />
-                    </article>
+                        <h1 className="roundstart-title-line">{roundTitleLine}</h1>
+                    </div>
+                    <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
+                </header>
 
-                    <article className="glass-panel roundstart-hint-card">
-                        <NpcPortrait
-                            name="冯道之"
-                            alt="冯道之画像"
-                            className="roundstart-advisor-portrait roundstart-advisor-portrait-large"
-                            positionY="18%"
-                        />
-                        <div className="roundstart-hint-content">
-                            <h2 className="roundstart-section-title">冯道之锦囊</h2>
-                            <div className="roundstart-hint-copy">
-                                <p className="roundstart-hint-line">
-                                    <span className="roundstart-hint-label">朝堂势力：</span>
-                                    <span className="roundstart-hint-text">{courtHintText}</span>
-                                </p>
-                                {externalHintText && (
-                                    <p className="roundstart-hint-line">
-                                        <span className="roundstart-hint-label">地方军头：</span>
-                                        <span className="roundstart-hint-text">{externalHintText}</span>
-                                    </p>
-                                )}
+                <section
+                    className="roundstart-scroll-briefing animate-slide-up animate-delay-1"
+                    style={useWireframeLayout ? undefined : scrollBriefingStyle}
+                >
+                    <div className="roundstart-scroll-copy">
+                        <span className="roundstart-section-kicker">朝堂简报</span>
+                        <div className="roundstart-scroll-paragraphs">
+                            {roundBriefingParagraphs.map(paragraph => (
+                                <p key={paragraph}>{paragraph}</p>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="roundstart-war-board-grid animate-slide-up animate-delay-2">
+                    <RoundPowerBoard
+                        title="北周国力"
+                        tone="north"
+                        stats={northStats}
+                        backgroundImage={useWireframeLayout ? undefined : ROUND_START_ASSETS.northPowerPlate}
+                        showStatIcons={!useWireframeLayout}
+                    />
+                    <RoundPowerBoard
+                        title="南陈国力"
+                        tone="south"
+                        stats={southStats}
+                        backgroundImage={useWireframeLayout ? undefined : ROUND_START_ASSETS.southPowerPlate}
+                        showStatIcons={!useWireframeLayout}
+                    />
+                    <article
+                        className="roundstart-war-board roundstart-world-board"
+                        style={useWireframeLayout ? undefined : framedBoardStyle}
+                    >
+                        <div className="roundstart-board-content">
+                            <header className="roundstart-board-header">
+                                <h2>天下形势图</h2>
+                            </header>
+                            <div className="roundstart-world-map-shell">
+                                <img
+                                    className="roundstart-map-image"
+                                    src={campaignMap.src}
+                                    alt={`当前战局地图：${campaignMap.label}`}
+                                />
                             </div>
                         </div>
                     </article>
                 </section>
 
-                <div className="roundstart-bottom-stack animate-slide-up animate-delay-4">
-                    {campaignRecord.visible && (
-                        <section className="glass-panel roundstart-aftereffect-strip">
-                            <h2 className="roundstart-section-title">{campaignRecord.title}</h2>
-                            <div className="roundstart-aftereffect-copy">
-                                <p>
-                                    <span className="roundstart-aftereffect-label">{campaignRecord.phase}</span>
-                                    <span>{campaignRecord.recapText}</span>
-                                </p>
-                                <p>{campaignRecord.statusText}</p>
-                                {campaignRecord.resultText && <p>{campaignRecord.resultText}</p>}
-                            </div>
-                        </section>
-                    )}
-
-                    {aftereffectSummary.length > 0 && (
-                        <section className="glass-panel roundstart-aftereffect-strip">
-                            <h2 className="roundstart-section-title">上回合动向</h2>
-                            <div className="roundstart-aftereffect-copy">
-                                {aftereffectSummary.map(item => (
-                                    <p key={`${item.label}-${item.summary}`}>
-                                        <span className="roundstart-aftereffect-label">{item.label}</span>
-                                        <span>{item.summary}</span>
-                                    </p>
-                                ))}
-                            </div>
-                        </section>
-                    )}
-
-                    <div className="roundstart-action-bar">
-                        <button className="btn-primary roundstart-enter-btn" onClick={nextPhase}>
-                            入朝
-                        </button>
-                    </div>
-                </div>
+                <footer className="roundstart-action-bar animate-slide-up animate-delay-3">
+                    <button className="btn-primary roundstart-enter-btn" onClick={nextPhase}>
+                        入朝听政
+                    </button>
+                </footer>
             </div>
         )
     }
