@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { execSync } from 'node:child_process'
 import { LIVE_BALANCE_SAMPLE_SET, SAMPLE_SET_VERSION } from '../src/game/liveBalance/sampleLibrary'
@@ -7,22 +7,16 @@ import { runLiveBalanceSample } from '../src/game/liveBalance/liveSimulation'
 import { buildLiveBalanceJsonReport, buildLiveBalanceMarkdownReport } from '../src/game/liveBalance/reportBuilder'
 import type { LiveBalanceReport } from '../src/game/liveBalance/types'
 
-function findWorkspaceEnvPath(): string | null {
+function findRepoRootEnvPath(): string | null {
     const repoRoot = path.resolve(process.cwd(), '..', '..', '..')
-    const sibling = readdirSync(repoRoot, { withFileTypes: true }).find(entry => (
-        entry.isDirectory() && entry.name.endsWith('MuleRun Version')
-    ))
-
-    if (!sibling) return null
-
-    const envPath = path.join(repoRoot, sibling.name, '.env')
+    const envPath = path.join(repoRoot, '.env')
     return existsSync(envPath) ? envPath : null
 }
 
 function loadEnv(): void {
     const candidates = [
         path.resolve(process.cwd(), '.env'),
-        findWorkspaceEnvPath(),
+        findRepoRootEnvPath(),
     ].filter((candidate): candidate is string => Boolean(candidate))
 
     const envPath = candidates.find(candidate => existsSync(candidate))
