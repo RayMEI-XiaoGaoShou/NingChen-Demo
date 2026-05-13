@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { ROUND_EVENTS } from '../../data/rounds'
 import { ROUND_START_RICH_BRIEFINGS } from '../../data/roundStartRichBriefings'
@@ -18,14 +18,29 @@ import './RoundStart.css'
 
 const ROUND_START_ASSETS = {
     courtBackground: new URL('../../assets/ui/court-overview/court-bg-lacquer-v3.jpg', import.meta.url).href,
-    hudStrip: new URL('../../assets/ui/round-start/roundstart-hud-frame-single-screen.png', import.meta.url).href,
-    naturalHudStrip: new URL('../../assets/ui/round-start/roundstart-hud-strip.png', import.meta.url).href,
     volumeSeal: new URL('../../assets/ui/round-start/roundstart-volume-seal.png', import.meta.url).href,
-    briefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll-single-screen.png', import.meta.url).href,
+    briefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll-wide-aiart-v2.png', import.meta.url).href,
     naturalBriefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll.png', import.meta.url).href,
     boardFrame: new URL('../../assets/ui/round-start/roundstart-board-frame.jpg', import.meta.url).href,
     northPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-north.jpg', import.meta.url).href,
     southPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-south.jpg', import.meta.url).href,
+    worldMapAiart: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-v1.png', import.meta.url).href,
+    worldMapAiartBashu: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-v1.png', import.meta.url).href,
+    worldMapAiartBashuHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-huainan-v1.png', import.meta.url).href,
+    worldMapAiartHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-huainan-v1.jpg', import.meta.url).href,
+}
+
+const ROUND_START_COMPACT_MAP_ART = [
+    { sourceNeedle: 'map_1_initial', src: ROUND_START_ASSETS.worldMapAiart },
+    { sourceNeedle: 'map_2_bashu', src: ROUND_START_ASSETS.worldMapAiartBashu },
+    { sourceNeedle: 'map_3_bashu_huainan', src: ROUND_START_ASSETS.worldMapAiartBashuHuainan },
+    { sourceNeedle: 'map_4_huainan', src: ROUND_START_ASSETS.worldMapAiartHuainan },
+] as const
+
+export function resolveCompactRoundStartMapSrc(campaignMapSrc: string, useWireframeLayout: boolean) {
+    if (useWireframeLayout) return campaignMapSrc
+
+    return ROUND_START_COMPACT_MAP_ART.find(({ sourceNeedle }) => campaignMapSrc.includes(sourceNeedle))?.src ?? campaignMapSrc
 }
 
 const ROUND_START_STAT_ICONS: Record<keyof NationDimensions, string> = {
@@ -97,6 +112,32 @@ export function getRoundStartLayoutMode(search?: string): 'art' | 'wireframe' | 
     return 'art'
 }
 
+export function splitRoundStartBriefingDateLead(paragraph: string): { lead: string; rest: string } | null {
+    const match = paragraph.match(/^((?:北周|南陈)[^。]{1,32}年[^。]{0,24}。)(.*)$/u)
+
+    if (!match) return null
+
+    return {
+        lead: match[1],
+        rest: match[2] ?? '',
+    }
+}
+
+function renderRoundStartBriefingParagraph(paragraph: string) {
+    const dateLead = splitRoundStartBriefingDateLead(paragraph)
+
+    return (
+        <p key={paragraph}>
+            {dateLead ? (
+                <>
+                    <span className="roundstart-briefing-date">{dateLead.lead}</span>
+                    {dateLead.rest}
+                </>
+            ) : paragraph}
+        </p>
+    )
+}
+
 interface RoundPowerBoardProps {
     title: string
     tone: 'north' | 'south'
@@ -132,7 +173,7 @@ function RoundPowerBoard({
                 <div className="roundstart-power-core">
                     <RadarChart
                         data={stats}
-                        size={300}
+                        size={330}
                         variant="warBoard"
                         tone={tone}
                         dimensionIcons={showStatIcons ? ROUND_START_STAT_ICONS : undefined}
@@ -144,6 +185,7 @@ function RoundPowerBoard({
 }
 
 export function RoundStart() {
+    const [isMapExpanded, setIsMapExpanded] = useState(false)
     const {
         currentRound,
         nextPhase,
@@ -215,15 +257,10 @@ export function RoundStart() {
     const compactRootStyle = {
         '--roundstart-bg': `url(${ROUND_START_ASSETS.courtBackground})`,
     } as RoundStartStyle
-    const hudStyle = {
-        '--hud-art': `url(${useNaturalArtLayout ? ROUND_START_ASSETS.naturalHudStrip : ROUND_START_ASSETS.hudStrip})`,
-    } as RoundStartStyle
     const scrollBriefingStyle = {
         '--scroll-art': `url(${useNaturalArtLayout ? ROUND_START_ASSETS.naturalBriefingScroll : ROUND_START_ASSETS.briefingScroll})`,
     } as RoundStartStyle
-    const framedBoardStyle = {
-        '--board-frame': `url(${ROUND_START_ASSETS.boardFrame})`,
-    } as RoundStartStyle
+    const compactMapSrc = resolveCompactRoundStartMapSrc(campaignMap.src, useWireframeLayout)
 
     if (showCompactLayout) {
         return (
@@ -233,7 +270,7 @@ export function RoundStart() {
             >
                 {guideModal}
 
-                <header className="roundstart-volume-hud animate-slide-up" style={useWireframeLayout ? undefined : hudStyle}>
+                <header className="roundstart-volume-hud animate-slide-up">
                     <div className="roundstart-volume-title-plaque">
                         <img
                             className="roundstart-volume-seal"
@@ -254,9 +291,7 @@ export function RoundStart() {
                     <div className="roundstart-scroll-copy">
                         <span className="roundstart-section-kicker">朝堂简报</span>
                         <div className="roundstart-scroll-paragraphs">
-                            {roundBriefingParagraphs.map(paragraph => (
-                                <p key={paragraph}>{paragraph}</p>
-                            ))}
+                            {roundBriefingParagraphs.map(renderRoundStartBriefingParagraph)}
                         </div>
                     </div>
                 </section>
@@ -278,22 +313,59 @@ export function RoundStart() {
                     />
                     <article
                         className="roundstart-war-board roundstart-world-board"
-                        style={useWireframeLayout ? undefined : framedBoardStyle}
+                        aria-label={`当前战局地图：${campaignMap.label}`}
                     >
                         <div className="roundstart-board-content">
-                            <header className="roundstart-board-header">
-                                <h2>天下形势图</h2>
-                            </header>
-                            <div className="roundstart-world-map-shell">
-                                <img
-                                    className="roundstart-map-image"
-                                    src={campaignMap.src}
-                                    alt={`当前战局地图：${campaignMap.label}`}
-                                />
+                            <div className="roundstart-map-container">
+                                <div className="roundstart-world-map-shell">
+                                    <button
+                                        type="button"
+                                        className="roundstart-map-zoom-trigger"
+                                        onClick={() => setIsMapExpanded(true)}
+                                        aria-label={`放大天下形势图：${campaignMap.label}`}
+                                    >
+                                        <img
+                                            className="roundstart-map-image"
+                                            src={compactMapSrc}
+                                            alt=""
+                                            aria-hidden="true"
+                                            draggable={false}
+                                        />
+                                        <span className="roundstart-map-corner-title" aria-hidden="true">天下形势图</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </article>
                 </section>
+
+                {isMapExpanded && (
+                    <div className="roundstart-map-modal-backdrop" onClick={() => setIsMapExpanded(false)}>
+                        <div
+                            className="roundstart-map-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label={`天下形势图放大查看：${campaignMap.label}`}
+                            onClick={event => event.stopPropagation()}
+                        >
+                            <header className="roundstart-map-modal-header">
+                                <h3>天下形势图</h3>
+                                <button
+                                    type="button"
+                                    className="roundstart-map-modal-close"
+                                    onClick={() => setIsMapExpanded(false)}
+                                >
+                                    关闭
+                                </button>
+                            </header>
+                            <img
+                                className="roundstart-map-modal-image"
+                                src={compactMapSrc}
+                                alt={`当前战局地图：${campaignMap.label}`}
+                            />
+                        </div>
+                    </div>
+                )}
 
                 <footer className="roundstart-action-bar animate-slide-up animate-delay-3">
                     <button className="btn-primary roundstart-enter-btn" onClick={nextPhase}>
