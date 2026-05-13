@@ -1,12 +1,25 @@
+import type { CampaignOutcomeState } from '../game/types'
+
 export type BgmTrackKey = 'bgm1' | 'bgm2' | 'bgm3' | 'bgm4'
-export type NpcPortraitVariant = 'default' | 'courtDark' | 'courtBright' | 'courtFullbody'
+export type NpcPortraitVariant = 'default' | 'courtDark' | 'courtBright' | 'courtFullbody' | 'externalFullbody'
 
 const NPC_PORTRAIT_BASE = '/images/npc/确认【抠背景】'
 const NPC_COURT_DARK_PORTRAIT_BASE = '/images/npc/朝堂暗版'
 const NPC_COURT_BRIGHT_PORTRAIT_BASE = '/images/npc/hover亮版_v1'
 const NPC_COURT_FULLBODY_PORTRAIT_BASE = '/images/npc/court-fullbody'
+const NPC_EXTERNAL_FULLBODY_PORTRAIT_BASE = '/images/npc/external-fullbody'
+const COURT_FACTION_UI_BASE = '/images/ui/court-faction'
+const EXTERNAL_FACTION_UI_BASE = '/images/ui/external-faction'
 const MAP_BASE = '/地图底稿'
 const BGM_BASE = '/bgm'
+const PUBLIC_STATEMENT_AUDIO_BASE = '/audio/generated/court_statements'
+
+type PublicStatementAudioBranch = 'main' | 'a' | 'b' | 'c'
+
+export interface PublicStatementAudioContext {
+    shuCampaignState?: CampaignOutcomeState | null
+    huainanCampaignState?: CampaignOutcomeState | null
+}
 
 function buildPublicAssetPath(path: string) {
     return encodeURI(path)
@@ -73,6 +86,30 @@ const NPC_COURT_FULLBODY_PORTRAIT_FILES: Record<string, string> = {
     祖廷: 'portrait_zuting_fullbody.png',
 }
 
+const NPC_EXTERNAL_FULLBODY_PORTRAIT_FILES: Record<string, string> = {
+    独孤文约: 'portrait_duguwenyue_fullbody.png',
+    贺拔伯圭: 'portrait_hebabogui_fullbody.png',
+    尔朱烈: 'portrait_erzhulie_fullbody.png',
+    安思明: 'portrait_ansiming_fullbody.png',
+}
+
+const PUBLIC_STATEMENT_AUDIO_SLUGS: Record<string, string> = {
+    weichimu: 'yuchimu',
+    'weichimù': 'yuchimu',
+    zongai: 'zongai',
+    yuwendi: 'yuwendi',
+    linghuelvguang: 'linghulvguang',
+    hebaqi: 'hebaqi',
+    'hebaqí': 'hebaqi',
+    zuting: 'zuting',
+    duguwenyue: 'duguwenyue',
+    hebabogui: 'hebabogui',
+    'hebaboguì': 'hebabogui',
+    erzhulie: 'erzhulie',
+    'erzhulié': 'erzhulie',
+    ansiming: 'ansiming',
+}
+
 const NPC_PORTRAIT_VARIANTS: Record<NpcPortraitVariant, { base: string; files: Record<string, string> }> = {
     default: {
         base: NPC_PORTRAIT_BASE,
@@ -89,6 +126,10 @@ const NPC_PORTRAIT_VARIANTS: Record<NpcPortraitVariant, { base: string; files: R
     courtFullbody: {
         base: NPC_COURT_FULLBODY_PORTRAIT_BASE,
         files: NPC_COURT_FULLBODY_PORTRAIT_FILES,
+    },
+    externalFullbody: {
+        base: NPC_EXTERNAL_FULLBODY_PORTRAIT_BASE,
+        files: NPC_EXTERNAL_FULLBODY_PORTRAIT_FILES,
     },
 }
 
@@ -111,6 +152,22 @@ export const MAP_ASSETS = {
     },
 } as const
 
+export const COURT_FACTION_UI_ASSETS = {
+    reactionPaper: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-reaction-paper.png`),
+    bottomDeskForeground: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-bottom-foreground-desk-layer-v2.png`),
+} as const
+
+export const EXTERNAL_FACTION_UI_ASSETS = {
+    longxiBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-longxi.png`),
+    prairieBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-prairie.png`),
+    tigerEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-tiger.png`),
+    wolfEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-wolf.png`),
+    bottomCommandDesk: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-bottom-foreground-command-desk-v2.png`),
+    metricMilitaryIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-military.png`),
+    metricLoyaltyIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-loyalty.png`),
+    metricTrustIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-trust.png`),
+} as const
+
 export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant = 'default') {
     const { base, files } = NPC_PORTRAIT_VARIANTS[variant]
     const file = files[name]
@@ -120,6 +177,32 @@ export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant = '
 
 export function getBgmTrackPath(track: BgmTrackKey) {
     return BGM_TRACKS[track]
+}
+
+function getCampaignBranch(state: CampaignOutcomeState | null | undefined): PublicStatementAudioBranch {
+    if (state === 'gained') return 'a'
+    if (state === 'failed') return 'c'
+    return 'b'
+}
+
+function getPublicStatementAudioBranch(round: number, context: PublicStatementAudioContext): PublicStatementAudioBranch {
+    if (round === 11) return getCampaignBranch(context.shuCampaignState)
+    if (round === 17) return getCampaignBranch(context.huainanCampaignState)
+    return 'main'
+}
+
+export function getNpcPublicStatementAudioPath(
+    npcId: string,
+    round: number,
+    context: PublicStatementAudioContext = {},
+) {
+    const slug = PUBLIC_STATEMENT_AUDIO_SLUGS[npcId]
+    if (!slug || !Number.isFinite(round)) return null
+
+    const normalizedRound = Math.max(1, Math.trunc(round))
+    const roundLabel = String(normalizedRound).padStart(2, '0')
+    const branch = getPublicStatementAudioBranch(normalizedRound, context)
+    return buildPublicAssetPath(`${PUBLIC_STATEMENT_AUDIO_BASE}/public_statement_r${roundLabel}_${branch}_${slug}.mp3`)
 }
 
 export function getEmpressPortraitPath() {

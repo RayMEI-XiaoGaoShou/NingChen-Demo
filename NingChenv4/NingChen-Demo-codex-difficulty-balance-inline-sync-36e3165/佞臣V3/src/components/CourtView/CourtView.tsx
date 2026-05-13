@@ -1,5 +1,6 @@
 ﻿import { useGameStore } from '../../stores/gameStore'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useMediaStore } from '../../stores/mediaStore'
 import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC } from '../../game/types'
@@ -23,6 +24,7 @@ import {
 } from '../../game/courtDisposition'
 import { buildCourtDispositionHint } from '../../game/courtDispositionHint'
 import { roundSupportsExternalAction } from '../../data/roundRuleConfig'
+import { getNpcPublicStatementAudioPath } from '../../data/mediaAssets'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
@@ -149,6 +151,7 @@ type CourtStrengthPart = {
     label: string
     value: number
 }
+type ExternalMetricId = 'military' | 'loyalty' | 'trust'
 type CourtFactionGroup = {
     id: 'emperor' | 'empress' | 'longxi' | 'prairie'
     title: string
@@ -195,10 +198,66 @@ type CourtLeaderIdentity = {
     lines: string[]
 }
 
+const COURT_TITLE_PLAQUES: Record<string, string> = {
+    'weichimù': '都督河南诸军事',
+    'zongai': '中常侍',
+    'yuwendi': '燕王',
+    'linghuelvguang': '都督河北诸军事',
+    'hebaqí': '太后',
+    'zuting': '左丞相',
+}
+
+const EXTERNAL_TITLE_PLAQUES: Record<string, string> = {
+    'duguwenyue': '后将军【屯驻天水】',
+    'hebaboguì': '卫将军【屯驻金城】',
+    'erzhulié': '北庭节度使【屯驻雁门】',
+    'ansiming': '卢龙节度使【屯驻范阳】',
+}
+
 function getCourtLeaderIdentity(npc: NPC): CourtLeaderIdentity | null {
     if (npc.name === '宗艾') return { emblem: 'emperor', lines: ['代言皇帝', '帝党魁首'] }
     if (npc.name === '贺拔琪') return { emblem: 'empress', lines: ['摄政', '后党魁首'] }
     return null
+}
+
+function getNpcTitlePlaque(npc: NPC): string | null {
+    if (npc.powerBase === 'court') return COURT_TITLE_PLAQUES[npc.id] ?? getDisplayedNpcTitle(npc)
+    if (npc.powerBase === 'external') return EXTERNAL_TITLE_PLAQUES[npc.id] ?? getDisplayedNpcTitle(npc)
+    return null
+}
+
+function getCourtStrengthPartLabel(label: string): string {
+    if (label === '内稳') return '内部稳定度'
+    if (label === '朝堂影响') return '朝堂影响力'
+    return label
+}
+
+function getCourtSeatLayoutClass(npc: NPC): string {
+    const layoutClassMap: Record<string, string> = {
+        'weichimù': 'court-seat-yuchimu',
+        zongai: 'court-seat-zongai',
+        yuwendi: 'court-seat-yuwendi',
+        linghuelvguang: 'court-seat-linghulvguang',
+        'hebaqí': 'court-seat-hebaqi',
+        zuting: 'court-seat-zuting',
+    }
+
+    return layoutClassMap[npc.id] ?? ''
+}
+
+function getExternalSeatLayoutClass(npc: NPC): string {
+    const layoutClassMap: Record<string, string> = {
+        duguwenyue: 'external-seat-duguwenyue',
+        'hebaboguì': 'external-seat-hebabogui',
+        'erzhulié': 'external-seat-erzhulie',
+        ansiming: 'external-seat-ansiming',
+    }
+
+    return layoutClassMap[npc.id] ?? ''
+}
+
+function getNpcSeatLayoutClass(npc: NPC): string {
+    return npc.powerBase === 'external' ? getExternalSeatLayoutClass(npc) : getCourtSeatLayoutClass(npc)
 }
 
 interface CourtTopBarProps {
@@ -270,9 +329,13 @@ export function CourtView() {
         huainanCampaign,
     } = useGameStore()
     const { openNpcDetail } = useUiStore()
+    const { isMuted } = useMediaStore()
     const [scope, setScope] = useState<CourtScope>('overview')
     const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
     const [schemeDrawerNpcId, setSchemeDrawerNpcId] = useState<string | null>(null)
+    const statementAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map())
+    const activeStatementAudioRef = useRef<HTMLAudioElement | null>(null)
+    const activeStatementAudioSourceRef = useRef<string | null>(null)
 
     const powerLabel = getPowerLabel(northPower)
     const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
@@ -368,6 +431,7 @@ export function CourtView() {
             artLabel: '边关 / 甲胄',
             metricLabel: `在场军头 ${longxiMembers.length}`,
             members: longxiMembers,
+            emblemLabel: '虎',
         },
         {
             id: 'prairie',
@@ -375,10 +439,105 @@ export function CourtView() {
             artLabel: '帐幕 / 雪原',
             metricLabel: `在场军头 ${prairieMembers.length}`,
             members: prairieMembers,
+            emblemLabel: '狼',
         },
     ]
 
     const remainingSchemes = Math.max(0, maxSchemes - schemeCount)
+    const publicStatementAudioContext = {
+        shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
+        huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
+    }
+
+    const stopPublicStatementAudio = () => {
+        const activeAudio = activeStatementAudioRef.current
+        if (activeAudio) {
+            activeAudio.pause()
+            activeAudio.currentTime = 0
+        }
+        activeStatementAudioRef.current = null
+        activeStatementAudioSourceRef.current = null
+    }
+
+    useEffect(() => {
+        if (typeof Audio === 'undefined') return
+
+        const stagedNpcs = scope === 'court'
+            ? courtNpcs
+            : scope === 'external'
+                ? externalNpcs
+                : []
+        const nextSources = new Set(
+            stagedNpcs
+                .map(npc => getNpcPublicStatementAudioPath(npc.id, currentRound, publicStatementAudioContext))
+                .filter((source): source is string => Boolean(source)),
+        )
+        const cache = statementAudioCacheRef.current
+
+        nextSources.forEach(source => {
+            if (cache.has(source)) return
+            const audio = new Audio(source)
+            audio.preload = 'auto'
+            audio.volume = 0.82
+            audio.load()
+            cache.set(source, audio)
+        })
+
+        cache.forEach((audio, source) => {
+            if (nextSources.has(source)) return
+            audio.pause()
+            cache.delete(source)
+        })
+    }, [
+        scope,
+        currentRound,
+        npcs,
+        publicStatementAudioContext.shuCampaignState,
+        publicStatementAudioContext.huainanCampaignState,
+    ])
+
+    useEffect(() => {
+        if (!isMuted) return
+        const activeAudio = activeStatementAudioRef.current
+        if (activeAudio) {
+            activeAudio.pause()
+            activeAudio.currentTime = 0
+        }
+        activeStatementAudioRef.current = null
+        activeStatementAudioSourceRef.current = null
+    }, [isMuted])
+
+    useEffect(() => () => {
+        statementAudioCacheRef.current.forEach(audio => {
+            audio.pause()
+            audio.currentTime = 0
+        })
+        statementAudioCacheRef.current.clear()
+        activeStatementAudioRef.current = null
+        activeStatementAudioSourceRef.current = null
+    }, [])
+
+    const playPublicStatementAudio = (npc: NPC) => {
+        if (isMuted || typeof Audio === 'undefined') return
+        const source = getNpcPublicStatementAudioPath(npc.id, currentRound, publicStatementAudioContext)
+        if (!source) return
+
+        let audio = statementAudioCacheRef.current.get(source)
+        if (!audio) {
+            audio = new Audio(source)
+            audio.preload = 'auto'
+            audio.volume = 0.82
+            statementAudioCacheRef.current.set(source, audio)
+        }
+
+        if (activeStatementAudioSourceRef.current === source && !audio.paused) return
+        stopPublicStatementAudio()
+
+        activeStatementAudioRef.current = audio
+        activeStatementAudioSourceRef.current = source
+        audio.currentTime = 0
+        audio.play().catch(() => undefined)
+    }
 
     const goScope = (nextScope: Exclude<CourtScope, 'overview'>) => {
         setSelectedNpcId(null)
@@ -415,7 +574,7 @@ export function CourtView() {
 
     const renderHud = (location: string, actionLabel?: string, onAction?: () => void) => (
         <CourtTopBar
-            backLabel={schemeDrawerNpcId ? '返回案卷' : scope === 'overview' && !selectedNpc ? '上一页' : '返回上一层'}
+            backLabel={schemeDrawerNpcId ? '返回案卷' : '上一页'}
             location={location}
             actionLabel={actionLabel}
             powerLabel={powerLabel}
@@ -446,8 +605,34 @@ export function CourtView() {
         </span>
     )
 
+    const renderExternalMetrics = (npc: NPC) => {
+        const metrics: Array<{ id: ExternalMetricId; label: string; value: number }> = [
+            { id: 'military', label: '军力', value: npc.militaryPower },
+            { id: 'loyalty', label: '忠诚度', value: npc.loyaltyToCourt },
+            { id: 'trust', label: '信任度', value: npc.trust },
+        ]
+
+        return (
+            <span className="external-seat-metrics" aria-label={`${npc.name}军力忠诚度信任度`}>
+                {metrics.map(metric => (
+                    <span
+                        key={metric.id}
+                        className={`external-metric-card external-metric-${metric.id}`}
+                        aria-label={`${metric.label}${getPipCount(metric.value)}档`}
+                    >
+                        <span className="external-metric-head">
+                            <span className={`external-metric-icon external-metric-icon-${metric.id}`} aria-hidden="true" />
+                            <span className="external-metric-label">{metric.label}</span>
+                        </span>
+                        <span className="external-metric-pips">{renderPips(metric.value)}</span>
+                    </span>
+                ))}
+            </span>
+        )
+    }
+
     const renderFactionStrength = (group: CourtFactionGroup) => {
-        if (!group.strengthParts || group.strengthValue === undefined) return null
+        if (group.strengthValue === undefined) return null
         const roundedStrength = Math.round(group.strengthValue)
 
         return (
@@ -458,17 +643,38 @@ export function CourtView() {
             >
                 <span className="court-strength-label">综合实力</span>
                 <strong>{roundedStrength}</strong>
-                <span className="court-strength-caret" aria-hidden="true">⌄</span>
-                <div className="court-strength-popover">
-                    {group.strengthParts.map(part => (
-                        <div key={part.label} className="court-strength-row">
-                            <span className="court-strength-icon" aria-hidden="true" />
-                            <span>{part.label}</span>
-                            {renderPips(part.value)}
-                        </div>
-                    ))}
-                </div>
+                {group.strengthParts && (
+                    <div className="court-strength-popover" role="tooltip">
+                        {group.strengthParts.map(part => (
+                            <div key={part.label} className="court-strength-row">
+                                <span className="court-strength-row-icon" aria-hidden="true" />
+                                <span className="court-strength-row-label">{getCourtStrengthPartLabel(part.label)}</span>
+                                <strong className="court-strength-row-value">{Math.round(part.value)}</strong>
+                                {renderPips(part.value)}
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
+        )
+    }
+
+    const renderNpcSeatLabel = (npc: NPC) => {
+        const titlePlaque = getNpcTitlePlaque(npc)
+        if (!titlePlaque) {
+            return (
+                <span className="court-seat-label">
+                    <span className="court-seat-name">{npc.name}</span>
+                    <span className="court-seat-title">{getDisplayedNpcTitle(npc)}</span>
+                </span>
+            )
+        }
+
+        return (
+            <span className="court-seat-label court-seat-floating-text">
+                <span className="court-seat-name court-seat-name-text">{npc.name}</span>
+                <span className="court-seat-title court-seat-title-text">{titlePlaque}</span>
+            </span>
         )
     }
 
@@ -514,12 +720,20 @@ export function CourtView() {
             shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
             huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
         })
+        const portraitVariant = npc.powerBase === 'external' ? 'externalFullbody' : 'courtFullbody'
 
         return (
             <button
                 key={npc.id}
-                className={`court-seat court-seat-index-${index} trust-${getTrustLevel(npc.trust)} ${!selectable ? 'is-disabled' : ''} ${alreadyUsed ? 'is-used' : ''} ${isAdvisorMentioned ? 'is-advisor-mentioned' : ''}`}
-                onClick={() => selectable && setSelectedNpcId(npc.id)}
+                className={`court-seat court-seat-index-${index} ${getNpcSeatLayoutClass(npc)} trust-${getTrustLevel(npc.trust)} ${!selectable ? 'is-disabled' : ''} ${alreadyUsed ? 'is-used' : ''} ${isAdvisorMentioned ? 'is-advisor-mentioned' : ''}`}
+                onMouseEnter={() => playPublicStatementAudio(npc)}
+                onMouseLeave={stopPublicStatementAudio}
+                onFocus={() => playPublicStatementAudio(npc)}
+                onBlur={stopPublicStatementAudio}
+                onClick={() => {
+                    stopPublicStatementAudio()
+                    selectable && setSelectedNpcId(npc.id)
+                }}
                 disabled={!selectable}
             >
                 <span className="court-seat-portrait-stack">
@@ -528,7 +742,7 @@ export function CourtView() {
                         className="court-seat-portrait court-seat-portrait-fullbody court-seat-portrait-dark"
                         positionY="50%"
                         zoom={1}
-                        variant="courtFullbody"
+                        variant={portraitVariant}
                     />
                     <NpcPortrait
                         name={npc.name}
@@ -536,20 +750,25 @@ export function CourtView() {
                         alt=""
                         positionY="50%"
                         zoom={1}
-                        variant="courtFullbody"
+                        variant={portraitVariant}
                     />
                 </span>
                 {isAdvisorMentioned && (
-                    <span className="court-seat-advisor-mark" aria-label="冯道之锦囊提及">
+                    <span
+                        className="court-seat-advisor-mark"
+                        aria-label="冯道之锦囊提及"
+                        title="冯道之锦囊提及"
+                    >
                         <span className="court-seat-advisor-spark" aria-hidden="true" />
-                        <span className="court-seat-advisor-tooltip" role="tooltip">冯道之锦囊提及</span>
                     </span>
                 )}
-                <span className="court-seat-label">
-                    <span className="court-seat-name">{npc.name}</span>
-                    <span className="court-seat-title">{getDisplayedNpcTitle(npc)}</span>
-                </span>
+                {renderNpcSeatLabel(npc)}
                 {showIntel && renderNpcIntel(npc)}
+                {npc.powerBase === 'external' && (
+                    <span className="external-seat-inline-metrics">
+                        {renderExternalMetrics(npc)}
+                    </span>
+                )}
                 <span className="court-seat-reaction">{reaction}</span>
             </button>
         )
@@ -559,18 +778,19 @@ export function CourtView() {
         const groups = scope === 'court' ? courtGroups : externalGroups
         const scopeTitle = scope === 'court' ? '朝堂势力' : '地方军头'
         const showCourtStageForeground = scope === 'court'
+        const showExternalStageForeground = scope === 'external'
 
         return (
             <section className={`court-game-screen court-faction-screen court-faction-screen-${scope}`}>
                 {renderSceneLayers(scope === 'court' ? 'court' : 'external')}
-                {renderHud(`朝堂总览 > ${scopeTitle}`, '返回总览', backToOverview)}
+                {renderHud(`朝堂总览 > ${scopeTitle}`)}
                 <div className="court-scroll-grid">
                     {groups.map(group => (
                         <article key={group.id} className={`court-faction-scroll court-faction-scroll-${group.id}`}>
                             <div className="court-faction-scroll-head">
                                 <div className="court-faction-heading">
                                     {group.emblemLabel && (
-                                        <span className="court-faction-emblem" aria-hidden="true">{group.emblemLabel}</span>
+                                        <span className={`court-faction-emblem court-faction-emblem-${group.id}`} aria-hidden="true" />
                                     )}
                                     <div>
                                     <h3>{group.title}</h3>
@@ -578,7 +798,7 @@ export function CourtView() {
                                     </div>
                                 </div>
                                 {renderFactionStrength(group)}
-                                {!group.strengthParts && group.artLabel && <span className="court-faction-mark">{group.artLabel}</span>}
+                                {scope !== 'external' && !group.strengthParts && group.artLabel && <span className="court-faction-mark">{group.artLabel}</span>}
                             </div>
                             <div className="court-seat-rail">
                                 {scope === 'court' ? (
@@ -587,11 +807,15 @@ export function CourtView() {
                                             {group.members.map((member, index) => renderNpcSeat(member, index, false))}
                                         </div>
                                     </>
+                                ) : scope === 'external' ? (
+                                    <div className="court-stage-actors external-stage-actors">
+                                        {group.members.map((member, index) => renderNpcSeat(member, index, false))}
+                                    </div>
                                 ) : (
                                     group.members.map((member, index) => renderNpcSeat(member, index))
                                 )}
                             </div>
-                            {!group.strengthParts && <span className="court-faction-metric">{group.metricLabel}</span>}
+                            {scope !== 'external' && !group.strengthParts && <span className="court-faction-metric">{group.metricLabel}</span>}
                         </article>
                     ))}
                 </div>
@@ -607,6 +831,25 @@ export function CourtView() {
                                             className={`court-stage-intel-slot court-stage-intel-slot-${index}`}
                                         >
                                             {renderNpcIntel(member)}
+                                        </span>
+                                    ))}
+                                </div>
+                            ))}
+                        </div>
+                    </>
+                )}
+                {showExternalStageForeground && (
+                    <>
+                        <div className="external-faction-bottom-foreground" aria-hidden="true" />
+                        <div className="external-faction-global-metric-track">
+                            {externalGroups.map(group => (
+                                <div key={`${group.id}-external-metrics`} className={`external-faction-metric-group external-faction-metric-group-${group.id}`}>
+                                    {group.members.map((member, index) => (
+                                        <span
+                                            key={`${member.id}-external-metrics`}
+                                            className={`external-stage-metric-slot external-stage-metric-slot-${index}`}
+                                        >
+                                            {renderExternalMetrics(member)}
                                         </span>
                                     ))}
                                 </div>
