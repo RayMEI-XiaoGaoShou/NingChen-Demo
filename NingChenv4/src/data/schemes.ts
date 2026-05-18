@@ -4,7 +4,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'probe',
         name: '试探',
-        description: '摸清立场、野心与暗线线索',
+        description: '摸底牌、探口风，发掘该角色的隐藏立场',
         trustThreshold: 0,
         riskLevel: 'low',
         needsSecondTarget: false,
@@ -12,7 +12,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'advise',
         name: '献策',
-        description: '顺着对方算盘给路子，换取信任',
+        description: '对其晓以利害，顺其所欲献上利他而暗损北周国本之 “良策”',
         trustThreshold: 0,
         riskLevel: 'low',
         needsSecondTarget: false,
@@ -20,7 +20,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'slander',
         name: '谗言',
-        description: '向 A 灌输对 B 的恶感',
+        description: '在 施计对象甲 心中种下对 关联人物乙 的疑心',
         trustThreshold: 30,
         riskLevel: 'medium',
         needsSecondTarget: true,
@@ -28,7 +28,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'alienate',
         name: '离间',
-        description: '主动撕开两人或两线的裂缝',
+        description: '将 施计对象甲 对 关联人物乙 的疑心扩大为实质性裂痕',
         trustThreshold: 50,
         riskLevel: 'high',
         needsSecondTarget: true,
@@ -36,7 +36,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'frame',
         name: '设局嫁祸',
-        description: '诱其失言、失态或误判，让他自己背上嫌疑',
+        description: '布一个让目标自己踩进去的陷阱，诱其失言、犯错，引来朝中其他人的攻讦',
         trustThreshold: 50,
         riskLevel: 'high',
         needsSecondTarget: false,
@@ -44,7 +44,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'proxy',
         name: '借刀',
-        description: '借贺拔琪或宗艾之手，对已同时失去皇帝恩宠与太后眷顾的朝臣正式收网',
+        description: '待关联人物的皇帝恩宠与太后眷顾低于阈值，便可以借政党领袖之手正式收网',
         trustThreshold: 70,
         riskLevel: 'extreme',
         needsSecondTarget: true,
@@ -52,7 +52,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'appeal',
         name: '求援',
-        description: '让高信任角色替你保举遮掩',
+        description: '借高信任之人出面，替你保举或遮掩',
         trustThreshold: 70,
         riskLevel: 'medium',
         needsSecondTarget: false,
@@ -60,7 +60,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'omen',
         name: '谶纬',
-        description: '借灾异与名分重塑局势',
+        description: '以灾异天象动摇名分，重塑朝堂格局',
         trustThreshold: -1,
         riskLevel: 'extreme',
         needsSecondTarget: false,
@@ -68,7 +68,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'secession',
         name: '煽动割据',
-        description: '逼外部强人明面奉朝、实则坐地自雄',
+        description: '引诱地方军头割据州郡，让中央丧失对当地的实质控制权',
         trustThreshold: 65,
         riskLevel: 'extreme',
         needsSecondTarget: false,
@@ -77,7 +77,7 @@ export const SCHEMES: Scheme[] = [
     {
         type: 'rebellion',
         name: '煽动造反',
-        description: '逼外部强人公开反旗，赌其乱局一搏',
+        description: '煽动地方军头公然举旗反叛，以乱局搏变局',
         trustThreshold: 75,
         riskLevel: 'extreme',
         needsSecondTarget: false,

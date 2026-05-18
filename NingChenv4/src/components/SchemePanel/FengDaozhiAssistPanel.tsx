@@ -1,46 +1,50 @@
 import type { FengDaozhiDraftResult, SchemeType } from '../../game/types'
-import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
+import { SCHEME_UI_ASSETS } from '../../data/mediaAssets'
 
 interface FengDaozhiAssistPanelProps {
     schemeType: SchemeType
     remaining: number
+    total: number
     isLoading: boolean
     draftPreview: FengDaozhiDraftResult | null
+    showPreview?: boolean
     onDraft: () => void
 }
 
 export function FengDaozhiAssistPanel(props: FengDaozhiAssistPanelProps) {
     const isOmen = props.schemeType === 'omen'
     const disabled = props.remaining <= 0 || props.isLoading
+    const counterText = `${props.remaining}/${props.total}`
+    const showPreview = props.showPreview ?? true
 
     return (
-        <div className="feng-assist-panel">
-            <NpcPortrait
-                name="冯道之"
-                alt="冯道之画像"
-                className="feng-assist-portrait"
-                positionY="18%"
-            />
-            <div className="feng-assist-header">
-                <div>
-                    <div className="feng-assist-title">让冯道之帮你谋划</div>
-                    <div className="feng-assist-meta">本回合剩余 {props.remaining} 次</div>
-                </div>
-                <button
-                    className="btn-utility-secondary feng-assist-button"
-                    onClick={props.onDraft}
-                    disabled={disabled}
-                >
-                    {props.isLoading ? '谋划中…' : `请他代拟（${props.remaining}）`}
-                </button>
-            </div>
+        <div className={`feng-assist-panel scheme-feng-assist ${disabled ? 'is-disabled' : ''}`}>
+            <button
+                type="button"
+                className="feng-assist-trigger"
+                onClick={props.onDraft}
+                disabled={disabled}
+                aria-label={props.isLoading ? '冯道之正在代拟' : `冯道之代拟 ${counterText}`}
+            >
+                <span className="feng-assist-mask" aria-hidden="true" />
+                <img
+                    src={SCHEME_UI_ASSETS.fengDaozhiAssistPortrait}
+                    alt="冯道之画像"
+                    className="feng-assist-portrait"
+                    draggable={false}
+                />
+                <span className="feng-assist-count">
+                    <span className="feng-assist-label-default">冯道之代拟</span>
+                    <span className="feng-assist-label-hover">{props.isLoading ? '拟稿中' : '落笔代拟'}</span>
+                    <span className="feng-assist-number">{counterText}</span>
+                </span>
+                <span className="feng-assist-hover-note">
+                    冯道之只据你眼下已知的人物、时局与暗线落笔，不会替你看见未揭开的牌。
+                </span>
+            </button>
 
-            <p className="feng-assist-tip">
-                冯道之只会依据你眼下已知的时局、人物与暗线给出一手参考，不会替你看见未揭开的牌。
-            </p>
-
-            {props.draftPreview && (
-                <div className="feng-assist-preview">
+            {showPreview && props.draftPreview && (
+                <div className="feng-assist-preview" data-source={props.draftPreview.source}>
                     <div className="feng-assist-preview-label">
                         冯道之密札
                         <span className="feng-assist-preview-source">

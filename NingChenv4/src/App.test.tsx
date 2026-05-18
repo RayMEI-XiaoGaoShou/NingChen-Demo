@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import appSource from './App.tsx?raw'
 import coverSource from './components/Cover/Cover.tsx?raw'
 import viteConfigSource from '../vite.config.ts?raw'
-import { shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
+import { getSchemePreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
 
 describe('App phase loading contract', () => {
     it('lazy-loads the narrative entry and main round pages', () => {
@@ -26,6 +26,21 @@ describe('App phase loading contract', () => {
         expect(coverSource).toContain('cover-action')
         expect(coverSource).toContain('cover-audio-control')
         expect(coverSource).toContain('cover-subtitle')
+    })
+
+    it('supports a dedicated embedded omen scheme preview URL', () => {
+        expect(getSchemePreviewRequest('?preview=scheme-omen&target=hebaqi')).toEqual({
+            targetNpcId: 'hebaqí',
+            schemeType: 'omen',
+        })
+        expect(getSchemePreviewRequest('?preview=scheme-omen&target=zongai')).toEqual({
+            targetNpcId: 'zongai',
+            schemeType: 'omen',
+        })
+        expect(getSchemePreviewRequest('?preview=other')).toBeNull()
+        expect(appSource).toContain('previewScheme={schemePreview}')
+        expect(appSource).toContain('currentRound: 13')
+        expect(appSource).toContain('first_omen_modal: true')
     })
 
     it('defines stable manual chunk groups for React and the main phase clusters', () => {

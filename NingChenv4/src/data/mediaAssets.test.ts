@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
     COURT_FACTION_UI_ASSETS,
     EXTERNAL_FACTION_UI_ASSETS,
+    SCHEME_UI_ASSETS,
+    getHebaQiDetailPortraitKey,
+    getNpcDetailAssetKey,
+    getNpcDetailAvatarPath,
+    getNpcDetailBackgroundPath,
+    getNpcDetailPortraitKey,
+    getNpcDetailPortraitPath,
+    HEBAQI_DETAIL_ASSETS,
     getNpcPortraitPath,
     getNpcPublicStatementAudioPath,
 } from './mediaAssets'
@@ -45,6 +53,10 @@ describe('mediaAssets', () => {
     it('tracks court faction UI assets used by the polished court screen', () => {
         expect(COURT_FACTION_UI_ASSETS.reactionPaper).toBe('/images/ui/court-faction/court-reaction-paper.png')
         expect(COURT_FACTION_UI_ASSETS.bottomDeskForeground).toBe('/images/ui/court-faction/court-bottom-foreground-desk-layer-v2.png')
+        expect(COURT_FACTION_UI_ASSETS.imperialJadeSealBadge).toBe('/images/ui/court-faction/imperial-jade-seal-badge.png')
+        expect(COURT_FACTION_UI_ASSETS.phoenixCrownBadge).toBe('/images/ui/court-faction/phoenix-crown-badge.png')
+        expect(COURT_FACTION_UI_ASSETS.emperorPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-emperor-dragon.png')
+        expect(COURT_FACTION_UI_ASSETS.empressPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-empress-phoenix.png')
     })
 
     it('tracks external faction UI assets used by the polished warlord screen', () => {
@@ -56,6 +68,107 @@ describe('mediaAssets', () => {
         expect(EXTERNAL_FACTION_UI_ASSETS.metricMilitaryIcon).toBe('/images/ui/external-faction/external-metric-icon-military.png')
         expect(EXTERNAL_FACTION_UI_ASSETS.metricLoyaltyIcon).toBe('/images/ui/external-faction/external-metric-icon-loyalty.png')
         expect(EXTERNAL_FACTION_UI_ASSETS.metricTrustIcon).toBe('/images/ui/external-faction/external-metric-icon-trust.png')
+    })
+
+    it('tracks scheme UI assets with stable ASCII filenames', () => {
+        expect(SCHEME_UI_ASSETS.fengDaozhiAssistPortrait).toBe('/images/npc/scheme/fengdaozhi-assist.webp')
+        expect(SCHEME_UI_ASSETS.fengDaozhiAssistPortrait).toMatch(/^[\x00-\x7F]+$/)
+    })
+
+    it('tracks selected HebaQi detail assets with stable ASCII filenames', () => {
+        expect(HEBAQI_DETAIL_ASSETS.background).toBe('/images/npc/detail/hebaqi/background.webp')
+        expect(HEBAQI_DETAIL_ASSETS.portraits.cold_guard).toBe('/images/npc/detail/hebaqi/hebaqi-cold-guard.webp')
+        expect(HEBAQI_DETAIL_ASSETS.portraits.watchful).toBe('/images/npc/detail/hebaqi/hebaqi-watchful.webp')
+        expect(HEBAQI_DETAIL_ASSETS.portraits.trusted).toBe('/images/npc/detail/hebaqi/hebaqi-trusted.webp')
+        expect(HEBAQI_DETAIL_ASSETS.portraits.relied).toBe('/images/npc/detail/hebaqi/hebaqi-relied.webp')
+        expect(HEBAQI_DETAIL_ASSETS.portraits.devoted).toBe('/images/npc/detail/hebaqi/hebaqi-devoted.webp')
+    })
+
+    it('maps all NPC ids to generic detail asset keys, including accented ids', () => {
+        const cases = [
+            ['hebaqí', 'hebaqi'],
+            ['hebaqi', 'hebaqi'],
+            ['zongai', 'zongai'],
+            ['linghuelvguang', 'linghulvguang'],
+            ['weichimù', 'yuchimu'],
+            ['weichimu', 'yuchimu'],
+            ['zuting', 'zuting'],
+            ['yuwendi', 'yuwendi'],
+            ['duguwenyue', 'duguwenyue'],
+            ['hebaboguì', 'hebabogui'],
+            ['hebabogui', 'hebabogui'],
+            ['erzhulié', 'erzhulie'],
+            ['erzhulie', 'erzhulie'],
+            ['ansiming', 'ansiming'],
+        ] as const
+
+        for (const [npcId, assetKey] of cases) {
+            expect(getNpcDetailAssetKey(npcId)).toBe(assetKey)
+        }
+        expect(getNpcDetailAssetKey('unknown')).toBeNull()
+    })
+
+    it('builds WebP detail backgrounds and attitude portraits for all interactive NPCs', () => {
+        const assetKeys = [
+            'hebaqi',
+            'zongai',
+            'linghulvguang',
+            'yuchimu',
+            'zuting',
+            'yuwendi',
+            'duguwenyue',
+            'hebabogui',
+            'erzhulie',
+            'ansiming',
+        ] as const
+
+        for (const assetKey of assetKeys) {
+            expect(getNpcDetailBackgroundPath(assetKey)).toBe(`/images/npc/detail/${assetKey}/background.webp`)
+            expect(getNpcDetailPortraitPath(assetKey, 14)).toBe(`/images/npc/detail/${assetKey}/${assetKey}-cold-guard.webp`)
+            expect(getNpcDetailPortraitPath(assetKey, 30)).toBe(`/images/npc/detail/${assetKey}/${assetKey}-watchful.webp`)
+            expect(getNpcDetailPortraitPath(assetKey, 50)).toBe(`/images/npc/detail/${assetKey}/${assetKey}-trusted.webp`)
+            expect(getNpcDetailPortraitPath(assetKey, 70)).toBe(`/images/npc/detail/${assetKey}/${assetKey}-relied.webp`)
+            expect(getNpcDetailPortraitPath(assetKey, 90)).toBe(`/images/npc/detail/${assetKey}/${assetKey}-devoted.webp`)
+        }
+        expect(getNpcDetailBackgroundPath('unknown')).toBeNull()
+        expect(getNpcDetailPortraitPath('unknown', 50)).toBeNull()
+    })
+
+    it('builds ASCII WebP detail avatar paths for all interactive NPCs', () => {
+        const assetKeys = [
+            'hebaqi',
+            'zongai',
+            'linghulvguang',
+            'yuchimu',
+            'zuting',
+            'yuwendi',
+            'duguwenyue',
+            'hebabogui',
+            'erzhulie',
+            'ansiming',
+        ] as const
+
+        for (const assetKey of assetKeys) {
+            const avatarPath = getNpcDetailAvatarPath(assetKey)
+
+            expect(avatarPath).toBe(`/images/npc/detail-avatars/${assetKey}.webp`)
+            expect(avatarPath).toMatch(/^[\x00-\x7F]+$/)
+        }
+        expect(getNpcDetailAvatarPath('unknown')).toBeNull()
+    })
+
+    it('maps detail trust values to five attitude portraits across trust-level boundaries', () => {
+        expect(getNpcDetailPortraitKey(14)).toBe('cold_guard')
+        expect(getNpcDetailPortraitKey(15)).toBe('cold_guard')
+        expect(getNpcDetailPortraitKey(29)).toBe('cold_guard')
+        expect(getNpcDetailPortraitKey(30)).toBe('watchful')
+        expect(getNpcDetailPortraitKey(49)).toBe('watchful')
+        expect(getNpcDetailPortraitKey(50)).toBe('trusted')
+        expect(getNpcDetailPortraitKey(69)).toBe('trusted')
+        expect(getNpcDetailPortraitKey(70)).toBe('relied')
+        expect(getNpcDetailPortraitKey(89)).toBe('relied')
+        expect(getNpcDetailPortraitKey(90)).toBe('devoted')
+        expect(getHebaQiDetailPortraitKey(90)).toBe(getNpcDetailPortraitKey(90))
     })
 
     it('builds current-round public statement audio paths for normal and branch rounds', () => {

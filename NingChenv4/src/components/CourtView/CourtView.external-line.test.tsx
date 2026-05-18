@@ -7,7 +7,11 @@ import courtViewSource from './CourtView.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
 
-const courtViewCss = readFileSync(new URL('./CourtView.css', import.meta.url), 'utf-8')
+const courtViewCss = readFileSync(new URL('./CourtView.css', import.meta.url), 'utf-8').replace(/\r\n/g, '\n')
+const artBackedDetailSource = courtViewSource.slice(
+    courtViewSource.indexOf('const renderArtBackedNpcDetail'),
+    courtViewSource.indexOf('const renderNpcDetail'),
+)
 
 function renderCourtViewMarkup() {
     return renderToStaticMarkup(<CourtView />)
@@ -75,7 +79,7 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain("type CourtScope = 'overview' | 'court' | 'external'")
         expect(courtViewSource).toContain('court-gate-grid')
         expect(courtViewSource).toContain('court-scroll-grid')
-        expect(courtViewSource).toContain('court-dossier')
+        expect(courtViewSource).toContain('court-character-detail-screen')
         expect(courtViewSource).toContain('SchemeComposer')
         expect(courtViewSource).toContain('setSchemeDrawerNpcId(npc.id)')
         expect(courtViewSource).not.toContain('prepareSchemeFromNpc(npc.id)')
@@ -88,6 +92,176 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('getExternalMilitaryPostureLabel')
         expect(courtViewSource).toContain('buildExternalWhisper')
         expect(courtViewSource).toContain('getNpcRoundReaction')
+    })
+
+    it('routes all interactive NPCs through a generic art-backed detail layout', () => {
+        expect(courtViewSource).toContain('renderArtBackedNpcDetail')
+        expect(courtViewSource).toContain('getNpcDetailBackgroundPath(npc.id)')
+        expect(courtViewSource).toContain('getNpcDetailPortraitPath(npc.id, npc.trust)')
+        expect(courtViewSource).toContain('court-character-detail-screen')
+        expect(courtViewSource).toContain('court-character-scene-art')
+        expect(courtViewSource).toContain('court-character-portrait')
+        expect(courtViewSource).toContain('COURT_FACTION_UI_ASSETS.imperialJadeSealBadge')
+        expect(courtViewSource).toContain('COURT_FACTION_UI_ASSETS.phoenixCrownBadge')
+        expect(courtViewSource).toContain('COURT_FACTION_UI_ASSETS.emperorPartyEmblem')
+        expect(courtViewSource).toContain('COURT_FACTION_UI_ASSETS.empressPartyEmblem')
+        expect(courtViewSource).toContain('EXTERNAL_FACTION_UI_ASSETS.tigerEmblem')
+        expect(courtViewSource).toContain('EXTERNAL_FACTION_UI_ASSETS.wolfEmblem')
+        expect(artBackedDetailSource).toContain('getFengDaozhiAdvisorNote(npc.id)')
+        expect(artBackedDetailSource).toContain('court-hebaqi-glass-filter')
+        expect(artBackedDetailSource).toContain('court-hebaqi-glass-warp')
+        expect(artBackedDetailSource).toContain('court-hebaqi-glass-edge')
+        expect(artBackedDetailSource).toContain('court-hebaqi-glass-specular')
+        expect(artBackedDetailSource).toContain('handleHebaQiGlassPointerMove')
+        expect(courtViewSource).toContain('court-hebaqi-intel-count')
+        expect(courtViewSource).toContain('{knownThreads.length}/2')
+        expect(courtViewSource).toContain('court-hebaqi-scheme-button')
+        expect(courtViewSource).toContain('enterSchemeWithNpc(npc)')
+        expect(courtViewSource).not.toContain('return renderHebaQiDetail')
+    })
+
+    it('keeps the generic relation strips informational instead of navigational', () => {
+        expect(artBackedDetailSource).not.toContain('完整档案')
+        expect(artBackedDetailSource).not.toContain('返回势力')
+        expect(artBackedDetailSource).not.toContain('返回地方')
+        expect(artBackedDetailSource).not.toContain('本回合公开表态')
+        expect(artBackedDetailSource).toContain('<h4>公开表态</h4>')
+        expect(artBackedDetailSource).not.toContain('npc.publicPersona')
+        expect(artBackedDetailSource).not.toContain('npc.publicStance')
+        expect(artBackedDetailSource).not.toContain('openNpcDetail(npc.id)')
+        expect(artBackedDetailSource).not.toContain('onClick={() => setSelectedNpcId(member.id)}')
+        expect(artBackedDetailSource).not.toContain('renderPips(npc.trust)')
+        expect(courtViewSource).toContain('renderCourtLeaderRelationStrip')
+        expect(courtViewSource).toContain('renderCourtMetricRelationStrip')
+        expect(courtViewSource).toContain('renderExternalMetricRelationStrip')
+        expect(courtViewSource).toContain('court-hebaqi-peer-tip')
+        expect(courtViewSource).toContain('court-hebaqi-trust-value')
+        expect(courtViewSource).toContain('{npc.trust}')
+    })
+
+    it('keeps faction badges as a single floating panel emblem instead of a fourth metric', () => {
+        expect(courtViewSource).not.toContain('renderDetailPartyNode')
+        expect(courtViewSource).not.toContain('court-character-party-node')
+        expect(courtViewSource).not.toContain('court-character-party-badge')
+        expect(artBackedDetailSource).toContain('court-character-party-emblem court-hebaqi-party-emblem')
+        expect(courtViewCss).not.toContain('.court-character-party-node')
+        expect(courtViewCss).not.toContain('.court-character-party-badge')
+    })
+
+    it('uses dedicated WebP round avatars in leader relation strips', () => {
+        const leaderStripSource = courtViewSource.slice(
+            courtViewSource.indexOf('const renderCourtLeaderRelationStrip'),
+            courtViewSource.indexOf('const renderCourtMetricRelationStrip'),
+        )
+
+        expect(courtViewSource).toContain('getNpcDetailAvatarPath')
+        expect(leaderStripSource).toContain('getNpcDetailAvatarPath(member.id)')
+        expect(leaderStripSource).toContain('court-hebaqi-peer-portrait')
+        expect(leaderStripSource).not.toContain('<NpcPortrait')
+    })
+
+    it('keeps leader peer portraits clipped inside compact left-grouped frames', () => {
+        expect(courtViewCss).toContain('grid-template-columns: repeat(4, 72px);')
+        expect(courtViewCss).toContain('justify-content: start;')
+        expect(courtViewCss).toContain('transform: translateX(clamp(-32px, -2.4vw, -16px));')
+        expect(courtViewCss).toContain('left: 50%;')
+        expect(courtViewCss).toContain('transform: translateX(-50%);')
+        expect(courtViewCss).toContain('overflow: hidden;')
+        expect(courtViewCss).toContain('display: block;')
+    })
+
+    it('adds leader role badges to the art-backed title kicker', () => {
+        expect(artBackedDetailSource).toContain('displayedTitleWithRole')
+        expect(artBackedDetailSource).toContain('【代言皇帝】')
+        expect(artBackedDetailSource).toContain('【后党魁首】')
+    })
+
+    it('keeps the art-backed dossier title header visible while composing schemes', () => {
+        const composerHeaderRule = courtViewCss.match(/\.court-hebaqi-panel-composer \.court-hebaqi-panel-head \{[^}]+\}/)?.[0] ?? ''
+
+        expect(composerHeaderRule).not.toContain('display: none;')
+        expect(composerHeaderRule).toContain('display: flex;')
+        expect(courtViewCss).toContain('.court-hebaqi-panel-composer .court-hebaqi-composer-shell::before')
+    })
+
+    it('uses Arial-scoped number spans for detail metrics and intel counts', () => {
+        expect(courtViewSource).toContain('court-character-number')
+        expect(courtViewSource).toContain('court-hebaqi-intel-count court-character-number')
+        expect(courtViewSource).toContain('court-hebaqi-trust-value court-character-number')
+        expect(courtViewSource).toContain('valueClassName="court-character-number"')
+        expect(courtViewCss).toContain('.court-character-detail-screen .court-character-number')
+        expect(courtViewCss).toContain('font-family: Arial, Helvetica, sans-serif;')
+    })
+
+    it('styles the art-backed detail screen as a full-scene translucent dossier surface', () => {
+        expect(courtViewCss).toContain('.court-character-detail-screen')
+        expect(courtViewCss).toContain('.court-character-scene-art')
+        expect(courtViewCss).toContain('background-image: var(--npc-detail-background)')
+        expect(courtViewCss).toContain('.court-character-portrait')
+        expect(courtViewCss).toContain('.court-character-panel')
+        expect(courtViewCss).toContain('.court-hebaqi-detail-screen')
+        expect(courtViewCss).toContain('backdrop-filter')
+        expect(courtViewCss).toContain('.court-hebaqi-relation-strip')
+        expect(courtViewCss).toContain('.court-hebaqi-intel-count')
+        expect(courtViewCss).toContain('.court-hebaqi-panel::before')
+        expect(courtViewCss).toContain('.court-hebaqi-panel::after')
+        expect(courtViewCss).toContain('.court-hebaqi-party-emblem')
+        expect(courtViewCss).toContain('filter: url(#court-hebaqi-panel-liquid-filter)')
+        expect(courtViewCss).toContain('filter: url(#court-hebaqi-panel-edge-filter)')
+        expect(courtViewCss).toContain('.court-hebaqi-peer-tip')
+        expect(courtViewCss).toContain('.court-hebaqi-trust-value')
+        expect(courtViewCss).toContain('.court-hebaqi-scheme-button')
+        expect(courtViewCss).not.toContain('.court-hebaqi-detail-screen .court-top-bar')
+        expect(courtViewCss).toContain('@media (max-width: 820px)')
+    })
+
+    it('treats the generic panel as borderless liquid glass with green and red favor halos', () => {
+        const characterDetailScreenRule = courtViewCss.match(/\.court-character-detail-screen \{[^}]+\}/)?.[0] ?? ''
+        const hebaQiPanelRule = courtViewCss.match(/\.court-hebaqi-panel \{[^}]+\}/)?.[0] ?? ''
+        const hebaQiContentLayerRule = courtViewCss.match(/\.court-hebaqi-panel > :not\([^{]+\{[^}]+\}/)?.[0] ?? ''
+        const hebaQiPartyEmblemRule = courtViewCss.match(/\.court-hebaqi-party-emblem \{[^}]+\}/)?.[0] ?? ''
+
+        expect(characterDetailScreenRule).toContain('--font-heading: KaiTi')
+        expect(hebaQiPanelRule).toContain('border: 0;')
+        expect(hebaQiPanelRule).toContain('right: var(--court-safe-x);')
+        expect(hebaQiPanelRule).toContain('backdrop-filter: blur(36px)')
+        expect(hebaQiPanelRule).toContain('overflow: hidden')
+        expect(hebaQiPanelRule).toContain('overflow-x: hidden')
+        expect(hebaQiContentLayerRule).toContain(':not(.court-hebaqi-party-emblem)')
+        expect(hebaQiContentLayerRule).toContain('z-index: 2;')
+        expect(hebaQiPartyEmblemRule).toContain('position: absolute;')
+        expect(hebaQiPartyEmblemRule).toContain('z-index: 4;')
+        expect(hebaQiPartyEmblemRule).toContain('width: clamp(74px, 6vw, 112px);')
+        expect(hebaQiPartyEmblemRule).toContain('aspect-ratio: 0.93;')
+        expect(hebaQiPartyEmblemRule).toContain('pointer-events: none;')
+        expect(hebaQiPartyEmblemRule).toContain('mix-blend-mode: normal;')
+        expect(courtViewCss).toContain('.court-hebaqi-relation-strip::before')
+        expect(courtViewCss).toContain('right: clamp(124px, 10vw, 168px);')
+        expect(courtViewCss).toContain('.court-character-relation-strip-metrics')
+        expect(courtViewCss).toContain('grid-template-columns: repeat(3, minmax(132px, 1fr));')
+        expect(courtViewSource).toContain("if (value >= 70) return 'is-favored'")
+        expect(courtViewSource).toContain("if (value >= 50) return 'is-neutral'")
+        expect(courtViewCss).toContain('.court-hebaqi-peer.is-favored::before')
+        expect(courtViewCss).toContain('rgba(110, 232, 154')
+        expect(courtViewCss).toContain('.court-hebaqi-peer.is-neutral::before')
+        expect(courtViewCss).toContain('.court-hebaqi-peer.is-distant::before')
+        expect(courtViewCss).toContain('rgba(235, 82, 72')
+    })
+
+    it('adds a dedicated liquid-glass warp stack with pointer-driven highlights', () => {
+        expect(artBackedDetailSource).toContain('onPointerMove={handleHebaQiGlassPointerMove}')
+        expect(artBackedDetailSource).toContain('onPointerLeave={handleHebaQiGlassPointerLeave}')
+        expect(courtViewSource).toContain("'--hebaqi-glass-x'")
+        expect(courtViewSource).toContain("'--hebaqi-glass-y'")
+        expect(courtViewCss).toContain('.court-hebaqi-glass-warp')
+        expect(courtViewCss).toContain('.court-hebaqi-glass-edge')
+        expect(courtViewCss).toContain('.court-hebaqi-glass-specular')
+        expect(courtViewCss).toContain('mask-image')
+        expect(courtViewCss).toContain('mix-blend-mode: color-dodge')
+        expect(artBackedDetailSource).toContain('rgbRed')
+        expect(artBackedDetailSource).toContain('rgbBlue')
+        expect(courtViewCss).toContain('var(--hebaqi-glass-x)')
+        expect(courtViewCss).toContain('var(--hebaqi-glass-y)')
     })
 
     it('uses selected art-backed court faction chrome with restored strength details and floating text labels', () => {
@@ -166,17 +340,46 @@ describe('CourtView layered game-screen flow', () => {
     })
 
     it('keeps the court faction HUD quiet, aligned, and set in KaiTi', () => {
-        expect(courtViewSource).toContain("backLabel={schemeDrawerNpcId ? '返回案卷' : '上一页'}")
+        const hudStateRule = courtViewCss.match(/\.court-screen-hud-state \{[^}]+\}/)?.[0] ?? ''
+        const breadcrumbActionRule = courtViewCss.match(/\.court-hud-breadcrumb-action \{[^}]+\}/)?.[0] ?? ''
+
+        expect(courtViewSource).toContain('backLabel="上一页"')
+        expect(courtViewSource).not.toContain('backLabel={schemeDrawerNpcId ?')
+        expect(courtViewSource).toContain('if (schemeDrawerNpcId) {')
+        expect(courtViewSource).toContain('setSchemeDrawerNpcId(null)')
+        expect(courtViewSource).toContain('breadcrumbActionLabel?: string')
+        expect(courtViewSource).toContain('court-hud-breadcrumb-action')
+        expect(courtViewSource).toContain('previewScheme?: CourtPreviewScheme')
+        expect(courtViewSource).toContain('initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}')
+        expect(courtViewSource).toContain('isComposing ? \'更换目标\' : undefined')
         expect(courtViewSource).toContain('renderHud(`朝堂总览 > ${scopeTitle}`)')
         expect(courtViewSource).not.toContain('返回上一层')
         expect(courtViewSource).not.toContain('返回总览')
         expect(courtViewCss).toContain('font-family: KaiTi, STKaiti, SimKai')
+        expect(breadcrumbActionRule).toContain('color: var(--color-accent-gold);')
+        expect(hudStateRule).toContain('position: absolute;')
+        expect(hudStateRule).toContain('left: 50%;')
+        expect(hudStateRule).toContain('transform: translate(-50%, -50%);')
+        expect(hudStateRule).toContain('width: max-content;')
         expect(courtViewCss).toContain('.court-top-bar::before')
         expect(courtViewCss).toContain('content: none')
         expect(courtViewCss).toContain('.court-faction-screen-court .court-top-bar')
         expect(courtViewCss).toContain('left: 38px')
         expect(courtViewCss).toContain('right: 38px')
         expect(courtViewCss).toContain('top: clamp(-76px, -4.4vw, -58px)')
+    })
+
+    it('raises the mobile embedded composer enough to keep its footer reachable', () => {
+        expect(courtViewCss).toContain('.court-hebaqi-detail-composing.court-game-screen {\n        overflow-y: auto;')
+        expect(courtViewCss).toContain('.court-hebaqi-detail-composing .court-hebaqi-panel-composer {\n        margin-top: 4vh;')
+        expect(courtViewCss).not.toContain('.court-hebaqi-panel-composer .court-hebaqi-party-emblem {\n    top: clamp(92px, 7vw, 104px);')
+        expect(courtViewCss).not.toContain('.court-hebaqi-detail-composing .court-hebaqi-panel-composer .court-hebaqi-party-emblem {\n        top: 62px;')
+        expect(courtViewCss).not.toContain('.court-hebaqi-panel-composer .scheme-header-embedded')
+    })
+
+    it('keeps long art-backed dossier notes from pushing the scheme entry below the panel', () => {
+        expect(courtViewCss).toContain('.court-hebaqi-panel:not(.court-hebaqi-panel-composer) .court-hebaqi-info-grid {\n    flex: 1 1 auto;')
+        expect(courtViewCss).toContain('.court-hebaqi-panel:not(.court-hebaqi-panel-composer) .court-hebaqi-note,\n.court-hebaqi-panel:not(.court-hebaqi-panel-composer) .court-hebaqi-intel {\n    min-height: 0;')
     })
 
     it('aligns the overview HUD and brightens the overview background to match the round home line art', () => {

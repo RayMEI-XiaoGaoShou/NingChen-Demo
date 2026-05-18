@@ -4,7 +4,7 @@
 // AI 在后台异步生成 NPC 反馈
 // ========================================
 
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import {
     EXTERNAL_LINE_TEACHING_CONTENT,
@@ -14,6 +14,7 @@ import {
 import { SCHEMES, getSchemeByType } from '../../data/schemes'
 import { getOmenGuidePresentation } from '../../game/omenGuide'
 import { buildOmenTargetHint } from '../../game/omenTargetHint'
+import { getDifficultyProfile } from '../../game/difficulty'
 import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getTrustLabel, getTrustLevel } from '../../game/types'
 import { fallbackNorthParseFromSpeech, parseNorthSchemeInput } from '../../game/aiNativeEngine'
@@ -45,6 +46,7 @@ import { OmenTeachingModal } from './OmenTeachingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { getNpcDetailAvatarPath } from '../../data/mediaAssets'
 import type { FengDaozhiDraftResult, GameDifficulty, NPC, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
 
@@ -87,8 +89,36 @@ function isCourtDispositionTarget(npc: NPC): boolean {
     return isCourtDispositionTargetId(npc.id)
 }
 
+function shouldShowEmbeddedScheme(scheme: (typeof SCHEMES)[number], npc: NPC): boolean {
+    if (npc.powerBase === 'external') {
+        return scheme.type !== 'proxy' && scheme.type !== 'appeal'
+    }
+
+    if (scheme.targetScope === 'externalOnly') return false
+    if (scheme.type === 'proxy') return isCourtDispositionExecutor(npc)
+
+    return true
+}
+
+function renderEmbeddedSectionLabel(step: '壹' | '贰', label: string, trailing?: ReactNode) {
+    return (
+        <div className="scheme-section-label">
+            <span className="scheme-section-step-badge">{step}</span>
+            <span className="scheme-section-label-text">{label}</span>
+            {trailing ? <span className="scheme-section-label-trailing">{trailing}</span> : null}
+        </div>
+    )
+}
+
 function getCourtStatus(npc: NPC): CourtStatus {
     return (npc as CourtDispositionNpc).courtStatus ?? 'active'
+}
+
+function getEmbeddedTargetTitle(npc: NPC | null | undefined): string {
+    if (!npc) return '官职'
+    if (npc.id === 'zongai') return `${npc.title}【代言皇帝】`
+    if (npc.id === 'hebaqi' || npc.id === 'hebaqí') return `${npc.title}【后党魁首】`
+    return npc.title
 }
 
 function getCourtDispositionOpportunity(npc: NPC) {
@@ -286,6 +316,7 @@ export function getSchemeUnlockHint(params: {
 export interface SchemeComposerProps {
     mode?: 'standalone' | 'embedded'
     lockedNpcId?: string | null
+    initialSchemeType?: SchemeType | null
     onChangeTarget?: () => void
     onAfterSubmit?: () => void
 }
@@ -293,12 +324,14 @@ export interface SchemeComposerProps {
 export function useSchemeComposer({
     mode = 'standalone',
     lockedNpcId = null,
+    initialSchemeType = null,
     onChangeTarget,
     onAfterSubmit,
 }: SchemeComposerProps = {}) {
     return {
         mode,
         lockedNpcId,
+        initialSchemeType,
         onChangeTarget,
         onAfterSubmit,
         isEmbedded: mode === 'embedded',
@@ -307,7 +340,7 @@ export function useSchemeComposer({
 
 export function SchemeComposer(props: SchemeComposerProps = {}) {
     const composer = useSchemeComposer(props)
-    const { isEmbedded, lockedNpcId, onChangeTarget, onAfterSubmit } = composer
+    const { isEmbedded, lockedNpcId, initialSchemeType, onAfterSubmit } = composer
     const {
         currentRound,
         difficulty,
@@ -343,8 +376,9 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
     } = useGameStore()
     const [selectedNpcId, setSelectedNpcId] = useState<string | null>(lockedNpcId ?? null)
     const [targetLockedFromCourt, setTargetLockedFromCourt] = useState(Boolean(lockedNpcId))
-    const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(null)
+    const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(initialSchemeType ?? null)
     const [relatedNpcId, setRelatedNpcId] = useState<string | null>(null)
+    const [relatedPickerOpen, setRelatedPickerOpen] = useState(Boolean(initialSchemeType && getSchemeByType(initialSchemeType)?.needsSecondTarget))
     const [speech, setSpeech] = useState('')
     const [omenText, setOmenText] = useState('')
     const [interpretationText, setInterpretationText] = useState('')
@@ -352,6 +386,18 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
     const [showSchemeGuide, setShowSchemeGuide] = useState(false)
     const [fengDraftPreview, setFengDraftPreview] = useState<FengDaozhiDraftResult | null>(null)
     const [fengDraftLoading, setFengDraftLoading] = useState(false)
+
+    useEffect(() => {
+        if (!initialSchemeType) return
+
+        setSelectedScheme(initialSchemeType)
+        setRelatedNpcId(null)
+        setRelatedPickerOpen(Boolean(getSchemeByType(initialSchemeType)?.needsSecondTarget))
+        setSpeech('')
+        setOmenText('')
+        setInterpretationText('')
+        setFengDraftPreview(null)
+    }, [initialSchemeType, lockedNpcId])
 
     const selectedNpc = npcs.find(n => n.id === selectedNpcId)
     const relatedNpc = npcs.find(n => n.id === relatedNpcId) ?? null
@@ -365,6 +411,10 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
         })
         : []
     const currentSchemeData = selectedScheme ? getSchemeByType(selectedScheme) : undefined
+    const needsRelatedTarget = Boolean(currentSchemeData?.needsSecondTarget)
+    const speechReady = Boolean(selectedScheme && (!needsRelatedTarget || (relatedNpcId && !relatedPickerOpen)))
+    const isRelatedSelectionPending = Boolean(selectedScheme && needsRelatedTarget && (!relatedNpcId || relatedPickerOpen))
+    const isReopeningRelated = Boolean(selectedScheme && needsRelatedTarget && relatedNpcId && relatedPickerOpen)
     const currentRoundEvent = getRoundCampaignEventContext(currentRound, shuCampaign, huainanCampaign)
     const omenGuidePresentation = getOmenGuidePresentation({
         round: currentRound,
@@ -404,15 +454,16 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
 
         if (entryNpc && canUseEntryNpc) {
             setSelectedNpcId(entryNpc.id)
-            setSelectedScheme(null)
+            setSelectedScheme(initialSchemeType ?? null)
             setRelatedNpcId(null)
+            setRelatedPickerOpen(Boolean(initialSchemeType && getSchemeByType(initialSchemeType)?.needsSecondTarget))
             setSpeech('')
             setOmenText('')
             setInterpretationText('')
             setFengDraftPreview(null)
             setTargetLockedFromCourt(true)
         }
-    }, [isEmbedded, lockedNpcId, npcs, usedNpcIds])
+    }, [isEmbedded, lockedNpcId, initialSchemeType, npcs, usedNpcIds])
     const speechFields = getSchemeSpeechFields(selectedScheme)
     const omenTargetHint =
         selectedScheme === 'omen' && selectedNpc
@@ -438,6 +489,8 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             round: currentRound,
         })
     }, [currentRound, difficulty, selectedNpc, selectedScheme, selectedUnlockedSecrets])
+    const fengAssistTotal = getDifficultyProfile(difficulty).onboarding.fengDaozhiAssistsPerRound
+    const selectedSchemeDescription = currentSchemeData?.description ?? ''
     const selectedRoleHint = selectedNpc
         ? buildSchemeRoleHint({
             schemeType: selectedScheme,
@@ -663,6 +716,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             setSelectedNpcId(null)
             setSelectedScheme(null)
             setRelatedNpcId(null)
+            setRelatedPickerOpen(false)
             setSpeech('')
             setOmenText('')
             setInterpretationText('')
@@ -676,6 +730,224 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             }
         }, 800)
     }
+
+    const renderEmbeddedSchemeOptions = () => (
+        <div className="scheme-select-grid scheme-vertical-grid">
+            {selectedNpc && SCHEMES.map(scheme => {
+                if (!shouldShowEmbeddedScheme(scheme, selectedNpc)) return null
+                const available = scheme.type === 'proxy'
+                    ? availableSchemeTypes.includes(scheme.type) && isCourtDispositionExecutor(selectedNpc)
+                    : availableSchemeTypes.includes(scheme.type)
+                const unlockHint = available
+                    ? undefined
+                    : getSchemeUnlockHint({
+                        schemeType: scheme.type,
+                        npc: selectedNpc,
+                        round: currentRound,
+                        unlockedSecrets: intelProgress[selectedNpc.id] ?? 0,
+                        difficulty,
+                    })
+
+                return (
+                    <div
+                        key={scheme.type}
+                        className={`scheme-btn-shell scheme-vertical-shell ${!available ? 'locked' : ''}`}
+                        title={unlockHint}
+                        aria-label={unlockHint}
+                    >
+                        <button
+                            className={`scheme-btn scheme-vertical-btn ${selectedScheme === scheme.type ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                            data-scheme-type={scheme.type}
+                            disabled={!available}
+                            onClick={() => {
+                                setSelectedScheme(scheme.type)
+                                setRelatedNpcId(null)
+                                setRelatedPickerOpen(scheme.needsSecondTarget)
+                                setSpeech('')
+                                setOmenText('')
+                                setInterpretationText('')
+                                setFengDraftPreview(null)
+                            }}
+                        >
+                            <span className="scheme-vertical-name">{scheme.name}</span>
+                            {!available && <span className="scheme-lock">未解锁</span>}
+                        </button>
+                    </div>
+                )
+            })}
+        </div>
+    )
+
+    const renderEmbeddedRelatedSelector = () => {
+        if (!needsRelatedTarget) return null
+
+        if (relatedNpc && !relatedPickerOpen) {
+            const avatarPath = getNpcDetailAvatarPath(relatedNpc.id)
+            return (
+                <div className="scheme-related-inline scheme-related-inline-collapsed">
+                    <button
+                        type="button"
+                        className="scheme-related-switch"
+                        onClick={() => {
+                            setRelatedPickerOpen(true)
+                            setFengDraftPreview(null)
+                        }}
+                    >
+                        切换关联人物
+                    </button>
+                    <span className="scheme-related-current" aria-label={`当前关联人物：${relatedNpc.name}`}>
+                        <span className="scheme-related-current-frame" aria-hidden="true">
+                            {avatarPath ? (
+                                <img src={avatarPath} alt="" className="scheme-related-current-img" />
+                            ) : (
+                                <span className="scheme-related-current-fallback">{relatedNpc.name.slice(0, 1)}</span>
+                            )}
+                        </span>
+                        <span className="scheme-related-current-name">{relatedNpc.name}</span>
+                    </span>
+                </div>
+            )
+        }
+
+        return (
+            <div className="scheme-related-inline">
+                <span className="scheme-related-title">关联人物</span>
+                <div className="scheme-related-inline-list">
+                    {relatedNpcCandidates.map(npc => {
+                        const avatarPath = getNpcDetailAvatarPath(npc.id)
+                        return (
+                            <button
+                                key={npc.id}
+                                className={`scheme-related-avatar ${relatedNpcId === npc.id ? 'selected' : ''}`}
+                                onClick={() => {
+                                    setRelatedNpcId(npc.id)
+                                    setRelatedPickerOpen(false)
+                                    setFengDraftPreview(null)
+                                }}
+                                title={`${npc.name} · ${npc.title}`}
+                            >
+                                <span className="scheme-related-avatar-frame" aria-hidden="true">
+                                    {avatarPath ? (
+                                        <img src={avatarPath} alt="" className="scheme-related-avatar-img" />
+                                    ) : (
+                                        <span className="scheme-related-avatar-fallback">{npc.name.slice(0, 1)}</span>
+                                    )}
+                                </span>
+                                <span className="scheme-related-avatar-name">{npc.name}</span>
+                            </button>
+                        )
+                    })}
+                </div>
+                {selectedScheme === 'proxy' && relatedNpcCandidates.length === 0 && (
+                    <p className="scheme-related-empty">
+                        眼下没有仍在位、且可被罢黜或处决的朝臣目标。
+                    </p>
+                )}
+            </div>
+        )
+    }
+
+    const embeddedSpeechCount = selectedScheme === 'omen'
+        ? null
+        : `${speech.length}/100`
+
+    const renderEmbeddedSpeechSupplement = () => (
+        <section className={`scheme-speech-supplement ${speechReady ? 'is-ready' : 'is-empty'} ${isRelatedSelectionPending ? 'is-waiting-related' : ''} ${isReopeningRelated ? 'is-reopening-related' : ''}`}>
+            {renderEmbeddedSectionLabel('贰', '说辞', speechReady && embeddedSpeechCount ? <span className="scheme-speech-label-count">{embeddedSpeechCount}</span> : null)}
+            {speechReady ? (
+                <div className="speech-input-wrapper scheme-embedded-speech-wrapper">
+                    {speechFields.mode === 'omen' ? (
+                        <div className="scheme-embedded-speech-field scheme-embedded-omen-field">
+                            <div className="omen-inputs scheme-embedded-omen-inputs">
+                                <label className="omen-input-group">
+                                    <span className="scheme-embedded-omen-label-row">
+                                        <span className="omen-input-label">{speechFields.primaryLabel}</span>
+                                        <span className="scheme-embedded-omen-count">{omenText.length}/60</span>
+                                    </span>
+                                    <textarea
+                                        className="speech-input omen-speech-input scheme-embedded-speech-input"
+                                        value={omenText}
+                                        onChange={e => setOmenText(e.target.value)}
+                                        placeholder="先写一句谶辞、征兆或灾异异象……"
+                                        maxLength={60}
+                                    />
+                                </label>
+                                <label className="omen-input-group">
+                                    <span className="scheme-embedded-omen-label-row">
+                                        <span className="omen-input-label">{speechFields.secondaryLabel}</span>
+                                        <span className="scheme-embedded-omen-count">{interpretationText.length}/100</span>
+                                    </span>
+                                    <textarea
+                                        className="speech-input omen-speech-input scheme-embedded-speech-input"
+                                        value={interpretationText}
+                                        onChange={e => setInterpretationText(e.target.value)}
+                                        placeholder="再解释它意味着什么，以及谁最该警惕……"
+                                        maxLength={100}
+                                    />
+                                </label>
+                            </div>
+                            {selectedNpc && (
+                                <FengDaozhiAssistPanel
+                                    schemeType={selectedScheme!}
+                                    remaining={fengDaozhiAssistsRemaining}
+                                    total={fengAssistTotal}
+                                    isLoading={fengDraftLoading}
+                                    draftPreview={fengDraftPreview}
+                                    showPreview={false}
+                                    onDraft={handleFengDaozhiDraft}
+                                />
+                            )}
+                        </div>
+                    ) : (
+                        <div className="scheme-embedded-speech-field">
+                            <textarea
+                                className="speech-input scheme-embedded-speech-input"
+                                value={speech}
+                                onChange={e => setSpeech(e.target.value)}
+                                placeholder="写一句话作为你的说辞（选填）……"
+                                maxLength={100}
+                            />
+                            {selectedNpc && (
+                                <FengDaozhiAssistPanel
+                                    schemeType={selectedScheme!}
+                                    remaining={fengDaozhiAssistsRemaining}
+                                    total={fengAssistTotal}
+                                    isLoading={fengDraftLoading}
+                                    draftPreview={fengDraftPreview}
+                                    showPreview={false}
+                                    onDraft={handleFengDaozhiDraft}
+                                />
+                            )}
+                        </div>
+                    )}
+                </div>
+            ) : selectedScheme && needsRelatedTarget ? (
+                null
+            ) : (
+                <div className="scheme-speech-empty-hint">
+                    先选一枚计牌，再补一句能落到此人心坎上的说辞。
+                </div>
+            )}
+        </section>
+    )
+
+    const embeddedChoiceClassName = `scheme-embedded-choice-area ${isRelatedSelectionPending ? 'is-picking-related' : ''}`
+
+    const renderEmbeddedWorkbench = () => (
+        <div className={`scheme-embedded-board ${isRelatedSelectionPending ? 'is-waiting-related' : ''}`}>
+            <section className={embeddedChoiceClassName}>
+                {renderEmbeddedSectionLabel('壹', '选择计谋')}
+                {renderEmbeddedSchemeOptions()}
+                {selectedSchemeDescription ? (
+                    <div className="scheme-description-panel">
+                        {selectedSchemeDescription}
+                    </div>
+                ) : null}
+                {renderEmbeddedRelatedSelector()}
+            </section>
+            {renderEmbeddedSpeechSupplement()}
+        </div>
+    )
 
     return (
         <div className={isEmbedded ? 'scheme-composer scheme-composer-embedded' : 'page-container scheme-panel page-enter'}>
@@ -727,15 +999,21 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             )}
 
             <div className={`scheme-modal ${isEmbedded ? 'scheme-modal-embedded' : 'glass-panel animate-slide-up'}`}>
-                <div className="scheme-header">
-                    <h2 className="modal-title">施计</h2>
-                    <div className="scheme-counter">
-                        今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
-                    </div>
-                    {isEmbedded && onChangeTarget && (
-                        <button className="btn-utility-secondary scheme-embedded-change-target" onClick={onChangeTarget}>
-                            更换目标
-                        </button>
+                <div className={`scheme-header ${isEmbedded ? 'scheme-header-embedded' : ''}`}>
+                    {isEmbedded ? (
+                        <>
+                            <div className="scheme-embedded-target-copy">
+                                <span className="scheme-embedded-target-title">{getEmbeddedTargetTitle(selectedNpc)}</span>
+                                <strong className="scheme-embedded-target-name">{selectedNpc?.name ?? '人名'}</strong>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <h2 className="modal-title">施计</h2>
+                            <div className="scheme-counter">
+                                今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
+                            </div>
+                        </>
                     )}
                 </div>
 
@@ -756,7 +1034,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                 </div>
                 )}
 
-                {shouldShowOmenInlineHint && (
+                {shouldShowOmenInlineHint && !isEmbedded && (
                     <div className="scheme-inline-hint omen-hint">
                         谶纬偏灾异、法统、天命与人心，不宜写成兵粮调度。
                     </div>
@@ -784,6 +1062,8 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                             <p className="submitted-text">计谋已发，暗线运作中……</p>
                             <div className="ai-ripple"></div>
                         </div>
+                    ) : isEmbedded ? (
+                        renderEmbeddedWorkbench()
                     ) : (
                         <div className="scheme-workbench">
                             <div className="scheme-steps">
@@ -857,6 +1137,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                                                     >
                                                         <button
                                                             className={`scheme-btn ${selectedScheme === scheme.type ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                                                            data-scheme-type={scheme.type}
                                                             disabled={!available}
                                                             onClick={() => {
                                                                 setSelectedScheme(scheme.type)
@@ -1070,6 +1351,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                                                 <FengDaozhiAssistPanel
                                                     schemeType={selectedScheme}
                                                     remaining={fengDaozhiAssistsRemaining}
+                                                    total={fengAssistTotal}
                                                     isLoading={fengDraftLoading}
                                                     draftPreview={fengDraftPreview}
                                                     onDraft={handleFengDaozhiDraft}
@@ -1083,14 +1365,14 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                     )}
                 </div>
 
-                <div className="scheme-footer">
-                    {!justSubmitted && selectedScheme && (
+                <div className={`scheme-footer ${isEmbedded ? 'scheme-footer-embedded' : ''}`}>
+                    {!justSubmitted && (selectedScheme || isEmbedded) && (
                         <button
-                            className="btn-primary btn-execute animate-slide-up"
+                            className={`btn-primary btn-execute animate-slide-up ${isEmbedded ? 'scheme-embedded-execute' : ''}`}
                             onClick={handleExecute}
-                            disabled={currentSchemeData?.needsSecondTarget ? !relatedNpcId : false}
+                            disabled={!selectedScheme || (currentSchemeData?.needsSecondTarget ? !relatedNpcId : false)}
                         >
-                            行事
+                            {isEmbedded ? '落子' : '行事'}
                         </button>
                     )}
                 </div>

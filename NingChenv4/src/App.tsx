@@ -4,6 +4,7 @@ import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorB
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
+import type { SchemeType } from './game/types'
 import { useGameStore } from './stores/gameStore'
 import { useMediaStore } from './stores/mediaStore'
 
@@ -52,6 +53,31 @@ export function shouldHideGlobalHeader(prologueStep: string, currentPhase: strin
     )
 }
 
+export interface SchemePreviewRequest {
+    targetNpcId: string
+    schemeType: SchemeType
+}
+
+const SCHEME_PREVIEW_TARGETS: Record<string, string> = {
+    hebaqi: 'hebaqí',
+    'hebaqí': 'hebaqí',
+    zongai: 'zongai',
+    yuwendi: 'yuwendi',
+    hebabogui: 'hebaboguì',
+    'hebaboguì': 'hebaboguì',
+}
+
+export function getSchemePreviewRequest(search = typeof window !== 'undefined' ? window.location.search : ''): SchemePreviewRequest | null {
+    const params = new URLSearchParams(search)
+    if (params.get('preview') !== 'scheme-omen') return null
+
+    const target = params.get('target') ?? 'hebaqi'
+    return {
+        targetNpcId: SCHEME_PREVIEW_TARGETS[target] ?? 'hebaqí',
+        schemeType: 'omen',
+    }
+}
+
 function PhaseLoadingFallback() {
     return (
         <div className="app-phase-loading" role="status" aria-live="polite">
@@ -79,18 +105,65 @@ function App() {
     const currentRound = useGameStore(state => state.currentRound)
     const helpOverlayOpen = useGameStore(state => state.helpOverlayOpen)
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
+    const schemePreview = getSchemePreviewRequest()
+    const schemePreviewKey = schemePreview ? `${schemePreview.schemeType}:${schemePreview.targetNpcId}` : ''
     const isCoverStep = prologueStep === 'COVER'
     const isRoundStartFullscreenStep = shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
-    const isCourtStageStep = prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE'
-    const hideGlobalHeader = shouldHideGlobalHeader(prologueStep, currentPhase)
+    const isCourtStageStep = Boolean(schemePreview) || (prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
+    const hideGlobalHeader = Boolean(schemePreview) || shouldHideGlobalHeader(prologueStep, currentPhase)
 
     useEffect(() => {
+        if (!schemePreview) return
+
+        const state = useGameStore.getState()
+        const targetNpcId = schemePreview.targetNpcId
+        const intelProgress = {
+            ...state.intelProgress,
+            [targetNpcId]: Math.max(state.intelProgress[targetNpcId] ?? 0, 1),
+        }
+
+        useGameStore.setState({
+            currentRound: 13,
+            currentPhase: 'COURT_OBSERVE',
+            prologueStep: 'INGAME',
+            schemeCount: 0,
+            currentSchemes: [],
+            firstRoundGuideSeen: {
+                round_start: true,
+                court_observe: true,
+                scheme_phase: true,
+                empress_letter: true,
+                scheme_feedback: true,
+                settlement: true,
+            },
+            schemeOnboardingSeen: {
+                scheme_master_guide: true,
+                first_omen_teaching: true,
+                first_external_line_teaching: true,
+                first_follow_up_teaching: true,
+            },
+            omenGuideSeen: {
+                ...state.omenGuideSeen,
+                first_omen_modal: true,
+            },
+            intelProgress,
+            npcs: state.npcs.map(npc =>
+                npc.id === targetNpcId
+                    ? { ...npc, trust: Math.max(npc.trust, 70) }
+                    : npc,
+            ),
+        })
+    }, [schemePreviewKey])
+
+    useEffect(() => {
+        if (schemePreview) return
+
         const unsubscribe = useGameStore.subscribe(state => {
             const snapshot = buildPersistedSnapshot(state)
             if (snapshot) saveGameSnapshot(snapshot)
         })
         return unsubscribe
-    }, [])
+    }, [schemePreviewKey])
 
     useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -122,6 +195,10 @@ function App() {
     }
 
     const renderContent = () => {
+        if (schemePreview) {
+            return <CourtView previewScheme={schemePreview} />
+        }
+
         if (isCoverStep) {
             return <Cover />
         }

@@ -2,12 +2,17 @@ import type { CampaignOutcomeState } from '../game/types'
 
 export type BgmTrackKey = 'bgm1' | 'bgm2' | 'bgm3' | 'bgm4'
 export type NpcPortraitVariant = 'default' | 'courtDark' | 'courtBright' | 'courtFullbody' | 'externalFullbody'
+export type NpcDetailAttitude = 'cold_guard' | 'watchful' | 'trusted' | 'relied' | 'devoted'
+export type HebaQiDetailPortraitKey = NpcDetailAttitude
 
 const NPC_PORTRAIT_BASE = '/images/npc/确认【抠背景】'
 const NPC_COURT_DARK_PORTRAIT_BASE = '/images/npc/朝堂暗版'
 const NPC_COURT_BRIGHT_PORTRAIT_BASE = '/images/npc/hover亮版_v1'
 const NPC_COURT_FULLBODY_PORTRAIT_BASE = '/images/npc/court-fullbody'
 const NPC_EXTERNAL_FULLBODY_PORTRAIT_BASE = '/images/npc/external-fullbody'
+const NPC_DETAIL_BASE = '/images/npc/detail'
+const NPC_DETAIL_AVATAR_BASE = '/images/npc/detail-avatars'
+const NPC_SCHEME_BASE = '/images/npc/scheme'
 const COURT_FACTION_UI_BASE = '/images/ui/court-faction'
 const EXTERNAL_FACTION_UI_BASE = '/images/ui/external-faction'
 const MAP_BASE = '/地图底稿'
@@ -23,6 +28,89 @@ export interface PublicStatementAudioContext {
 
 function buildPublicAssetPath(path: string) {
     return encodeURI(path)
+}
+
+const NPC_DETAIL_ASSET_KEYS: Record<string, string> = {
+    hebaqi: 'hebaqi',
+    'hebaqí': 'hebaqi',
+    贺拔琪: 'hebaqi',
+    zongai: 'zongai',
+    宗艾: 'zongai',
+    linghuelvguang: 'linghulvguang',
+    linghulvguang: 'linghulvguang',
+    令狐律光: 'linghulvguang',
+    weichimu: 'yuchimu',
+    'weichimù': 'yuchimu',
+    yuchimu: 'yuchimu',
+    尉迟暮: 'yuchimu',
+    zuting: 'zuting',
+    祖廷: 'zuting',
+    yuwendi: 'yuwendi',
+    宇文棣: 'yuwendi',
+    duguwenyue: 'duguwenyue',
+    独孤文约: 'duguwenyue',
+    hebabogui: 'hebabogui',
+    'hebaboguì': 'hebabogui',
+    贺拔伯圭: 'hebabogui',
+    erzhulie: 'erzhulie',
+    'erzhulié': 'erzhulie',
+    尔朱烈: 'erzhulie',
+    ansiming: 'ansiming',
+    安思明: 'ansiming',
+}
+
+export function getNpcDetailAssetKey(npcIdOrName: string) {
+    return NPC_DETAIL_ASSET_KEYS[npcIdOrName] ?? null
+}
+
+export function getNpcDetailPortraitKey(trust: number): NpcDetailAttitude {
+    if (trust >= 90) return 'devoted'
+    if (trust >= 70) return 'relied'
+    if (trust >= 50) return 'trusted'
+    if (trust >= 30) return 'watchful'
+    return 'cold_guard'
+}
+
+export function getNpcDetailBackgroundPath(npcIdOrName: string) {
+    const assetKey = getNpcDetailAssetKey(npcIdOrName)
+    if (!assetKey) return null
+    return buildPublicAssetPath(`${NPC_DETAIL_BASE}/${assetKey}/background.webp`)
+}
+
+export function getNpcDetailPortraitPath(npcIdOrName: string, trust: number) {
+    const assetKey = getNpcDetailAssetKey(npcIdOrName)
+    if (!assetKey) return null
+    const attitude = getNpcDetailPortraitKey(trust)
+    return buildPublicAssetPath(`${NPC_DETAIL_BASE}/${assetKey}/${assetKey}-${attitude.replace('_', '-')}.webp`)
+}
+
+export function getNpcDetailAvatarPath(npcIdOrName: string) {
+    const assetKey = getNpcDetailAssetKey(npcIdOrName)
+    if (!assetKey) return null
+    return buildPublicAssetPath(`${NPC_DETAIL_AVATAR_BASE}/${assetKey}.webp`)
+}
+
+export const HEBAQI_DETAIL_ASSETS = {
+    background: getNpcDetailBackgroundPath('hebaqi') ?? '',
+    portraits: {
+        cold_guard: buildPublicAssetPath(`${NPC_DETAIL_BASE}/hebaqi/hebaqi-cold-guard.webp`),
+        watchful: buildPublicAssetPath(`${NPC_DETAIL_BASE}/hebaqi/hebaqi-watchful.webp`),
+        trusted: buildPublicAssetPath(`${NPC_DETAIL_BASE}/hebaqi/hebaqi-trusted.webp`),
+        relied: buildPublicAssetPath(`${NPC_DETAIL_BASE}/hebaqi/hebaqi-relied.webp`),
+        devoted: buildPublicAssetPath(`${NPC_DETAIL_BASE}/hebaqi/hebaqi-devoted.webp`),
+    },
+} as const
+
+export const SCHEME_UI_ASSETS = {
+    fengDaozhiAssistPortrait: buildPublicAssetPath(`${NPC_SCHEME_BASE}/fengdaozhi-assist.webp`),
+} as const
+
+export function getHebaQiDetailPortraitKey(trust: number): HebaQiDetailPortraitKey {
+    return getNpcDetailPortraitKey(trust)
+}
+
+export function getHebaQiDetailPortraitPath(trust: number) {
+    return HEBAQI_DETAIL_ASSETS.portraits[getHebaQiDetailPortraitKey(trust)]
 }
 
 export const BGM_TRACKS: Record<BgmTrackKey, string> = {
@@ -155,6 +243,10 @@ export const MAP_ASSETS = {
 export const COURT_FACTION_UI_ASSETS = {
     reactionPaper: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-reaction-paper.png`),
     bottomDeskForeground: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-bottom-foreground-desk-layer-v2.png`),
+    imperialJadeSealBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/imperial-jade-seal-badge.png`),
+    phoenixCrownBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/phoenix-crown-badge.png`),
+    emperorPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-emperor-dragon.png`),
+    empressPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-empress-phoenix.png`),
 } as const
 
 export const EXTERNAL_FACTION_UI_ASSETS = {
