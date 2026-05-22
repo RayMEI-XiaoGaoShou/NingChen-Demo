@@ -12,6 +12,7 @@ const NPC_COURT_FULLBODY_PORTRAIT_BASE = '/images/npc/court-fullbody'
 const NPC_EXTERNAL_FULLBODY_PORTRAIT_BASE = '/images/npc/external-fullbody'
 const NPC_DETAIL_BASE = '/images/npc/detail'
 const NPC_DETAIL_AVATAR_BASE = '/images/npc/detail-avatars'
+const NPC_DETAIL_VOICE_BASE = '/audio/generated/scheme_avatar'
 const NPC_SCHEME_BASE = '/images/npc/scheme'
 const COURT_FACTION_UI_BASE = '/images/ui/court-faction'
 const EXTERNAL_FACTION_UI_BASE = '/images/ui/external-faction'
@@ -90,6 +91,13 @@ export function getNpcDetailAvatarPath(npcIdOrName: string) {
     return buildPublicAssetPath(`${NPC_DETAIL_AVATAR_BASE}/${assetKey}.webp`)
 }
 
+export function getNpcDetailVoicePath(npcIdOrName: string, trust: number) {
+    const assetKey = getNpcDetailAssetKey(npcIdOrName)
+    if (!assetKey) return null
+    const attitude = getNpcDetailPortraitKey(trust)
+    return buildPublicAssetPath(`${NPC_DETAIL_VOICE_BASE}/${assetKey}/${attitude}.mp3`)
+}
+
 export const HEBAQI_DETAIL_ASSETS = {
     background: getNpcDetailBackgroundPath('hebaqi') ?? '',
     portraits: {
@@ -121,64 +129,64 @@ export const BGM_TRACKS: Record<BgmTrackKey, string> = {
 }
 
 const NPC_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: '拓跋棣.png',
-    贺拔琪: '贺拔琪.png',
-    宗艾: '宗艾.png',
-    令狐律光: '令狐律光.png',
-    尉迟暮: '尉迟暮.png',
-    祖廷: '祖廷.png',
-    贺拔伯圭: '贺拔伯圭.png',
-    独孤文约: '独孤文约.png',
-    尔朱烈: '尔朱烈.png',
-    安思明: '安思明.png',
-    冯道之: '冯道之.png',
-    陈倩: '陈倩.png',
+    宇文棣: '拓跋棣.webp',
+    贺拔琪: '贺拔琪.webp',
+    宗艾: '宗艾.webp',
+    令狐律光: '令狐律光.webp',
+    尉迟暮: '尉迟暮.webp',
+    祖廷: '祖廷.webp',
+    贺拔伯圭: '贺拔伯圭.webp',
+    独孤文约: '独孤文约.webp',
+    尔朱烈: '尔朱烈.webp',
+    安思明: '安思明.webp',
+    冯道之: '冯道之.webp',
+    陈倩: '陈倩.webp',
 }
 
 const NPC_COURT_DARK_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: 'portrait_yuwendi_base_dark_cutout.png',
-    贺拔琪: 'portrait_hebaqi_base_dark_cutout.png',
-    宗艾: 'portrait_zongai_base_dark_cutout.png',
-    令狐律光: 'portrait_linghulvguang_base_dark_cutout.png',
-    尉迟暮: 'portrait_yuchimu_base_dark_cutout.png',
-    祖廷: 'portrait_zuting_base_dark_cutout.png',
-    贺拔伯圭: 'portrait_hebabogui_base_dark_cutout.png',
-    独孤文约: 'portrait_duguwenyue_base_dark_cutout.png',
-    尔朱烈: 'portrait_erzhulie_base_dark_cutout.png',
-    安思明: 'portrait_ansiming_base_dark_cutout.png',
-    冯道之: 'portrait_fengdaozhi_base_dark_cutout.png',
-    陈倩: 'portrait_chenqian_base_dark_cutout.png',
+    宇文棣: 'portrait_yuwendi_base_dark_cutout.webp',
+    贺拔琪: 'portrait_hebaqi_base_dark_cutout.webp',
+    宗艾: 'portrait_zongai_base_dark_cutout.webp',
+    令狐律光: 'portrait_linghulvguang_base_dark_cutout.webp',
+    尉迟暮: 'portrait_yuchimu_base_dark_cutout.webp',
+    祖廷: 'portrait_zuting_base_dark_cutout.webp',
+    贺拔伯圭: 'portrait_hebabogui_base_dark_cutout.webp',
+    独孤文约: 'portrait_duguwenyue_base_dark_cutout.webp',
+    尔朱烈: 'portrait_erzhulie_base_dark_cutout.webp',
+    安思明: 'portrait_ansiming_base_dark_cutout.webp',
+    冯道之: 'portrait_fengdaozhi_base_dark_cutout.webp',
+    陈倩: 'portrait_chenqian_base_dark_cutout.webp',
 }
 
 const NPC_COURT_BRIGHT_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: 'portrait_yuwendi_hover_bright_cutout.png',
-    贺拔琪: 'portrait_hebaqi_hover_bright_cutout.png',
-    宗艾: 'portrait_zongai_hover_bright_cutout.png',
-    令狐律光: 'portrait_linghulvguang_hover_bright_cutout.png',
-    尉迟暮: 'portrait_yuchimu_hover_bright_cutout.png',
-    祖廷: 'portrait_zuting_hover_bright_cutout.png',
-    贺拔伯圭: 'portrait_hebabogui_hover_bright_cutout.png',
-    独孤文约: 'portrait_duguwenyue_hover_bright_cutout.png',
-    尔朱烈: 'portrait_erzhulie_hover_bright_cutout.png',
-    安思明: 'portrait_ansiming_hover_bright_cutout.png',
-    冯道之: 'portrait_fengdaozhi_hover_bright_cutout.png',
-    陈倩: 'portrait_chenqian_hover_bright_cutout.png',
+    宇文棣: 'portrait_yuwendi_hover_bright_cutout.webp',
+    贺拔琪: 'portrait_hebaqi_hover_bright_cutout.webp',
+    宗艾: 'portrait_zongai_hover_bright_cutout.webp',
+    令狐律光: 'portrait_linghulvguang_hover_bright_cutout.webp',
+    尉迟暮: 'portrait_yuchimu_hover_bright_cutout.webp',
+    祖廷: 'portrait_zuting_hover_bright_cutout.webp',
+    贺拔伯圭: 'portrait_hebabogui_hover_bright_cutout.webp',
+    独孤文约: 'portrait_duguwenyue_hover_bright_cutout.webp',
+    尔朱烈: 'portrait_erzhulie_hover_bright_cutout.webp',
+    安思明: 'portrait_ansiming_hover_bright_cutout.webp',
+    冯道之: 'portrait_fengdaozhi_hover_bright_cutout.webp',
+    陈倩: 'portrait_chenqian_hover_bright_cutout.webp',
 }
 
 const NPC_COURT_FULLBODY_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: 'portrait_yuwendi_fullbody.png',
-    贺拔琪: 'portrait_hebaqi_fullbody.png',
-    宗艾: 'portrait_zongai_fullbody.png',
-    令狐律光: 'portrait_linghulvguang_fullbody.png',
-    尉迟暮: 'portrait_yuchimu_fullbody.png',
-    祖廷: 'portrait_zuting_fullbody.png',
+    宇文棣: 'portrait_yuwendi_fullbody.webp',
+    贺拔琪: 'portrait_hebaqi_fullbody.webp',
+    宗艾: 'portrait_zongai_fullbody.webp',
+    令狐律光: 'portrait_linghulvguang_fullbody.webp',
+    尉迟暮: 'portrait_yuchimu_fullbody.webp',
+    祖廷: 'portrait_zuting_fullbody.webp',
 }
 
 const NPC_EXTERNAL_FULLBODY_PORTRAIT_FILES: Record<string, string> = {
-    独孤文约: 'portrait_duguwenyue_fullbody.png',
-    贺拔伯圭: 'portrait_hebabogui_fullbody.png',
-    尔朱烈: 'portrait_erzhulie_fullbody.png',
-    安思明: 'portrait_ansiming_fullbody.png',
+    独孤文约: 'portrait_duguwenyue_fullbody.webp',
+    贺拔伯圭: 'portrait_hebabogui_fullbody.webp',
+    尔朱烈: 'portrait_erzhulie_fullbody.webp',
+    安思明: 'portrait_ansiming_fullbody.webp',
 }
 
 const PUBLIC_STATEMENT_AUDIO_SLUGS: Record<string, string> = {
@@ -223,41 +231,41 @@ const NPC_PORTRAIT_VARIANTS: Record<NpcPortraitVariant, { base: string; files: R
 
 export const MAP_ASSETS = {
     initial: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_1_initial.png`),
+        src: buildPublicAssetPath(`${MAP_BASE}/map_1_initial.webp`),
         label: '南北初局',
     },
     bashu: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_2_bashu.png`),
+        src: buildPublicAssetPath(`${MAP_BASE}/map_2_bashu.webp`),
         label: '南陈得巴蜀',
     },
     bashuHuainan: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_3_bashu_huainan.png`),
+        src: buildPublicAssetPath(`${MAP_BASE}/map_3_bashu_huainan.webp`),
         label: '南陈得巴蜀与淮南',
     },
     huainan: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_4_huainan.png`),
+        src: buildPublicAssetPath(`${MAP_BASE}/map_4_huainan.webp`),
         label: '南陈得淮南',
     },
 } as const
 
 export const COURT_FACTION_UI_ASSETS = {
-    reactionPaper: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-reaction-paper.png`),
-    bottomDeskForeground: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-bottom-foreground-desk-layer-v2.png`),
-    imperialJadeSealBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/imperial-jade-seal-badge.png`),
-    phoenixCrownBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/phoenix-crown-badge.png`),
-    emperorPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-emperor-dragon.png`),
-    empressPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-empress-phoenix.png`),
+    reactionPaper: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-reaction-paper.webp`),
+    bottomDeskForeground: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-bottom-foreground-desk-layer-v2.webp`),
+    imperialJadeSealBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/imperial-jade-seal-badge.webp`),
+    phoenixCrownBadge: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/phoenix-crown-badge.webp`),
+    emperorPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-emperor-dragon.webp`),
+    empressPartyEmblem: buildPublicAssetPath(`${COURT_FACTION_UI_BASE}/court-party-emblem-empress-phoenix.webp`),
 } as const
 
 export const EXTERNAL_FACTION_UI_ASSETS = {
-    longxiBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-longxi.png`),
-    prairieBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-prairie.png`),
-    tigerEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-tiger.png`),
-    wolfEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-wolf.png`),
-    bottomCommandDesk: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-bottom-foreground-command-desk-v2.png`),
-    metricMilitaryIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-military.png`),
-    metricLoyaltyIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-loyalty.png`),
-    metricTrustIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-trust.png`),
+    longxiBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-longxi.webp`),
+    prairieBackground: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-background-prairie.webp`),
+    tigerEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-tiger.webp`),
+    wolfEmblem: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-emblem-wolf.webp`),
+    bottomCommandDesk: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-bottom-foreground-command-desk-v2.webp`),
+    metricMilitaryIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-military.webp`),
+    metricLoyaltyIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-loyalty.webp`),
+    metricTrustIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-trust.webp`),
 } as const
 
 export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant = 'default') {

@@ -1,13 +1,14 @@
 import { useGameStore } from '../../stores/gameStore'
 import { useMediaStore } from '../../stores/mediaStore'
+import { renderMixedTextWithNumberSpans } from '../../utils/renderMixedText'
 import './GameHud.css'
 
 const hudIcons = {
-    soundOn: new URL('../../assets/ui/hud/hud-sound-on.png', import.meta.url).href,
-    soundOff: new URL('../../assets/ui/hud/hud-sound-off.png', import.meta.url).href,
-    help: new URL('../../assets/ui/hud/hud-help.png', import.meta.url).href,
-    save: new URL('../../assets/ui/hud/hud-save.png', import.meta.url).href,
-    menu: new URL('../../assets/ui/hud/hud-menu.png', import.meta.url).href,
+    soundOn: new URL('../../assets/ui/hud/hud-sound-on.webp', import.meta.url).href,
+    soundOff: new URL('../../assets/ui/hud/hud-sound-off.webp', import.meta.url).href,
+    help: new URL('../../assets/ui/hud/hud-help.webp', import.meta.url).href,
+    save: new URL('../../assets/ui/hud/hud-save.webp', import.meta.url).href,
+    menu: new URL('../../assets/ui/hud/hud-menu.webp', import.meta.url).href,
 }
 
 interface GameHudIconButtonProps {
@@ -89,7 +90,9 @@ export function HudStatusChip({ label, value, valueClassName = '', title }: HudS
     return (
         <span className="game-hud-status-chip" title={title} aria-label={title ?? `${label}${value}`}>
             <span className="game-hud-status-label">{label}</span>
-            <strong className={`game-hud-status-value ${valueClassName}`.trim()}>{value}</strong>
+            <strong className={`game-hud-status-value ${valueClassName}`.trim()}>
+                {renderMixedTextWithNumberSpans(value)}
+            </strong>
         </span>
     )
 }

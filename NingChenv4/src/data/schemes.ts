@@ -35,7 +35,7 @@ export const SCHEMES: Scheme[] = [
     },
     {
         type: 'frame',
-        name: '设局嫁祸',
+        name: '嫁祸',
         description: '布一个让目标自己踩进去的陷阱，诱其失言、犯错，引来朝中其他人的攻讦',
         trustThreshold: 50,
         riskLevel: 'high',

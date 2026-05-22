@@ -31,14 +31,18 @@ import {
     getNpcDetailAvatarPath,
     getNpcDetailBackgroundPath,
     getNpcDetailPortraitPath,
+    getNpcDetailVoicePath,
     getNpcPublicStatementAudioPath,
 } from '../../data/mediaAssets'
 import { getFengDaozhiAdvisorNote } from '../../data/fengDaozhiAdvisorNotes'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
-import { SchemeComposer } from '../SchemePanel/SchemePanel'
+import { SchemeComposer, type SchemeSubmitResult } from '../SchemePanel/SchemePanel'
 import { GameHudTools, HudStatusChip } from '../GameHud/GameHud'
+import { renderMixedTextWithNumberSpans } from '../../utils/renderMixedText'
+import { formatRoundVolumeLabel } from '../../utils/roundLabels'
+import { GameViewport } from '../GameViewport/GameViewport'
 import './CourtView.css'
 
 function getFactionDoctrine(factionId: 'emperor' | 'empress') {
@@ -90,6 +94,7 @@ const TRUST_TOOLTIP = '信任度——此人是否真把你当成能替他谋后
 const MILITARY_TOOLTIP = '军力——此人手里还能调动多少兵马与武备。兵势越重，他若割据或造反便闹得越大；兵势越轻，中枢便越不拿他当回事。你既可以替他壮大兵势，也可以借朝廷之手消磨他的实力。'
 const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
 const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
+
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & {
     emperorFavor: number
@@ -191,6 +196,10 @@ function getPipCount(value: number): number {
     if (value >= 35) return 2
     if (value > 0) return 1
     return 0
+}
+
+function getKnownIntelBudget(knownIntel: number): number {
+    return Math.min(Math.max(knownIntel, 0), 2)
 }
 
 function isActiveCourtNpc(npc: NPC): boolean {
@@ -324,7 +333,7 @@ function CourtTopBar({
         <div className="court-top-bar">
             <button className="court-top-button court-back-button" onClick={onBack}>{backLabel}</button>
             <span className="court-hud-breadcrumb">
-                <span className="court-screen-hud-title">{location}</span>
+                <span className="court-screen-hud-title">{renderMixedTextWithNumberSpans(location)}</span>
                 {breadcrumbActionLabel && onBreadcrumbAction ? (
                     <button className="court-top-button court-hud-breadcrumb-action" onClick={onBreadcrumbAction}>
                         {breadcrumbActionLabel}
@@ -369,7 +378,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         huainanCampaign,
     } = useGameStore()
     const { openNpcDetail } = useUiStore()
-    const { isMuted } = useMediaStore()
+    const { isMuted, beginVoiceDucking, endVoiceDucking, resetVoiceDucking } = useMediaStore()
     const previewNpc = previewScheme ? npcs.find(npc => npc.id === previewScheme.targetNpcId) ?? null : null
     const [scope, setScope] = useState<CourtScope>(() => (
         previewNpc
@@ -381,6 +390,9 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
     const statementAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map())
     const activeStatementAudioRef = useRef<HTMLAudioElement | null>(null)
     const activeStatementAudioSourceRef = useRef<string | null>(null)
+    const detailVoiceAudioRef = useRef<HTMLAudioElement | null>(null)
+    const publicStatementDuckingActiveRef = useRef(false)
+    const detailVoiceDuckingActiveRef = useRef(false)
     const hebaQiGlassBaseStyle = {
         '--hebaqi-glass-x': '22%',
         '--hebaqi-glass-y': '14%',
@@ -510,6 +522,66 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
     }
 
+    const handleEmbeddedSchemeAfterSubmit = (result: SchemeSubmitResult) => {
+        const { schemeCountAfterSubmit, maxSchemes } = result
+        setSchemeDrawerNpcId(null)
+
+        if (schemeCountAfterSubmit >= maxSchemes) {
+            completeSchemingIfReady()
+            return
+        }
+
+        setSelectedNpcId(null)
+        setScope(result.targetPowerBase === 'external' ? 'external' : 'court')
+    }
+
+    const beginPublicStatementDucking = () => {
+        if (publicStatementDuckingActiveRef.current) return
+        publicStatementDuckingActiveRef.current = true
+        beginVoiceDucking()
+    }
+
+    const endPublicStatementDucking = () => {
+        if (!publicStatementDuckingActiveRef.current) return
+        publicStatementDuckingActiveRef.current = false
+        endVoiceDucking()
+    }
+
+    const beginDetailVoiceDucking = () => {
+        if (detailVoiceDuckingActiveRef.current) return
+        detailVoiceDuckingActiveRef.current = true
+        beginVoiceDucking()
+    }
+
+    const endDetailVoiceDucking = () => {
+        if (!detailVoiceDuckingActiveRef.current) return
+        detailVoiceDuckingActiveRef.current = false
+        endVoiceDucking()
+    }
+
+    const finalizePublicStatementAudio = (audio: HTMLAudioElement) => {
+        if (activeStatementAudioRef.current !== audio) return
+        activeStatementAudioRef.current = null
+        activeStatementAudioSourceRef.current = null
+        endPublicStatementDucking()
+    }
+
+    const finalizeDetailVoiceAudio = (audio: HTMLAudioElement) => {
+        if (detailVoiceAudioRef.current !== audio) return
+        detailVoiceAudioRef.current = null
+        endDetailVoiceDucking()
+    }
+
+    const preparePublicStatementAudio = (audio: HTMLAudioElement) => {
+        audio.volume = 0.95
+        audio.onended = () => finalizePublicStatementAudio(audio)
+        audio.onpause = () => {
+            if (activeStatementAudioRef.current === audio) {
+                finalizePublicStatementAudio(audio)
+            }
+        }
+    }
+
     const stopPublicStatementAudio = () => {
         const activeAudio = activeStatementAudioRef.current
         if (activeAudio) {
@@ -518,6 +590,17 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         }
         activeStatementAudioRef.current = null
         activeStatementAudioSourceRef.current = null
+        endPublicStatementDucking()
+    }
+
+    const stopNpcDetailVoice = () => {
+        const activeAudio = detailVoiceAudioRef.current
+        if (activeAudio) {
+            activeAudio.pause()
+            activeAudio.currentTime = 0
+        }
+        detailVoiceAudioRef.current = null
+        endDetailVoiceDucking()
     }
 
     useEffect(() => {
@@ -539,7 +622,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
             if (cache.has(source)) return
             const audio = new Audio(source)
             audio.preload = 'auto'
-            audio.volume = 0.82
+            preparePublicStatementAudio(audio)
             audio.load()
             cache.set(source, audio)
         })
@@ -566,6 +649,10 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         }
         activeStatementAudioRef.current = null
         activeStatementAudioSourceRef.current = null
+        stopNpcDetailVoice()
+        resetVoiceDucking()
+        publicStatementDuckingActiveRef.current = false
+        detailVoiceDuckingActiveRef.current = false
     }, [isMuted])
 
     useEffect(() => () => {
@@ -576,6 +663,10 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         statementAudioCacheRef.current.clear()
         activeStatementAudioRef.current = null
         activeStatementAudioSourceRef.current = null
+        stopNpcDetailVoice()
+        resetVoiceDucking()
+        publicStatementDuckingActiveRef.current = false
+        detailVoiceDuckingActiveRef.current = false
     }, [])
 
     const playPublicStatementAudio = (npc: NPC) => {
@@ -587,9 +678,9 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         if (!audio) {
             audio = new Audio(source)
             audio.preload = 'auto'
-            audio.volume = 0.82
             statementAudioCacheRef.current.set(source, audio)
         }
+        preparePublicStatementAudio(audio)
 
         if (activeStatementAudioSourceRef.current === source && !audio.paused) return
         stopPublicStatementAudio()
@@ -597,16 +688,52 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         activeStatementAudioRef.current = audio
         activeStatementAudioSourceRef.current = source
         audio.currentTime = 0
-        audio.play().catch(() => undefined)
+        beginPublicStatementDucking()
+        audio.play().catch(() => finalizePublicStatementAudio(audio))
+    }
+
+    const playNpcDetailVoice = (npc: NPC) => {
+        if (isMuted) return
+        if (typeof Audio === 'undefined') return
+        const source = getNpcDetailVoicePath(npc.id, npc.trust)
+        if (!source) return
+
+        stopNpcDetailVoice()
+        const audio = new Audio(source)
+        audio.preload = 'auto'
+        audio.volume = 1
+        audio.onended = () => finalizeDetailVoiceAudio(audio)
+        audio.onpause = () => {
+            if (detailVoiceAudioRef.current === audio) {
+                finalizeDetailVoiceAudio(audio)
+            }
+        }
+        detailVoiceAudioRef.current = audio
+        beginDetailVoiceDucking()
+        audio.play().catch(() => finalizeDetailVoiceAudio(audio))
+    }
+
+    const selectNpcDetail = (npc: NPC, options: { openOverlayDetail?: boolean } = {}) => {
+        stopPublicStatementAudio()
+        playNpcDetailVoice(npc)
+
+        if (options.openOverlayDetail) {
+            openNpcDetail(npc.id)
+            return
+        }
+
+        setSelectedNpcId(npc.id)
     }
 
     const goScope = (nextScope: Exclude<CourtScope, 'overview'>) => {
+        stopNpcDetailVoice()
         setSelectedNpcId(null)
         setSchemeDrawerNpcId(null)
         setScope(nextScope)
     }
 
     const backToOverview = () => {
+        stopNpcDetailVoice()
         setSelectedNpcId(null)
         setSchemeDrawerNpcId(null)
         setScope('overview')
@@ -648,6 +775,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
             return
         }
         if (selectedNpc) {
+            stopNpcDetailVoice()
             setSelectedNpcId(null)
             return
         }
@@ -777,7 +905,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         return (
             <span className="court-seat-intel">
                 <span className="court-seat-status">
-                    {alreadyUsed ? '今日已落子' : `暗线 ${knownIntel}/${npc.secretThreads.length}`}
+                    {alreadyUsed ? '今日已落子' : `已知情报 ${getKnownIntelBudget(knownIntel)}/2`}
                 </span>
                 {leaderIdentity ? (
                     <span className={`court-seat-leader-lines court-seat-leader-lines-${leaderIdentity.emblem}`}>
@@ -821,8 +949,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                 onFocus={() => playPublicStatementAudio(npc)}
                 onBlur={stopPublicStatementAudio}
                 onClick={() => {
-                    stopPublicStatementAudio()
-                    selectable && setSelectedNpcId(npc.id)
+                    selectable && selectNpcDetail(npc)
                 }}
                 disabled={!selectable}
             >
@@ -871,8 +998,11 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         const showExternalStageForeground = scope === 'external'
 
         return (
-            <section className={`court-game-screen court-faction-screen court-faction-screen-${scope}`}>
-                {renderSceneLayers(scope === 'court' ? 'court' : 'external')}
+            <GameViewport
+                className={`court-game-viewport court-game-screen court-faction-screen court-faction-screen-${scope}`}
+                canvasClassName="court-design-canvas"
+                bleed={renderSceneLayers(scope === 'court' ? 'court' : 'external')}
+            >
                 {renderHud(`朝堂总览 > ${scopeTitle}`)}
                 <div className="court-scroll-grid">
                     {groups.map(group => (
@@ -947,23 +1077,24 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         </div>
                     </>
                 )}
-            </section>
+            </GameViewport>
         )
     }
 
     const renderOverview = () => (
-        <section className="court-game-screen court-overview-screen">
-            {renderSceneLayers('overview')}
-            {renderHud(`第 ${currentRound} 回合`)}
+        <GameViewport
+            className="court-game-viewport court-game-screen court-overview-screen"
+            canvasClassName="court-design-canvas"
+            bleed={renderSceneLayers('overview')}
+        >
+            {renderHud(formatRoundVolumeLabel(currentRound))}
             <div className="court-gate-grid">
                 <button className="court-gate court-gate-court" onClick={() => goScope('court')}>
                     <span className="court-gate-visual" aria-hidden="true">
                         <span className="court-gate-art-mask">
                             <span className="court-gate-art" />
-                            <span className="court-gate-atmosphere" />
                         </span>
                         <span className="court-gate-frame" />
-                        <span className="court-gate-frame-glow" />
                     </span>
                     <span
                         className="court-gate-note"
@@ -978,10 +1109,8 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                     <span className="court-gate-visual" aria-hidden="true">
                         <span className="court-gate-art-mask">
                             <span className="court-gate-art" />
-                            <span className="court-gate-atmosphere" />
                         </span>
                         <span className="court-gate-frame" />
-                        <span className="court-gate-frame-glow" />
                     </span>
                     <span
                         className="court-gate-note"
@@ -993,7 +1122,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                     </span>
                 </button>
             </div>
-        </section>
+        </GameViewport>
     )
 
     const getFavorTone = (value: number) => {
@@ -1175,9 +1304,17 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         : null
 
         return (
-            <section className={`court-game-screen court-detail-screen court-character-detail-screen court-hebaqi-detail-screen court-character-detail-${assetKey} ${isComposing ? 'court-hebaqi-detail-composing' : ''}`} style={npcDetailStyle}>
-                <div className="court-character-scene-art court-hebaqi-scene-art" aria-hidden="true" />
-                <div className="court-hebaqi-scene-vignette" aria-hidden="true" />
+            <GameViewport
+                className={`court-game-viewport court-game-screen court-detail-screen court-character-detail-screen court-hebaqi-detail-screen court-character-detail-${assetKey} ${isComposing ? 'court-hebaqi-detail-composing' : ''}`}
+                canvasClassName="court-design-canvas court-detail-design-canvas"
+                bleed={(
+                    <>
+                        <div className="court-character-scene-art court-hebaqi-scene-art" />
+                        <div className="court-hebaqi-scene-vignette" />
+                    </>
+                )}
+                style={npcDetailStyle}
+            >
                 <svg className="court-hebaqi-glass-filter" aria-hidden="true" focusable="false">
                     <defs>
                         <filter id="court-hebaqi-panel-liquid-filter" x="-8%" y="-8%" width="116%" height="116%" colorInterpolationFilters="sRGB">
@@ -1278,10 +1415,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                                 mode="embedded"
                                 lockedNpcId={npc.id}
                                 initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}
-                                onAfterSubmit={() => {
-                                    setSchemeDrawerNpcId(null)
-                                    completeSchemingIfReady()
-                                }}
+                                onAfterSubmit={handleEmbeddedSchemeAfterSubmit}
                             />
                         </div>
                     ) : (
@@ -1325,7 +1459,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         </>
                     )}
                 </article>
-            </section>
+            </GameViewport>
         )
     }
 
@@ -1363,8 +1497,11 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         }
 
         return (
-            <section className={`court-game-screen court-detail-screen ${isExternal ? 'court-detail-external' : 'court-detail-court'}`}>
-                {renderSceneLayers('detail')}
+            <GameViewport
+                className={`court-game-viewport court-game-screen court-detail-screen ${isExternal ? 'court-detail-external' : 'court-detail-court'}`}
+                canvasClassName="court-design-canvas court-detail-design-canvas"
+                bleed={renderSceneLayers('detail')}
+            >
                 {renderHud(
                     `${isExternal ? '地方军头' : '朝堂势力'} > ${npc.name}`,
                     isExternal ? '返回地方' : '返回势力',
@@ -1392,10 +1529,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                             mode="embedded"
                             lockedNpcId={npc.id}
                             initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}
-                            onAfterSubmit={() => {
-                                setSchemeDrawerNpcId(null)
-                                completeSchemingIfReady()
-                            }}
+                            onAfterSubmit={handleEmbeddedSchemeAfterSubmit}
                         />
                     ) : (
                         <>
@@ -1405,7 +1539,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                                     <p>{displayedTitle}</p>
                                 </div>
                                 <div className="court-dossier-actions">
-                                    <button className="court-small-link" onClick={() => openNpcDetail(npc.id)}>完整档案</button>
+                                    <button className="court-small-link" onClick={() => selectNpcDetail(npc, { openOverlayDetail: true })}>完整档案</button>
                                     <button className="btn-primary court-seal-action court-dossier-scheme" onClick={() => enterSchemeWithNpc(npc)} disabled={!canScheme}>
                                         {usedNpcIds.has(npc.id) ? '今日已落子' : remainingSchemes <= 0 ? '今日无子' : '对其施计'}
                                     </button>
@@ -1462,7 +1596,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         </>
                     )}
                 </article>
-            </section>
+            </GameViewport>
         )
     }
 
@@ -1693,7 +1827,7 @@ export function LegacyCourtView() {
                                                     <div className="npc-meta-row">
                                                         <span className="npc-meta-chip">{group.faction?.name}</span>
                                                         <span className="npc-meta-chip">
-                                                            暗线已明：{knownIntel}/{npc.secretThreads.length}
+                                                            已知情报 {getKnownIntelBudget(knownIntel)}/2
                                                         </span>
                                                     </div>
                                                     {isCourtDispositionTarget(npc) && courtStatus === 'active' && (
@@ -1854,7 +1988,7 @@ export function LegacyCourtView() {
 
             <div className="action-footer animate-slide-up animate-delay-4">
                 <div className="scheme-counter">
-                    今日可用计谋：<span className="highlight-number">{maxSchemes - schemeCount}</span> / {maxSchemes}
+                    今日可用计谋：<span className="highlight-number">{maxSchemes - schemeCount}</span>/<span className="highlight-number">{maxSchemes}</span>
                 </div>
                 <button className="btn-primary" onClick={nextPhase} disabled={schemeCount >= maxSchemes}>
                     {schemeCount >= maxSchemes ? '今日已无可落之子' : '看定人选，去落子'}

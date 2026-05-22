@@ -17,6 +17,11 @@ describe('SchemePanel layout labels', () => {
         useGameStore.getState().resetGame()
     })
 
+    it('uses the shared calligraphy font while preserving Arial numeric runs', () => {
+        expect(schemePanelCss).toContain('font-family: var(--font-calligraphy)')
+        expect(schemePanelCss).toContain('font-family: Arial, Helvetica, sans-serif;')
+    })
+
     it('renders the embedded composer as a vertical scheme board with speech supplement', () => {
         const html = renderToStaticMarkup(
             <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,
@@ -24,7 +29,10 @@ describe('SchemePanel layout labels', () => {
 
         expect(html).toContain('scheme-embedded-board')
         expect(html).toContain('scheme-embedded-choice-area')
+        expect(html).toContain('scheme-art-token scheme-vertical-btn')
+        expect(html).not.toContain('scheme-token-art')
         expect(html).toContain('scheme-vertical-name')
+        expect(html).not.toContain('scheme-btn scheme-vertical-btn')
         expect(html).not.toContain('scheme-description-panel')
         expect(html).toContain('scheme-speech-supplement')
         expect(html).toContain('scheme-embedded-execute')
@@ -42,6 +50,14 @@ describe('SchemePanel layout labels', () => {
         expect(SCHEMES.find(scheme => scheme.type === 'probe')?.description).toBe('摸底牌、探口风，发掘该角色的隐藏立场')
         expect(SCHEMES.find(scheme => scheme.type === 'advise')?.description).toBe('对其晓以利害，顺其所欲献上利他而暗损北周国本之 “良策”')
         expect(SCHEMES.find(scheme => scheme.type === 'slander')?.description).toBe('在 施计对象甲 心中种下对 关联人物乙 的疑心')
+    })
+
+    it('shortens the frame scheme display label so the locked stamp remains visible on the art token', () => {
+        const frameScheme = SCHEMES.find(scheme => scheme.type === 'frame')
+
+        expect(frameScheme?.name).toBe('嫁祸')
+        expect(frameScheme?.type).toBe('frame')
+        expect(frameScheme?.description).toContain('陷阱')
     })
 
     it('hides target-ineligible schemes in the embedded art-backed composer', () => {
@@ -112,22 +128,39 @@ describe('SchemePanel layout labels', () => {
         const embeddedNameRule = schemePanelCss.match(/\.scheme-modal-embedded \.scheme-vertical-name \{[\s\S]*?\n\}/)?.[0] ?? ''
         const embeddedLockRule = schemePanelCss.match(/\.scheme-modal-embedded \.scheme-vertical-btn \.scheme-lock \{[\s\S]*?\n\}/)?.[0] ?? ''
 
+        expect(schemePanelCss).not.toContain('scheme-token-art')
         expect(baseTokenRule).not.toContain('linear-gradient')
         expect(baseTokenRule).not.toContain('box-shadow')
         expect(embeddedTokenRule).toContain("--scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-normal.webp');")
         expect(embeddedTokenRule).toContain('--scheme-token-bg-size: auto 94%;')
         expect(embeddedTokenRule).toContain('--scheme-token-bg-position: center 52%;')
         expect(embeddedTokenRule).toContain('--scheme-token-text-left: 47%;')
+        expect(embeddedTokenRule).toContain('border: 0;')
+        expect(embeddedTokenRule).toContain('border-radius: 0;')
+        expect(embeddedTokenRule).toContain('appearance: none;')
+        expect(embeddedTokenRule).toContain('outline: 0;')
+        expect(embeddedTokenRule).toContain('background-color: transparent;')
         expect(embeddedTokenRule).toContain('var(--scheme-token-bg-image) var(--scheme-token-bg-position) / var(--scheme-token-bg-size) no-repeat')
+        expect(embeddedTokenRule).toContain('box-shadow: none;')
+        expect(embeddedTokenRule).not.toContain('drop-shadow')
         expect(embeddedTokenRule).not.toContain('linear-gradient')
         expect(hoverTokenRule).not.toContain('linear-gradient')
         expect(selectedTokenRule).not.toContain('linear-gradient')
         expect(disabledTokenRule).not.toContain('linear-gradient')
-        expect(hoverTokenRule).toContain("--scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-selected.webp');")
-        expect(hoverTokenRule).toContain('border-color: transparent;')
+        expect(hoverTokenRule).not.toContain('box-shadow')
+        expect(selectedTokenRule).not.toContain('box-shadow: 0 0')
+        expect(hoverTokenRule).toContain('filter: brightness(1.04) saturate(1.03);')
+        expect(hoverTokenRule).not.toContain("--scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-selected.webp');")
+        expect(hoverTokenRule).not.toContain('drop-shadow')
+        expect(hoverTokenRule).not.toContain('border')
         expect(selectedTokenRule).toContain("--scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-selected.webp');")
         expect(selectedTokenRule).toContain('animation: none;')
+        expect(selectedTokenRule).toContain('transform: translateY(-1px);')
+        expect(selectedTokenRule).not.toContain('drop-shadow')
+        expect(selectedTokenRule).not.toContain('border')
         expect(disabledTokenRule).toContain("--scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-disabled.webp');")
+        expect(disabledTokenRule).not.toContain('drop-shadow')
+        expect(disabledTokenRule).not.toContain('border')
         expect(embeddedNameRule).toContain('position: absolute;')
         expect(embeddedNameRule).toContain('left: var(--scheme-token-text-left);')
         expect(embeddedNameRule).toContain('top: 50%;')
@@ -231,6 +264,26 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelCss).toContain('.scheme-modal-embedded .scheme-embedded-omen-field')
         expect(schemePanelCss).toContain('.scheme-modal-embedded .scheme-embedded-omen-label-row')
         expect(schemePanelCss).toContain('.scheme-modal-embedded .scheme-embedded-omen-count')
+    })
+
+    it('renders scheme attempt quotas with a compact slash and no spacing around the divider', () => {
+        expect(schemePanelSource).toContain('scheme-attempt-quota')
+        expect(schemePanelSource).toContain('{schemeCount + 1}</span>/<span className="highlight-number">{maxSchemes}</span>')
+        expect(schemePanelCss).toContain('.scheme-attempt-quota .highlight-number')
+        expect(schemePanelSource).not.toContain('</span> / {maxSchemes}')
+        expect(schemePanelSource).not.toContain('{schemeCount + 1}</span> / {maxSchemes}')
+    })
+
+    it('reports the submitted target and post-submit quota to embedded callers', () => {
+        expect(schemePanelSource).toContain('export interface SchemeSubmitResult')
+        expect(schemePanelSource).toContain('schemeCountAfterSubmit: number')
+        expect(schemePanelSource).toContain('targetPowerBase: NPC[\'powerBase\']')
+        expect(schemePanelSource).toContain('const schemeCountAfterSubmit = schemeCount + 1')
+        expect(schemePanelSource).toContain('onAfterSubmit?.({')
+        expect(schemePanelSource).toContain('targetNpcId: selectedNpcId')
+        expect(schemePanelSource).toContain('targetPowerBase: selectedNpc.powerBase')
+        expect(schemePanelSource).toContain('schemeCountAfterSubmit')
+        expect(schemePanelSource).toContain('maxSchemes')
     })
 
     it('keeps court embedded targets free of external-only escalation schemes', () => {

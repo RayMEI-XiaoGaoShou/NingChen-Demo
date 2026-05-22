@@ -1,3 +1,11 @@
+@font-face {
+  font-family: 'Alimama DongFangDaKai';
+  src: url('/fonts/alimama-dongfangdakai/AlimamaDongFangDaKai-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* ========================================
    《佞臣》CSS 设计变量
    风格：水墨风 + 暗金，朝堂权谋质感
@@ -47,9 +55,10 @@
   --color-power-collapsed: #6a6a82;  /* 倾覆：灰 */
 
   /* === 字体 === */
-  --font-primary: 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
-  --font-heading: 'Noto Serif SC', 'Source Han Serif SC', serif;
-  --font-body: 'Noto Sans SC', 'Source Han Sans SC', 'Microsoft YaHei', sans-serif;
+  --font-calligraphy: 'Alimama DongFangDaKai', KaiTi, STKaiti, SimKai, 'Noto Serif SC', serif;
+  --font-primary: var(--font-calligraphy);
+  --font-heading: var(--font-calligraphy);
+  --font-body: var(--font-calligraphy);
 
   /* === 间距 === */
   --spacing-xs: 4px;

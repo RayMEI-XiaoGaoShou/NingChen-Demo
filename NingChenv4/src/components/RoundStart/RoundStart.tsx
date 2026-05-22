@@ -14,20 +14,23 @@ import { buildOmenAdvisorHint } from '../../game/fengDaozhiHint'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { renderMixedTextWithNumberSpans } from '../../utils/renderMixedText'
+import { GameViewport } from '../GameViewport/GameViewport'
+import { formatRoundVolumeLabel } from '../../utils/roundLabels'
 import './RoundStart.css'
 
 const ROUND_START_ASSETS = {
-    courtBackground: new URL('../../assets/ui/court-overview/court-bg-lacquer-v3.jpg', import.meta.url).href,
-    volumeSeal: new URL('../../assets/ui/round-start/roundstart-volume-seal.png', import.meta.url).href,
-    briefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll-wide-aiart-v2.png', import.meta.url).href,
-    naturalBriefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll.png', import.meta.url).href,
-    boardFrame: new URL('../../assets/ui/round-start/roundstart-board-frame.jpg', import.meta.url).href,
-    northPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-north.jpg', import.meta.url).href,
-    southPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-south.jpg', import.meta.url).href,
-    worldMapAiart: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-v1.png', import.meta.url).href,
-    worldMapAiartBashu: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-v1.png', import.meta.url).href,
-    worldMapAiartBashuHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-huainan-v1.png', import.meta.url).href,
-    worldMapAiartHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-huainan-v1.jpg', import.meta.url).href,
+    courtBackground: new URL('../../assets/ui/court-overview/court-bg-lacquer-v3.webp', import.meta.url).href,
+    volumeSeal: new URL('../../assets/ui/round-start/roundstart-volume-seal.webp', import.meta.url).href,
+    briefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll-wide-aiart-v2.webp', import.meta.url).href,
+    naturalBriefingScroll: new URL('../../assets/ui/round-start/roundstart-briefing-scroll.webp', import.meta.url).href,
+    boardFrame: new URL('../../assets/ui/round-start/roundstart-board-frame.webp', import.meta.url).href,
+    northPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-north.webp', import.meta.url).href,
+    southPowerPlate: new URL('../../assets/ui/round-start/roundstart-power-south.webp', import.meta.url).href,
+    worldMapAiart: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-v1.webp', import.meta.url).href,
+    worldMapAiartBashu: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-v1.webp', import.meta.url).href,
+    worldMapAiartBashuHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-bashu-huainan-v1.webp', import.meta.url).href,
+    worldMapAiartHuainan: new URL('../../assets/ui/round-start/roundstart-world-map-aiart-huainan-v1.webp', import.meta.url).href,
 }
 
 const ROUND_START_COMPACT_MAP_ART = [
@@ -44,11 +47,11 @@ export function resolveCompactRoundStartMapSrc(campaignMapSrc: string, useWirefr
 }
 
 const ROUND_START_STAT_ICONS: Record<keyof NationDimensions, string> = {
-    finance: new URL('../../assets/ui/round-start/stat-finance-coin.png', import.meta.url).href,
-    governance: new URL('../../assets/ui/round-start/stat-governance.png', import.meta.url).href,
-    socialOrder: new URL('../../assets/ui/round-start/stat-social-order.png', import.meta.url).href,
-    grain: new URL('../../assets/ui/round-start/stat-grain.png', import.meta.url).href,
-    military: new URL('../../assets/ui/round-start/stat-military.png', import.meta.url).href,
+    finance: new URL('../../assets/ui/round-start/stat-finance-coin.webp', import.meta.url).href,
+    governance: new URL('../../assets/ui/round-start/stat-governance.webp', import.meta.url).href,
+    socialOrder: new URL('../../assets/ui/round-start/stat-social-order.webp', import.meta.url).href,
+    grain: new URL('../../assets/ui/round-start/stat-grain.webp', import.meta.url).href,
+    military: new URL('../../assets/ui/round-start/stat-military.webp', import.meta.url).href,
 }
 
 type RoundStartStyle = CSSProperties & {
@@ -74,22 +77,8 @@ function stripAdvisorPrefix(text: string | null | undefined): string {
     return cleaned
 }
 
-function toChineseNumber(value: number): string {
-    const digits = ['零', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十']
-
-    if (value <= 10) return digits[value] ?? String(value)
-    if (value < 20) return `十${digits[value - 10]}`
-    if (value < 100) {
-        const tens = Math.floor(value / 10)
-        const ones = value % 10
-        return `${digits[tens]}十${ones > 0 ? digits[ones] : ''}`
-    }
-
-    return String(value)
-}
-
 function buildRoundStartTitle(currentRound: number, eventTitle?: string, timeLabel?: string): string {
-    const titleParts = [`第${toChineseNumber(currentRound)}卷`]
+    const titleParts = [formatRoundVolumeLabel(currentRound)]
 
     if (eventTitle) titleParts.push(eventTitle)
     else if (timeLabel) titleParts.push(timeLabel)
@@ -257,6 +246,11 @@ export function RoundStart() {
     const compactRootStyle = {
         '--roundstart-bg': `url(${ROUND_START_ASSETS.courtBackground})`,
     } as RoundStartStyle
+    const compactBleed = useWireframeLayout ? undefined : (
+        <div className="roundstart-bleed" style={compactRootStyle}>
+            <span className="roundstart-bleed-shade" />
+        </div>
+    )
     const scrollBriefingStyle = {
         '--scroll-art': `url(${useNaturalArtLayout ? ROUND_START_ASSETS.naturalBriefingScroll : ROUND_START_ASSETS.briefingScroll})`,
     } as RoundStartStyle
@@ -264,11 +258,13 @@ export function RoundStart() {
 
     if (showCompactLayout) {
         return (
-            <div
-                className={`page-container round-start round-start-compact roundstart-game-screen page-enter${compactModeClass}`}
-                style={useWireframeLayout ? undefined : compactRootStyle}
+            <GameViewport
+                className="roundstart-viewport"
+                canvasClassName={`roundstart-design-canvas page-enter`}
+                bleed={compactBleed}
             >
-                {guideModal}
+                <div className={`roundstart-canvas-content round-start round-start-compact roundstart-game-screen${compactModeClass}`}>
+                    {guideModal}
 
                 <header className="roundstart-volume-hud animate-slide-up">
                     <div className="roundstart-volume-title-plaque">
@@ -372,7 +368,8 @@ export function RoundStart() {
                         入朝听政
                     </button>
                 </footer>
-            </div>
+                </div>
+            </GameViewport>
         )
     }
 
@@ -385,7 +382,7 @@ export function RoundStart() {
             </div>
 
             <div className="round-header animate-slide-up">
-                <span className="round-label">第 {currentRound} 回合</span>
+                <span className="round-label">{renderMixedTextWithNumberSpans(`第 ${currentRound} 回合`)}</span>
                 <span className="round-time">{event?.timeLabel}</span>
             </div>
 
@@ -472,8 +469,7 @@ export function RoundStart() {
                                             key={`aftereffect-${dim}`}
                                             className={`aftereffect-tag ${value > 0 ? 'positive' : 'negative'}`}
                                         >
-                                            南陈{dimNames[dim]} {value > 0 ? '+' : ''}
-                                            {value.toFixed(1)}
+                                            {renderMixedTextWithNumberSpans(`南陈${dimNames[dim]} ${value > 0 ? '+' : ''}${value.toFixed(1)}`)}
                                         </span>
                                     )
                                 })}

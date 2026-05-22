@@ -56,6 +56,12 @@
     text-align: right;
 }
 
+.scheme-attempt-quota .highlight-number {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
 .scheme-inline-hint {
     margin-bottom: var(--spacing-lg);
     padding: 12px 16px;
@@ -124,7 +130,7 @@
 .scheme-embedded-target-title {
     display: block;
     color: rgba(214, 187, 122, 0.88);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-size: 0.94rem;
     letter-spacing: 0;
     line-height: 1.58;
@@ -134,7 +140,7 @@
     display: block;
     margin: 3px 0 0;
     color: rgba(255, 238, 188, 0.98);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-size: 2.1rem;
     letter-spacing: 0;
     line-height: normal;
@@ -289,7 +295,7 @@
     justify-self: start;
     gap: 10px;
     color: rgba(232, 210, 164, 0.94);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-size: 1.12rem;
     font-weight: 700;
     letter-spacing: 0;
@@ -304,7 +310,7 @@
     border-radius: 4px;
     background: linear-gradient(180deg, #e8c85d 0%, #cda846 100%);
     color: rgba(37, 23, 9, 0.96);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-size: 1rem;
     font-weight: 800;
     box-shadow:
@@ -367,15 +373,11 @@
     color: rgba(26, 15, 6, 0.96);
 }
 
-.scheme-vertical-btn.selected {
-    border-color: transparent;
-}
-
 .scheme-vertical-name {
     writing-mode: vertical-rl;
     text-orientation: upright;
     color: rgba(255, 239, 193, 0.96);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-size: 1.2rem;
     line-height: 1;
     letter-spacing: 0.08em;
@@ -396,7 +398,7 @@
     border: 0;
     background: transparent;
     color: rgba(236, 224, 201, 0.92);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     font-size: 0.94rem;
     line-height: 1.45;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.56);
@@ -417,7 +419,7 @@
 
 .scheme-related-title {
     color: rgba(226, 196, 130, 0.9);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
 }
 
 .scheme-related-inline-list {
@@ -435,7 +437,7 @@
     border: 0;
     background: transparent;
     color: rgba(231, 211, 167, 0.84);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     cursor: pointer;
 }
 
@@ -503,7 +505,7 @@
     background:
         linear-gradient(180deg, rgba(238, 203, 95, 0.9), rgba(191, 143, 45, 0.84));
     color: rgba(28, 17, 7, 0.98);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-weight: 700;
     letter-spacing: 0;
     box-shadow:
@@ -516,7 +518,7 @@
     align-items: center;
     gap: 7px;
     color: rgba(232, 211, 168, 0.9);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
 }
 
 .scheme-related-current-frame {
@@ -619,7 +621,7 @@
     background: transparent;
     color: rgba(249, 239, 214, 0.96);
     box-shadow: none;
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     line-height: 1.85;
 }
 
@@ -663,7 +665,7 @@
 
 .scheme-modal-embedded .scheme-embedded-omen-inputs .omen-input-label {
     color: rgba(232, 196, 105, 0.96);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     font-weight: 700;
 }
 
@@ -690,14 +692,14 @@
     border: 1px solid rgba(220, 187, 116, 0.14);
     background: rgba(5, 5, 5, 0.14);
     color: rgba(233, 217, 184, 0.78);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     line-height: 1.6;
 }
 
 .scheme-speech-empty-hint {
     padding: 2px 0 0 2px;
     color: rgba(233, 217, 184, 0.78);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     line-height: 1.6;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.56);
 }
@@ -944,7 +946,7 @@
     writing-mode: vertical-rl;
     text-orientation: upright;
     color: rgba(255, 238, 190, 0.96);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif;
+    font-family: var(--font-calligraphy);
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.88);
     transition: transform 180ms ease;
 }
@@ -985,7 +987,7 @@
     border-radius: 4px;
     background: rgba(6, 5, 4, 0.72);
     color: rgba(232, 214, 176, 0.9);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     font-size: 0.72rem;
     line-height: 1.5;
     text-align: left;
@@ -1188,6 +1190,8 @@
     --scheme-token-bg-size: auto 94%;
     --scheme-token-bg-position: center 52%;
     --scheme-token-text-left: 47%;
+    display: flex;
+    position: relative;
     width: clamp(50px, 4.5vw, 58px);
     min-width: clamp(50px, 4.5vw, 58px);
     max-width: clamp(50px, 4.5vw, 58px);
@@ -1197,45 +1201,49 @@
     justify-content: center;
     padding: 11px 7px;
     text-align: center;
-    border-color: transparent;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: 0;
     background:
         var(--scheme-token-bg-image) var(--scheme-token-bg-position) / var(--scheme-token-bg-size) no-repeat;
+    background-color: transparent;
     box-shadow: none;
-    filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.24));
+    overflow: visible;
+    cursor: pointer;
+    filter: none;
+    transition: transform 140ms ease, filter 140ms ease;
 }
 
 .scheme-modal-embedded .scheme-vertical-btn:hover:not(.disabled) {
-    --scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-selected.webp');
-    border-color: transparent;
-    background:
-        var(--scheme-token-bg-image) var(--scheme-token-bg-position) / var(--scheme-token-bg-size) no-repeat;
-    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.28)) drop-shadow(0 0 12px rgba(218, 177, 70, 0.2));
+    transform: translateY(-1px);
+    filter: brightness(1.04) saturate(1.03);
+}
+
+.scheme-modal-embedded .scheme-vertical-btn:focus-visible:not(.disabled) {
+    filter: brightness(1.04) saturate(1.03);
 }
 
 .scheme-modal-embedded .scheme-vertical-btn.selected {
     --scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-selected.webp');
-    border-color: transparent;
-    background:
-        var(--scheme-token-bg-image) var(--scheme-token-bg-position) / var(--scheme-token-bg-size) no-repeat;
-    box-shadow: none;
-    filter: drop-shadow(0 10px 16px rgba(0, 0, 0, 0.26)) drop-shadow(0 0 16px rgba(229, 188, 82, 0.24));
+    transform: translateY(-1px);
     animation: none;
 }
 
 .scheme-modal-embedded .scheme-vertical-btn.disabled {
     --scheme-token-bg-image: url('/images/ui/scheme-token/scheme-token-disabled.webp');
-    border-color: transparent;
-    background:
-        var(--scheme-token-bg-image) var(--scheme-token-bg-position) / var(--scheme-token-bg-size) no-repeat;
-    box-shadow: none;
-    filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.18)) saturate(0.78) brightness(0.86);
+    cursor: not-allowed;
+    filter: saturate(0.78) brightness(0.86);
     opacity: 0.82;
+    animation: none;
 }
 
 .scheme-modal-embedded .scheme-vertical-name {
     position: absolute;
     left: var(--scheme-token-text-left);
     top: 50%;
+    z-index: 1;
     transform: translate(-50%, -50%);
     white-space: nowrap;
     pointer-events: none;
@@ -1252,6 +1260,7 @@
     left: var(--scheme-token-text-left);
     right: auto;
     bottom: clamp(10px, 1.4vh, 14px);
+    z-index: 1;
     transform: translateX(-50%);
     color: rgba(143, 135, 122, 0.7);
     font-size: 0.58rem;
@@ -1493,7 +1502,7 @@
     background: transparent;
     box-shadow: none;
     color: rgba(249, 239, 214, 0.96);
-    font-family: KaiTi, STKaiti, SimKai, var(--font-body), serif;
+    font-family: var(--font-calligraphy);
     line-height: 1.85;
 }
 

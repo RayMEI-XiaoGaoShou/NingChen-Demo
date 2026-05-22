@@ -9,6 +9,7 @@ import {
     getNpcDetailBackgroundPath,
     getNpcDetailPortraitKey,
     getNpcDetailPortraitPath,
+    getNpcDetailVoicePath,
     HEBAQI_DETAIL_ASSETS,
     getNpcPortraitPath,
     getNpcPublicStatementAudioPath,
@@ -16,34 +17,34 @@ import {
 
 describe('mediaAssets', () => {
     it('maps 宇文棣 to 拓跋棣 portrait asset', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣') ?? '')).toContain('拓跋棣.png')
+        expect(decodeURI(getNpcPortraitPath('宇文棣') ?? '')).toContain('拓跋棣.webp')
     })
 
     it('returns direct name-based portrait assets when available', () => {
-        expect(decodeURI(getNpcPortraitPath('祖廷') ?? '')).toContain('祖廷.png')
-        expect(decodeURI(getNpcPortraitPath('贺拔琪') ?? '')).toContain('贺拔琪.png')
+        expect(decodeURI(getNpcPortraitPath('祖廷') ?? '')).toContain('祖廷.webp')
+        expect(decodeURI(getNpcPortraitPath('贺拔琪') ?? '')).toContain('贺拔琪.webp')
     })
 
     it('maps court dark portraits to finalized cutout assets', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_yuwendi_base_dark_cutout.png')
-        expect(decodeURI(getNpcPortraitPath('令狐律光', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_linghulvguang_base_dark_cutout.png')
+        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_yuwendi_base_dark_cutout.webp')
+        expect(decodeURI(getNpcPortraitPath('令狐律光', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_linghulvguang_base_dark_cutout.webp')
     })
 
     it('maps court bright portraits to hover cutout assets', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_yuwendi_hover_bright_cutout.png')
-        expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_hebaqi_hover_bright_cutout.png')
+        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_yuwendi_hover_bright_cutout.webp')
+        expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_hebaqi_hover_bright_cutout.webp')
     })
 
     it('maps court fullbody portraits to selected AIART assets', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_yuwendi_fullbody.png')
-        expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_hebaqi_fullbody.png')
+        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_yuwendi_fullbody.webp')
+        expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_hebaqi_fullbody.webp')
     })
 
     it('maps external fullbody portraits to selected AIART assets', () => {
-        expect(decodeURI(getNpcPortraitPath('独孤文约', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_duguwenyue_fullbody.png')
-        expect(decodeURI(getNpcPortraitPath('贺拔伯圭', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_hebabogui_fullbody.png')
-        expect(decodeURI(getNpcPortraitPath('尔朱烈', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_erzhulie_fullbody.png')
-        expect(decodeURI(getNpcPortraitPath('安思明', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_ansiming_fullbody.png')
+        expect(decodeURI(getNpcPortraitPath('独孤文约', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_duguwenyue_fullbody.webp')
+        expect(decodeURI(getNpcPortraitPath('贺拔伯圭', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_hebabogui_fullbody.webp')
+        expect(decodeURI(getNpcPortraitPath('尔朱烈', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_erzhulie_fullbody.webp')
+        expect(decodeURI(getNpcPortraitPath('安思明', 'externalFullbody') ?? '')).toContain('external-fullbody/portrait_ansiming_fullbody.webp')
     })
 
     it('returns null for unknown names', () => {
@@ -51,23 +52,23 @@ describe('mediaAssets', () => {
     })
 
     it('tracks court faction UI assets used by the polished court screen', () => {
-        expect(COURT_FACTION_UI_ASSETS.reactionPaper).toBe('/images/ui/court-faction/court-reaction-paper.png')
-        expect(COURT_FACTION_UI_ASSETS.bottomDeskForeground).toBe('/images/ui/court-faction/court-bottom-foreground-desk-layer-v2.png')
-        expect(COURT_FACTION_UI_ASSETS.imperialJadeSealBadge).toBe('/images/ui/court-faction/imperial-jade-seal-badge.png')
-        expect(COURT_FACTION_UI_ASSETS.phoenixCrownBadge).toBe('/images/ui/court-faction/phoenix-crown-badge.png')
-        expect(COURT_FACTION_UI_ASSETS.emperorPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-emperor-dragon.png')
-        expect(COURT_FACTION_UI_ASSETS.empressPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-empress-phoenix.png')
+        expect(COURT_FACTION_UI_ASSETS.reactionPaper).toBe('/images/ui/court-faction/court-reaction-paper.webp')
+        expect(COURT_FACTION_UI_ASSETS.bottomDeskForeground).toBe('/images/ui/court-faction/court-bottom-foreground-desk-layer-v2.webp')
+        expect(COURT_FACTION_UI_ASSETS.imperialJadeSealBadge).toBe('/images/ui/court-faction/imperial-jade-seal-badge.webp')
+        expect(COURT_FACTION_UI_ASSETS.phoenixCrownBadge).toBe('/images/ui/court-faction/phoenix-crown-badge.webp')
+        expect(COURT_FACTION_UI_ASSETS.emperorPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-emperor-dragon.webp')
+        expect(COURT_FACTION_UI_ASSETS.empressPartyEmblem).toBe('/images/ui/court-faction/court-party-emblem-empress-phoenix.webp')
     })
 
     it('tracks external faction UI assets used by the polished warlord screen', () => {
-        expect(EXTERNAL_FACTION_UI_ASSETS.longxiBackground).toBe('/images/ui/external-faction/external-background-longxi.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.prairieBackground).toBe('/images/ui/external-faction/external-background-prairie.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.tigerEmblem).toBe('/images/ui/external-faction/external-emblem-tiger.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.wolfEmblem).toBe('/images/ui/external-faction/external-emblem-wolf.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.bottomCommandDesk).toBe('/images/ui/external-faction/external-bottom-foreground-command-desk-v2.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.metricMilitaryIcon).toBe('/images/ui/external-faction/external-metric-icon-military.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.metricLoyaltyIcon).toBe('/images/ui/external-faction/external-metric-icon-loyalty.png')
-        expect(EXTERNAL_FACTION_UI_ASSETS.metricTrustIcon).toBe('/images/ui/external-faction/external-metric-icon-trust.png')
+        expect(EXTERNAL_FACTION_UI_ASSETS.longxiBackground).toBe('/images/ui/external-faction/external-background-longxi.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.prairieBackground).toBe('/images/ui/external-faction/external-background-prairie.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.tigerEmblem).toBe('/images/ui/external-faction/external-emblem-tiger.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.wolfEmblem).toBe('/images/ui/external-faction/external-emblem-wolf.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.bottomCommandDesk).toBe('/images/ui/external-faction/external-bottom-foreground-command-desk-v2.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.metricMilitaryIcon).toBe('/images/ui/external-faction/external-metric-icon-military.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.metricLoyaltyIcon).toBe('/images/ui/external-faction/external-metric-icon-loyalty.webp')
+        expect(EXTERNAL_FACTION_UI_ASSETS.metricTrustIcon).toBe('/images/ui/external-faction/external-metric-icon-trust.webp')
     })
 
     it('tracks scheme UI assets with stable ASCII filenames', () => {
@@ -169,6 +170,32 @@ describe('mediaAssets', () => {
         expect(getNpcDetailPortraitKey(89)).toBe('relied')
         expect(getNpcDetailPortraitKey(90)).toBe('devoted')
         expect(getHebaQiDetailPortraitKey(90)).toBe(getNpcDetailPortraitKey(90))
+    })
+
+    it('builds detail-entry attitude voice paths for every interactive NPC', () => {
+        const assetKeys = [
+            'hebaqi',
+            'zongai',
+            'linghulvguang',
+            'yuchimu',
+            'zuting',
+            'yuwendi',
+            'duguwenyue',
+            'hebabogui',
+            'erzhulie',
+            'ansiming',
+        ] as const
+
+        for (const assetKey of assetKeys) {
+            expect(getNpcDetailVoicePath(assetKey, 14)).toBe(`/audio/generated/scheme_avatar/${assetKey}/cold_guard.mp3`)
+            expect(getNpcDetailVoicePath(assetKey, 30)).toBe(`/audio/generated/scheme_avatar/${assetKey}/watchful.mp3`)
+            expect(getNpcDetailVoicePath(assetKey, 50)).toBe(`/audio/generated/scheme_avatar/${assetKey}/trusted.mp3`)
+            expect(getNpcDetailVoicePath(assetKey, 70)).toBe(`/audio/generated/scheme_avatar/${assetKey}/relied.mp3`)
+            expect(getNpcDetailVoicePath(assetKey, 90)).toBe(`/audio/generated/scheme_avatar/${assetKey}/devoted.mp3`)
+        }
+
+        expect(getNpcDetailVoicePath('hebaq\u00ed', 90)).toBe('/audio/generated/scheme_avatar/hebaqi/devoted.mp3')
+        expect(getNpcDetailVoicePath('unknown', 50)).toBeNull()
     })
 
     it('builds current-round public statement audio paths for normal and branch rounds', () => {

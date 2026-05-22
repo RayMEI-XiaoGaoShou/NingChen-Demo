@@ -18,11 +18,9 @@
     appearance: none;
     -webkit-appearance: none;
     background-color: transparent;
-    background-image:
-        url('../../assets/ui/hud/hud-button-frame.png'),
-        radial-gradient(circle at 50% 44%, rgba(201, 176, 101, 0.08), rgba(0, 0, 0, 0.7) 72%);
-    background-position: center, center;
-    background-size: 100% 100%, calc(100% - 18px) calc(100% - 18px);
+    background-image: url('../../assets/ui/hud/hud-button-frame.webp');
+    background-position: center;
+    background-size: 100% 100%;
     background-repeat: no-repeat;
     color: var(--color-accent-gold);
     cursor: pointer;
@@ -78,7 +76,7 @@
     padding: 7px 15px;
     border: 0;
     background-image:
-        url('../../assets/ui/hud/hud-button-frame.png'),
+        url('../../assets/ui/hud/hud-button-frame.webp'),
         linear-gradient(90deg, rgba(5, 5, 7, 0.82), rgba(22, 16, 10, 0.62));
     background-position: center, center;
     background-size: 100% 100%, calc(100% - 20px) calc(100% - 16px);
@@ -92,15 +90,22 @@
 
 .game-hud-status-label {
     color: rgba(214, 196, 147, 0.72);
+    font-family: var(--font-calligraphy);
     font-size: 0.76rem;
     letter-spacing: 2px;
 }
 
 .game-hud-status-value {
-    font-family: var(--font-heading);
+    font-family: var(--font-calligraphy);
     font-size: 0.92rem;
     font-weight: 600;
     letter-spacing: 1px;
+}
+
+.game-hud-status-value .ui-number {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
 }
 
 .power-level-鼎盛 {

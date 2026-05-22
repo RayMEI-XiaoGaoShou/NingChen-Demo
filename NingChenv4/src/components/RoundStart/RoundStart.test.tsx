@@ -28,6 +28,7 @@ describe('RoundStart compact layout', () => {
             audioReady: false,
             currentTrack: null,
             playbackRequestToken: 0,
+            voiceDuckingCount: 0,
         })
     })
 
@@ -36,6 +37,12 @@ describe('RoundStart compact layout', () => {
 
         const markup = renderToStaticMarkup(<RoundStart />)
 
+        expect(markup).toContain('game-viewport roundstart-viewport')
+        expect(markup).not.toContain('game-viewport roundstart-viewport page-container')
+        expect(markup).not.toContain('game-viewport roundstart-viewport page-container round-start')
+        expect(markup).toContain('roundstart-bleed')
+        expect(markup).toContain('game-design-canvas roundstart-design-canvas')
+        expect(markup).toContain('roundstart-canvas-content round-start')
         expect(markup).toContain('roundstart-volume-hud')
         expect(markup).toContain('roundstart-volume-seal')
         expect(markup).toContain('page-audio-btn')
@@ -55,7 +62,7 @@ describe('RoundStart compact layout', () => {
         expect(markup).toContain('radar-chart-war-board')
         expect(markup).toContain('天下形势图')
         expect(markup).toContain('roundstart-map-container')
-        expect(markup).toContain('roundstart-world-map-aiart-v1.png')
+        expect(markup).toContain('roundstart-world-map-aiart-v1.webp')
         expect(markup).not.toContain('朝堂势力')
         expect(markup).not.toContain('context-list')
         expect(markup).toContain('入朝听政')
@@ -217,11 +224,11 @@ describe('RoundStart compact layout', () => {
         expect(roundStartStyles).toContain('aspect-ratio: 1600 / 585;')
         expect(roundStartStyles).toContain('background-size: 100% auto;')
         expect(roundStartStyles).toContain('.roundstart-war-board-grid')
-        expect(roundStartSource).toContain('roundstart-briefing-scroll-wide-aiart-v2.png')
-        expect(roundStartSource).toContain('roundstart-briefing-scroll.png')
-        expect(roundStartSource).toContain('roundstart-volume-seal.png')
-        expect(roundStartSource).toContain('roundstart-power-north.jpg')
-        expect(roundStartSource).toContain('stat-finance-coin.png')
+        expect(roundStartSource).toContain('roundstart-briefing-scroll-wide-aiart-v2.webp')
+        expect(roundStartSource).toContain('roundstart-briefing-scroll.webp')
+        expect(roundStartSource).toContain('roundstart-volume-seal.webp')
+        expect(roundStartSource).toContain('roundstart-power-north.webp')
+        expect(roundStartSource).toContain('stat-finance-coin.webp')
         expect(roundStartSource).not.toContain('roundstart-scroll-advisor')
         expect(roundStartSource).not.toContain('roundstart-footnote-strip')
         expect(roundStartSource).not.toContain('roundstart-board-score')
@@ -230,21 +237,41 @@ describe('RoundStart compact layout', () => {
     })
 
     it('uses selected single-screen art assets for the default round start layout', () => {
+        const singleScreenHudButtonRule = roundStartStyles.match(/\.roundstart-single-screen-art \.roundstart-volume-hud \.game-hud-icon-button \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        expect(roundStartSource).toContain('GameViewport')
+        expect(roundStartSource).toContain('className="roundstart-viewport"')
+        expect(roundStartSource).not.toContain('className="roundstart-viewport page-container round-start"')
+        expect(roundStartSource).toContain('canvasClassName={`roundstart-design-canvas')
+        expect(roundStartStyles).toContain('.roundstart-design-canvas')
+        expect(roundStartStyles).toContain('.roundstart-canvas-content')
+        expect(roundStartStyles).toContain('--roundstart-canvas-vw: var(--game-canvas-vw);')
+        expect(roundStartStyles).toContain('--roundstart-canvas-vh: var(--game-canvas-vh);')
         expect(roundStartStyles).toContain('.round-start-compact.roundstart-game-screen.roundstart-single-screen-art')
-        expect(roundStartStyles).toContain('--roundstart-kaiti-font: KaiTi, STKaiti, "Noto Serif SC", serif;')
+        expect(roundStartStyles).toContain('--roundstart-kaiti-font: var(--font-calligraphy);')
+        expect(roundStartStyles).toContain('--roundstart-number-font: Arial, Helvetica, sans-serif;')
         expect(roundStartStyles).toContain('font-family: var(--roundstart-kaiti-font);')
         expect(roundStartStyles).toContain('.roundstart-single-screen-art :is(')
         expect(roundStartStyles).toContain('.roundstart-single-screen-art .radar-center-score')
         expect(roundStartStyles).toContain('.roundstart-single-screen-art .game-hud-icon-button')
         expect(roundStartStyles).toContain('.roundstart-single-screen-art .roundstart-map-modal-header h3')
-        expect(roundStartStyles).toContain('grid-template-rows: 72px minmax(280px, 32vh) minmax(0, 48vh) 52px;')
-        expect(roundStartStyles).toContain('height: 100dvh;')
+        expect(roundStartStyles).toContain('.roundstart-single-screen-art .radar-center-score,\n.roundstart-single-screen-art .radar-point-value,\n.roundstart-single-screen-art .radar-chip-value')
+        expect(roundStartStyles).toContain('font-family: var(--roundstart-number-font);')
+        expect(roundStartStyles).toContain('font-variant-numeric: tabular-nums;')
+        expect(roundStartStyles).toContain('grid-template-rows: 72px minmax(280px, calc(var(--roundstart-canvas-vh) * 32)) minmax(0, calc(var(--roundstart-canvas-vh) * 48)) 52px;')
+        expect(roundStartStyles).toContain('height: 100%;')
         expect(roundStartStyles).toContain('overflow: hidden;')
         expect(roundStartStyles).toContain('.roundstart-single-screen-art .roundstart-scroll-briefing')
         expect(roundStartStyles).toContain('padding: clamp(52px, 4.2vw, 70px) clamp(132px, 9.2vw, 220px) clamp(44px, 3.4vw, 60px);')
         expect(roundStartStyles).toContain('background-image: var(--scroll-art);')
         expect(roundStartStyles).toContain('background-size: 100% 100%;')
-        expect(roundStartSource).not.toContain('roundstart-hud-frame-single-screen.png')
+        expect(roundStartSource).not.toContain('roundstart-hud-frame-single-screen.webp')
+        expect(singleScreenHudButtonRule).toContain("background-image: url('../../assets/ui/hud/hud-button-frame.webp');")
+        expect(singleScreenHudButtonRule).toContain('background-position: center;')
+        expect(singleScreenHudButtonRule).toContain('background-size: 100% 100%;')
+        expect(singleScreenHudButtonRule).not.toContain('radial-gradient')
+        expect(singleScreenHudButtonRule).not.toContain('linear-gradient')
+        expect(singleScreenHudButtonRule).not.toContain('box-shadow')
     })
 
     it('uses the temporary large briefing layout while preserving the existing lower-board assets', () => {
@@ -282,25 +309,39 @@ describe('RoundStart compact layout', () => {
         expect(roundStartSource).toContain('roundstart-map-modal-backdrop')
         expect(roundStartSource).toContain('role="dialog"')
         expect(roundStartSource).toContain('size={330}')
-        expect(roundStartSource).toContain('roundstart-power-north.jpg')
-        expect(roundStartSource).toContain('roundstart-power-south.jpg')
-        expect(roundStartSource).toContain('roundstart-board-frame.jpg')
-        expect(roundStartSource).toContain('roundstart-world-map-aiart-v1.png')
+        expect(roundStartSource).toContain('roundstart-power-north.webp')
+        expect(roundStartSource).toContain('roundstart-power-south.webp')
+        expect(roundStartSource).toContain('roundstart-board-frame.webp')
+        expect(roundStartSource).toContain('roundstart-world-map-aiart-v1.webp')
         expect(roundStartSource).not.toContain('style={useWireframeLayout ? undefined : framedBoardStyle}')
     })
 
+    it('keeps the lower war-board metric chips in the lower frame pocket without over-lifting them', () => {
+        const bottomRightRule = roundStartStyles.match(/\.roundstart-single-screen-art \.radar-chip-war-board\.radar-chip-pos-bottom-right \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const bottomLeftRule = roundStartStyles.match(/\.roundstart-single-screen-art \.radar-chip-war-board\.radar-chip-pos-bottom-left \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        const bottomIconRule = roundStartStyles.match(/\.roundstart-single-screen-art \.radar-chip-pos-bottom-right \.radar-chip-icon,[\s\S]*?\.roundstart-single-screen-art \.radar-chip-pos-bottom-left \.radar-chip-icon \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        expect(bottomRightRule).toContain('transform: translate(0, clamp(-30px, calc(var(--roundstart-canvas-vh) * -3), -20px));')
+        expect(bottomLeftRule).toContain('transform: translate(-100%, clamp(-30px, calc(var(--roundstart-canvas-vh) * -3), -20px));')
+        expect(bottomRightRule).not.toContain('scale')
+        expect(bottomLeftRule).not.toContain('scale')
+        expect(bottomIconRule).toContain('width: 38px;')
+        expect(bottomIconRule).toContain('height: 38px;')
+    })
+
     it('uses selected AIART map assets for every compact campaign map state', () => {
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_1_initial.png', false)).toContain('roundstart-world-map-aiart-v1.png')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.png', false)).toContain('roundstart-world-map-aiart-bashu-v1.png')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_3_bashu_huainan.png', false)).toContain('roundstart-world-map-aiart-bashu-huainan-v1.png')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_4_huainan.png', false)).toContain('roundstart-world-map-aiart-huainan-v1.jpg')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.png', true)).toBe('/地图底稿/map_2_bashu.png')
+        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_1_initial.webp', false)).toContain('roundstart-world-map-aiart-v1.webp')
+        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.webp', false)).toContain('roundstart-world-map-aiart-bashu-v1.webp')
+        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_3_bashu_huainan.webp', false)).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
+        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_4_huainan.webp', false)).toContain('roundstart-world-map-aiart-huainan-v1.webp')
+        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.webp', true)).toBe('/地图底稿/map_2_bashu.webp')
     })
 
     it('defines a no-art single-screen wireframe for layout confirmation', () => {
         expect(roundStartStyles).toContain('.round-start-compact.roundstart-game-screen.roundstart-wireframe-screen')
         expect(roundStartStyles).toContain('grid-template-rows: 76px 138px minmax(0, 1fr) 48px;')
-        expect(roundStartStyles).toContain('height: 100dvh;')
+        expect(roundStartStyles).toContain('height: 100%;')
         expect(roundStartStyles).toContain('background-image: none;')
         expect(roundStartStyles).toContain('.roundstart-wireframe-screen .roundstart-volume-seal')
     })

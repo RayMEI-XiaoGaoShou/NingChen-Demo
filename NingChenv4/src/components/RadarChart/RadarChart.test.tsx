@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
+// @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
+import { readFileSync } from 'fs'
 import { RadarChart } from './RadarChart'
 
+const radarChartCss = readFileSync(new URL('./RadarChart.css', import.meta.url), 'utf8')
+
 describe('RadarChart', () => {
+    it('keeps text labels in the shared calligraphy font and values in Arial', () => {
+        expect(radarChartCss).toContain('font-family: var(--font-calligraphy)')
+        expect(radarChartCss).toContain('font-family: Arial, Helvetica, sans-serif;')
+    })
+
     it('renders the compact chart without footer pills or center label text', () => {
         const markup = renderToStaticMarkup(
             <RadarChart

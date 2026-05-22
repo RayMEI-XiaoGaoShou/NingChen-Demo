@@ -34,6 +34,9 @@ describe('CourtView layered game-screen flow', () => {
 
         const markup = renderCourtViewMarkup()
 
+        expect(markup).toContain('game-viewport court-game-viewport')
+        expect(markup).toContain('game-viewport__bleed')
+        expect(markup).toContain('game-design-canvas court-design-canvas')
         expect(markup).toContain('court-view-game')
         expect(markup).toContain('court-overview-screen')
         expect(markup).toContain('朝堂势力')
@@ -41,9 +44,9 @@ describe('CourtView layered game-screen flow', () => {
         expect(markup).toContain('court-top-bar')
         expect(markup).toContain('court-gate-visual')
         expect(markup).toContain('court-gate-art-mask')
-        expect(markup).toContain('court-gate-atmosphere')
         expect(markup).toContain('court-gate-frame')
-        expect(markup).toContain('court-gate-frame-glow')
+        expect(markup).not.toContain('court-gate-frame-glow')
+        expect(markup).not.toContain('court-gate-atmosphere')
         expect(markup).toContain('总为浮云能蔽日，邺都不见使人愁')
         expect(markup).toContain('八百里分麾下炙，五十弦翻塞外声')
         expect(markup).not.toContain('军师密奏')
@@ -56,6 +59,21 @@ describe('CourtView layered game-screen flow', () => {
         expect(markup).not.toContain('court-bottom-line')
         expect(markup).not.toContain('court-main-grid')
         expect(markup).not.toContain('npc-card-portrait')
+    })
+
+    it('labels the overview HUD with the Chinese volume instead of the old numeric round', () => {
+        useGameStore.setState({
+            currentRound: 7,
+            currentPhase: 'COURT_OBSERVE',
+        })
+
+        const markup = renderCourtViewMarkup()
+
+        expect(markup).toContain('第一卷')
+        expect(markup).not.toContain('第 <span class="ui-number">7</span> 回合')
+        expect(markup).not.toContain('第 <span class="ui-number">1</span> 回合')
+        expect(courtViewSource).toContain('formatRoundVolumeLabel(currentRound)')
+        expect(courtViewSource).not.toContain('renderHud(`第 ${currentRound} 回合`)')
     })
 
     it('keeps global risk state visible in the light HUD', () => {
@@ -94,6 +112,20 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('getNpcRoundReaction')
     })
 
+    it('uses compact slash-separated scheme quotas throughout court and scheme entry surfaces', () => {
+        expect(renderToStaticMarkup(<CourtView />)).toContain('<span class="ui-number">3/3</span>')
+        expect(renderToStaticMarkup(<CourtView />)).not.toContain('<span class="ui-number">3</span>/<span class="ui-number">3</span>')
+        expect(courtViewSource).not.toContain('</span> / {maxSchemes}')
+        expect(courtViewSource).not.toContain('} / {maxSchemes}')
+    })
+
+    it('labels court intel slots as known information with the two-slot frontend budget', () => {
+        expect(courtViewSource).toContain('getKnownIntelBudget')
+        expect(courtViewSource).toContain('已知情报 ${getKnownIntelBudget(knownIntel)}/2')
+        expect(courtViewSource).not.toContain('暗线 ${knownIntel}/${npc.secretThreads.length}')
+        expect(courtViewSource).not.toContain('暗线已明：{knownIntel}/{npc.secretThreads.length}')
+    })
+
     it('routes all interactive NPCs through a generic art-backed detail layout', () => {
         expect(courtViewSource).toContain('renderArtBackedNpcDetail')
         expect(courtViewSource).toContain('getNpcDetailBackgroundPath(npc.id)')
@@ -118,6 +150,24 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('court-hebaqi-scheme-button')
         expect(courtViewSource).toContain('enterSchemeWithNpc(npc)')
         expect(courtViewSource).not.toContain('return renderHebaQiDetail')
+    })
+
+    it('returns embedded scheme submissions to the owner faction unless the third scheme opens the empress letter', () => {
+        expect(courtViewSource).toContain('handleEmbeddedSchemeAfterSubmit')
+        expect(courtViewSource).toContain('schemeCountAfterSubmit >= maxSchemes')
+        expect(courtViewSource).toContain('completeSchemingIfReady()')
+        expect(courtViewSource).toContain("setScope(result.targetPowerBase === 'external' ? 'external' : 'court')")
+        expect(courtViewSource).toContain('setSelectedNpcId(null)')
+        expect(courtViewSource).toContain('onAfterSubmit={handleEmbeddedSchemeAfterSubmit}')
+    })
+
+    it('keeps the art-backed detail panel on the original Liquid Glass treatment without the smoke-paper experiment', () => {
+        expect(courtViewSource).not.toContain('court-smoke-paper-glass-experiment')
+        expect(courtViewSource).not.toContain('getCourtSmokeGlassExperimentClassName')
+        expect(artBackedDetailSource).not.toContain('smokeGlassExperimentClassName')
+        expect(courtViewCss).not.toContain('.court-smoke-paper-glass-experiment')
+        expect(courtViewCss).toContain('backdrop-filter: blur(36px) saturate(1.72) brightness(1.12) contrast(1.05);')
+        expect(courtViewCss).toContain('backdrop-filter: blur(38px) saturate(1.86) brightness(1.13) contrast(1.08);')
     })
 
     it('keeps the generic relation strips informational instead of navigational', () => {
@@ -221,7 +271,7 @@ describe('CourtView layered game-screen flow', () => {
         const hebaQiContentLayerRule = courtViewCss.match(/\.court-hebaqi-panel > :not\([^{]+\{[^}]+\}/)?.[0] ?? ''
         const hebaQiPartyEmblemRule = courtViewCss.match(/\.court-hebaqi-party-emblem \{[^}]+\}/)?.[0] ?? ''
 
-        expect(characterDetailScreenRule).toContain('--font-heading: KaiTi')
+        expect(characterDetailScreenRule).toContain('--font-heading: var(--font-calligraphy)')
         expect(hebaQiPanelRule).toContain('border: 0;')
         expect(hebaQiPanelRule).toContain('right: var(--court-safe-x);')
         expect(hebaQiPanelRule).toContain('backdrop-filter: blur(36px)')
@@ -285,6 +335,18 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain("'zuting': '左丞相'")
     })
 
+    it('centers the court faction strength label within the jade art button instead of letting it sit low', () => {
+        const sharedStrengthTextRule = courtViewCss.match(/\.court-strength-label,[\s\S]*?\.court-faction-strength strong \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const strengthLabelRule = courtViewCss.match(/\.court-strength-label \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const strengthValueRule = courtViewCss
+            .match(/\.court-faction-strength strong \{[\s\S]*?\n\}/g)
+            ?.find((rule: string) => rule.includes('font-family: var(--font-heading)')) ?? ''
+
+        expect(sharedStrengthTextRule).not.toContain('transform: translateY(1px);')
+        expect(strengthLabelRule).toContain('transform: translateY(-3px);')
+        expect(strengthValueRule).toContain('transform: translateY(-3px);')
+    })
+
     it('uses an art-backed external warlord stage with fullbody portraits and three diamond metrics', () => {
         expect(courtViewSource).toContain("emblemLabel: '虎'")
         expect(courtViewSource).toContain("emblemLabel: '狼'")
@@ -303,21 +365,21 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain("{ id: 'trust', label: '信任度', value: npc.trust }")
         expect(courtViewSource).toContain('external-faction-global-metric-track')
         expect(courtViewSource).toContain('external-seat-inline-metrics')
-        expect(courtViewCss).toContain('external-background-longxi.png')
-        expect(courtViewCss).toContain('external-background-prairie.png')
-        expect(courtViewCss).toContain('external-emblem-tiger.png')
-        expect(courtViewCss).toContain('external-emblem-wolf.png')
-        expect(courtViewCss).toContain('external-bottom-foreground-command-desk-v2.png')
-        expect(courtViewCss).toContain('external-metric-icon-military.png')
-        expect(courtViewCss).toContain('external-metric-icon-loyalty.png')
-        expect(courtViewCss).toContain('external-metric-icon-trust.png')
-        expect(courtViewCss).not.toContain('external-bottom-foreground-command-desk.png\') center bottom / 100% 100% no-repeat')
+        expect(courtViewCss).toContain('external-background-longxi.webp')
+        expect(courtViewCss).toContain('external-background-prairie.webp')
+        expect(courtViewCss).toContain('external-emblem-tiger.webp')
+        expect(courtViewCss).toContain('external-emblem-wolf.webp')
+        expect(courtViewCss).toContain('external-bottom-foreground-command-desk-v2.webp')
+        expect(courtViewCss).toContain('external-metric-icon-military.webp')
+        expect(courtViewCss).toContain('external-metric-icon-loyalty.webp')
+        expect(courtViewCss).toContain('external-metric-icon-trust.webp')
+        expect(courtViewCss).not.toContain('external-bottom-foreground-command-desk.webp\') center bottom / 100% 100% no-repeat')
         expect(courtViewCss).toContain('.court-faction-screen-external .court-seat-floating-text')
         expect(courtViewCss).toContain('.court-faction-screen-external .court-seat-advisor-mark')
         expect(courtViewCss).toContain('background-size: cover')
         expect(courtViewCss).toContain('.court-faction-screen-external .external-metric-card')
         expect(courtViewCss).toContain('.court-faction-screen-external .court-seat-reaction')
-        expect(courtViewCss).toContain("url('/images/ui/court-faction/court-reaction-paper.png')")
+        expect(courtViewCss).toContain("url('/images/ui/court-faction/court-reaction-paper.webp')")
     })
 
     it('keeps external name and title typography aligned with the court faction stage', () => {
@@ -336,12 +398,30 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('stopPublicStatementAudio')
         expect(courtViewSource).toContain('onMouseEnter={() => playPublicStatementAudio(npc)}')
         expect(courtViewSource).toContain('onMouseLeave={stopPublicStatementAudio}')
-        expect(courtViewSource).toContain('catch(() => undefined)')
+        expect(courtViewSource).toContain('catch(() => finalizePublicStatementAudio(audio))')
     })
 
-    it('keeps the court faction HUD quiet, aligned, and set in KaiTi', () => {
+    it('ducks BGM while public statement and detail-entry voices are active', () => {
+        expect(courtViewSource).toContain('beginVoiceDucking')
+        expect(courtViewSource).toContain('endVoiceDucking')
+        expect(courtViewSource).toContain('publicStatementDuckingActiveRef')
+        expect(courtViewSource).toContain('detailVoiceDuckingActiveRef')
+        expect(courtViewSource).toContain('beginPublicStatementDucking()')
+        expect(courtViewSource).toContain('endPublicStatementDucking()')
+        expect(courtViewSource).toContain('beginDetailVoiceDucking()')
+        expect(courtViewSource).toContain('endDetailVoiceDucking()')
+        expect(courtViewSource).toContain('if (activeStatementAudioRef.current !== audio) return')
+        expect(courtViewSource).toContain('if (detailVoiceAudioRef.current !== audio) return')
+        expect(courtViewSource).toContain('audio.volume = 0.95')
+        expect(courtViewSource).toContain('audio.volume = 1')
+        expect(courtViewSource).toContain('audio.onended')
+        expect(courtViewSource).toContain('audio.onpause')
+    })
+
+    it('keeps the court faction HUD quiet, aligned, and set in the shared calligraphy font', () => {
         const hudStateRule = courtViewCss.match(/\.court-screen-hud-state \{[^}]+\}/)?.[0] ?? ''
         const breadcrumbActionRule = courtViewCss.match(/\.court-hud-breadcrumb-action \{[^}]+\}/)?.[0] ?? ''
+        const hudTitleRule = courtViewCss.match(/\.court-screen-hud-title,[\s\S]*?\.court-hud-link \{[^}]+\}/)?.[0] ?? ''
 
         expect(courtViewSource).toContain('backLabel="上一页"')
         expect(courtViewSource).not.toContain('backLabel={schemeDrawerNpcId ?')
@@ -351,11 +431,16 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('court-hud-breadcrumb-action')
         expect(courtViewSource).toContain('previewScheme?: CourtPreviewScheme')
         expect(courtViewSource).toContain('initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}')
+        expect(renderToStaticMarkup(<CourtView />)).toContain('第一卷')
+        expect(renderToStaticMarkup(<CourtView />)).toContain('class="ui-number">3/3</span>')
         expect(courtViewSource).toContain('isComposing ? \'更换目标\' : undefined')
         expect(courtViewSource).toContain('renderHud(`朝堂总览 > ${scopeTitle}`)')
         expect(courtViewSource).not.toContain('返回上一层')
         expect(courtViewSource).not.toContain('返回总览')
-        expect(courtViewCss).toContain('font-family: KaiTi, STKaiti, SimKai')
+        expect(courtViewCss).toContain('font-family: var(--font-calligraphy)')
+        expect(hudTitleRule).toContain('font-family: var(--font-calligraphy)')
+        expect(courtViewCss).toContain('.court-top-bar .ui-number')
+        expect(courtViewCss).toContain('font-family: Arial, Helvetica, sans-serif;')
         expect(breadcrumbActionRule).toContain('color: var(--color-accent-gold);')
         expect(hudStateRule).toContain('position: absolute;')
         expect(hudStateRule).toContain('left: 50%;')
@@ -367,6 +452,17 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewCss).toContain('left: 38px')
         expect(courtViewCss).toContain('right: 38px')
         expect(courtViewCss).toContain('top: clamp(-76px, -4.4vw, -58px)')
+    })
+
+    it('plays detail-entry attitude voices only from user detail-entry clicks', () => {
+        expect(courtViewSource).toContain('getNpcDetailVoicePath')
+        expect(courtViewSource).toContain('detailVoiceAudioRef')
+        expect(courtViewSource).toContain('playNpcDetailVoice(npc)')
+        expect(courtViewSource).toContain('selectNpcDetail(npc)')
+        expect(courtViewSource).toContain('selectNpcDetail(npc, { openOverlayDetail: true })')
+        expect(courtViewSource).toContain('if (isMuted) return')
+        expect(courtViewSource).toContain('stopPublicStatementAudio()')
+        expect(courtViewSource).not.toContain('playNpcDetailVoice(previewNpc)')
     })
 
     it('raises the mobile embedded composer enough to keep its footer reachable', () => {
@@ -383,6 +479,11 @@ describe('CourtView layered game-screen flow', () => {
     })
 
     it('aligns the overview HUD and brightens the overview background to match the round home line art', () => {
+        expect(courtViewSource).toContain('GameViewport')
+        expect(courtViewSource).toContain('canvasClassName="court-design-canvas"')
+        expect(courtViewCss).toContain('.court-design-canvas')
+        expect(courtViewCss).toContain('--court-safe-x: clamp(22px, calc(var(--game-canvas-vw) * 3.1), 72px);')
+        expect(courtViewCss).toContain('--court-safe-y: clamp(18px, calc(var(--game-canvas-vh) * 2.4), 42px);')
         expect(courtViewCss).toContain('.court-overview-screen.court-game-screen')
         expect(courtViewCss).toContain('linear-gradient(180deg, rgba(5, 5, 6, 0.08), rgba(5, 5, 6, 0.36))')
         expect(courtViewCss).toContain('.court-scene-overview .court-art-background')
@@ -393,26 +494,65 @@ describe('CourtView layered game-screen flow', () => {
     })
 
     it('uses full-page faction screens and an art-backed reaction paper', () => {
-        expect(courtViewCss).not.toContain('court-page-dark-hall-background.png')
-        expect(courtViewCss).toContain('emperor-stage-plate.png')
-        expect(courtViewCss).toContain('empress-stage-plate.png')
+        const courtReactionRule = courtViewCss.match(/\.court-faction-screen-court \.court-seat-reaction \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const externalReactionRule = courtViewCss.match(/\.court-faction-screen-external \.court-seat-reaction \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        expect(courtViewCss).not.toContain('court-page-dark-hall-background.webp')
+        expect(courtViewCss).toContain('emperor-stage-plate.webp')
+        expect(courtViewCss).toContain('empress-stage-plate.webp')
         expect(courtViewCss).toContain('background-size: 52% 104%, 50% 100%')
         expect(courtViewCss).toContain('background-position: -2% center, right center')
-        expect(courtViewCss).toContain('court-reaction-paper.png')
+        expect(courtViewCss).toContain('court-reaction-paper.webp')
+        expect(courtReactionRule).toContain("background: url('/images/ui/court-faction/court-reaction-paper.webp') center / 100% 100% no-repeat;")
+        expect(externalReactionRule).toContain("background: url('/images/ui/court-faction/court-reaction-paper.webp') center / 100% 100% no-repeat;")
+        expect(courtReactionRule).not.toContain('linear-gradient')
+        expect(externalReactionRule).not.toContain('linear-gradient')
+        expect(courtReactionRule).not.toContain('box-shadow')
+        expect(externalReactionRule).not.toContain('box-shadow')
         expect(courtViewCss).not.toContain("content: '公开表态'")
         expect(courtViewCss).not.toContain("content: '新'")
         expect(courtViewCss).toContain('width: min(220px, 19vw)')
         expect(courtViewCss).toContain('.court-faction-screen-court .court-faction-scroll h3')
         expect(courtViewCss).toContain('.court-strength-label')
-        expect(courtViewCss).toContain('font-family: KaiTi, STKaiti, SimKai, var(--font-heading), serif')
+        expect(courtViewCss).toContain('font-family: var(--font-calligraphy)')
+    })
+
+    it('lets the overview gate buttons read as single art assets without CSS container paint', () => {
+        const gateRule = courtViewCss.match(/\.court-gate \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const gateMaskRule = courtViewCss.match(/\.court-gate-art-mask \{[\s\S]*?\n\}/)?.[0] ?? ''
+        const gateFrameRule = courtViewCss.match(/\.court-gate-frame \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        expect(courtViewSource).not.toContain('court-gate-atmosphere')
+        expect(courtViewSource).not.toContain('court-gate-frame-glow')
+        expect(courtViewCss).not.toContain('.court-gate-atmosphere')
+        expect(courtViewCss).not.toContain('.court-gate-frame-glow')
+        expect(courtViewCss).not.toContain('.court-gate-art::after')
+        expect(courtViewCss).not.toContain('.court-gate-art::before')
+        expect(gateRule).toContain('background: transparent;')
+        expect(gateRule).toContain('border: 0;')
+        expect(gateRule).not.toContain('box-shadow')
+        expect(gateMaskRule).not.toContain('background:')
+        expect(gateMaskRule).not.toContain('border')
+        expect(gateFrameRule).toContain("background: url('../../assets/ui/court-overview/court-gate-frame.webp') center / 100% 100% no-repeat;")
+    })
+
+    it('keeps court top action buttons art-backed without CSS fill layers', () => {
+        const topButtonRule = courtViewCss.match(/\.court-top-button \{[\s\S]*?\n\}/)?.[0] ?? ''
+
+        expect(topButtonRule).toContain("background-image: url('../../assets/ui/hud/hud-button-frame.webp');")
+        expect(topButtonRule).toContain('background-position: center;')
+        expect(topButtonRule).toContain('background-size: 100% 100%;')
+        expect(topButtonRule).not.toContain('linear-gradient')
+        expect(topButtonRule).not.toContain('radial-gradient')
+        expect(topButtonRule).not.toContain('box-shadow')
     })
 
     it('uses a wide transparent foreground desk without forcing it into the viewport ratio', () => {
         expect(courtViewCss).toContain('.court-faction-screen-court .court-faction-bottom-foreground')
-        expect(courtViewCss).toContain('court-bottom-foreground-desk-layer-v2.png')
+        expect(courtViewCss).toContain('court-bottom-foreground-desk-layer-v2.webp')
         expect(courtViewCss).toContain('background-size: cover')
         expect(courtViewCss).toContain('background-position: center bottom')
-        expect(courtViewCss).not.toContain('court-bottom-foreground-desk-layer.png\') center bottom / 100% 100% no-repeat')
+        expect(courtViewCss).not.toContain('court-bottom-foreground-desk-layer.webp\') center bottom / 100% 100% no-repeat')
         expect(courtViewCss).toContain('.court-faction-screen-court .court-faction-global-intel-track')
     })
 

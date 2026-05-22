@@ -318,7 +318,14 @@ export interface SchemeComposerProps {
     lockedNpcId?: string | null
     initialSchemeType?: SchemeType | null
     onChangeTarget?: () => void
-    onAfterSubmit?: () => void
+    onAfterSubmit?: (result: SchemeSubmitResult) => void
+}
+
+export interface SchemeSubmitResult {
+    targetNpcId: string
+    targetPowerBase: NPC['powerBase']
+    schemeCountAfterSubmit: number
+    maxSchemes: number
 }
 
 export function useSchemeComposer({
@@ -583,6 +590,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
 
         addScheme(action)
         markSchemeParsePending(actionId)
+        const schemeCountAfterSubmit = schemeCount + 1
 
         const schemeName = schemeNames[selectedScheme] || selectedScheme
 
@@ -724,8 +732,13 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             setTargetLockedFromCourt(false)
             setJustSubmitted(false)
 
-            onAfterSubmit?.()
-            if (schemeCount + 1 >= maxSchemes) {
+            onAfterSubmit?.({
+                targetNpcId: selectedNpcId,
+                targetPowerBase: selectedNpc.powerBase,
+                schemeCountAfterSubmit,
+                maxSchemes,
+            })
+            if (schemeCountAfterSubmit >= maxSchemes) {
                 completeSchemingIfReady()
             }
         }, 800)
@@ -756,7 +769,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                         aria-label={unlockHint}
                     >
                         <button
-                            className={`scheme-btn scheme-vertical-btn ${selectedScheme === scheme.type ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
+                            className={`scheme-art-token scheme-vertical-btn ${selectedScheme === scheme.type ? 'selected' : ''} ${!available ? 'disabled' : ''}`}
                             data-scheme-type={scheme.type}
                             disabled={!available}
                             onClick={() => {
@@ -1010,8 +1023,8 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                     ) : (
                         <>
                             <h2 className="modal-title">施计</h2>
-                            <div className="scheme-counter">
-                                今日第 <span className="highlight-number">{schemeCount + 1}</span> / {maxSchemes} 次计谋
+                            <div className="scheme-counter scheme-attempt-quota">
+                                今日第 <span className="highlight-number">{schemeCount + 1}</span>/<span className="highlight-number">{maxSchemes}</span> 次计谋
                             </div>
                         </>
                     )}

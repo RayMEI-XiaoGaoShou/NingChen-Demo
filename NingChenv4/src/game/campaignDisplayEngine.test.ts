@@ -44,7 +44,7 @@ describe('campaignDisplayEngine', () => {
             makeCampaignState(),
         )
 
-        expect(display.map.src).toContain('map_2_bashu.png')
+        expect(display.map.src).toContain('map_2_bashu.webp')
         expect(display.summary).toContain('蜀地')
     })
 
@@ -59,7 +59,7 @@ describe('campaignDisplayEngine', () => {
             }),
         )
 
-        expect(display.map.src).toContain('map_4_huainan.png')
+        expect(display.map.src).toContain('map_4_huainan.webp')
         expect(display.summary).toContain('淮南')
     })
 

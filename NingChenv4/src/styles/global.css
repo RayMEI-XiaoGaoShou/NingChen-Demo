@@ -2,8 +2,6 @@
    《佞臣》全局样式
    ======================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap');
-
 /* === 重置 === */
 *,
 *::before,
@@ -21,6 +19,7 @@ html {
 
 body {
     font-family: var(--font-body);
+    font-synthesis-weight: none;
     background: var(--color-bg-primary);
     color: var(--color-text-primary);
     min-height: 100vh;
