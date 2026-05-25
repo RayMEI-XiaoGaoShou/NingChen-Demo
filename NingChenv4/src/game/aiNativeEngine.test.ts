@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_NPCS } from '../data/npcs'
-import { chatCompletionJson } from '../ai/aiService'
+import { chatCompletionJson, chatCompletionJsonDetailed } from '../ai/aiService'
 import { clearAiGameMasterDebugRecords, getAiGameMasterDebugRecords } from './aiGameMasterDebug'
 import {
     fallbackNorthParseFromSpeech,
@@ -13,12 +13,26 @@ import {
 
 vi.mock('../ai/aiService', () => ({
     chatCompletionJson: vi.fn(),
+    chatCompletionJsonDetailed: vi.fn(),
 }))
 
 const chatCompletionJsonMock = vi.mocked(chatCompletionJson)
+const chatCompletionJsonDetailedMock = vi.mocked(chatCompletionJsonDetailed)
+
+function buildJsonDetailedMock<T>(parsed: T | null) {
+    return {
+        parsed,
+        text: '',
+        mode: 'fallback' as const,
+        source: 'fallback' as const,
+        fallbackReason: 'fallback_mode' as const,
+        attempts: 1,
+    }
+}
 
 beforeEach(() => {
     chatCompletionJsonMock.mockReset()
+    chatCompletionJsonDetailedMock.mockReset()
     clearAiGameMasterDebugRecords()
 })
 
@@ -405,7 +419,7 @@ describe('normalizePolicyReasonParse', () => {
 
 describe('parseSchemeFollowUpInput', () => {
     it('does not reward long but non-substantive fallback replies as successful clarification', async () => {
-        chatCompletionJsonMock.mockResolvedValue(null)
+        chatCompletionJsonDetailedMock.mockResolvedValue(buildJsonDetailedMock(null))
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
         const parsed = await parseSchemeFollowUpInput({
@@ -432,9 +446,9 @@ describe('parseSchemeFollowUpInput', () => {
     })
 
     it('falls back when remote follow-up parse lacks the required delta schema', async () => {
-        chatCompletionJsonMock.mockResolvedValue({
+        chatCompletionJsonDetailedMock.mockResolvedValue(buildJsonDetailedMock({
             clarificationFit: 0.9,
-        })
+        }))
         const npc = INITIAL_NPCS.find(item => item.id === 'zuting')!
 
         const parsed = await parseSchemeFollowUpInput({

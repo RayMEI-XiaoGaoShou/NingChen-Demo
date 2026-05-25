@@ -2,6 +2,7 @@ import { getSchemeByType } from '../data/schemes'
 import { buildCourtDispositionHint, getCourtDispositionHintSubject, shouldUseCourtDispositionHint } from './courtDispositionHint'
 import { buildFengDaozhiSituationSummary } from './fengDaozhiSituationSummary'
 import { buildFengDaozhiStrategyCard, type FengDaozhiAdvisoryMode } from './fengDaozhiStrategyCard'
+import { getInvasionPressurePresentation, getPlayerDangerPresentation } from './pressureEngine'
 import type {
     CampaignState,
     DelayedBacklash,
@@ -13,6 +14,7 @@ import type {
     RelationMemoryLedger,
     PlayerDangerStage,
     RoundHistoryEntry,
+    WorldMemoryLedger,
 } from './types'
 
 export interface FengDaozhiDraftContext {
@@ -32,10 +34,13 @@ export interface FengDaozhiDraftContext {
     factionPressure: string
     longTermMemorySummary?: string
     relationMemorySummary?: string
+    worldMemorySummary?: string
     relationshipSummary?: string
     courtSituationSummary?: string
     courtDispositionHint?: string
     playerDangerStage: PlayerDangerStage
+    playerSafetyPressureHint?: string
+    invasionPressureHint?: string
     strategicFocus: string
     bestAngle: string
     redLine: string
@@ -54,6 +59,7 @@ export function buildFengDaozhiDraftContext(params: {
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
     relationMemoryLedger?: RelationMemoryLedger
+    worldMemoryLedger?: WorldMemoryLedger
     relatedNpc?: NPC | null
 }): FengDaozhiDraftContext {
     const {
@@ -67,6 +73,7 @@ export function buildFengDaozhiDraftContext(params: {
         huainanCampaign,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         relatedNpc,
     } = params
     const situationSummary = buildFengDaozhiSituationSummary({
@@ -80,6 +87,7 @@ export function buildFengDaozhiDraftContext(params: {
         huainanCampaign,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         relatedNpcId: request.relatedNpcId,
         schemeType: request.schemeType,
     })
@@ -96,6 +104,8 @@ export function buildFengDaozhiDraftContext(params: {
     const dispositionHint = shouldUseCourtDispositionHint(request.schemeType)
         ? buildCourtDispositionHint(dispositionSubject)
         : null
+    const playerSafety = getPlayerDangerPresentation(request.playerSuspicionHeat ?? 0, request.playerDangerStage)
+    const invasionPressure = getInvasionPressurePresentation(request.invasionPressure ?? 0)
 
     return {
         round: request.round,
@@ -114,10 +124,13 @@ export function buildFengDaozhiDraftContext(params: {
         factionPressure: situationSummary.factionPressure,
         longTermMemorySummary: situationSummary.longTermMemorySummary,
         relationMemorySummary: situationSummary.relationMemorySummary,
+        worldMemorySummary: situationSummary.worldMemorySummary,
         relationshipSummary: situationSummary.relationshipSummary,
         courtSituationSummary: situationSummary.courtSituationSummary,
         courtDispositionHint: dispositionHint?.promptText,
         playerDangerStage: request.playerDangerStage,
+        playerSafetyPressureHint: `${playerSafety.label}：${playerSafety.summary}`,
+        invasionPressureHint: `${invasionPressure.label}：${invasionPressure.summary}`,
         strategicFocus: strategyCard.strategicFocus,
         bestAngle: strategyCard.bestAngle,
         redLine: strategyCard.redLine,

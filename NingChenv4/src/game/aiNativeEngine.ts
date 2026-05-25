@@ -1,12 +1,28 @@
 import { ROUND_EVENTS } from '../data/rounds'
-import { chatCompletionJson } from '../ai/aiService'
+import { chatCompletionJson, chatCompletionJsonDetailed, type ChatCompletionJsonDetailedResult } from '../ai/aiService'
 import { buildNorthSchemeParsePrompt, buildPolicyReasonParsePrompt, buildSchemeFollowUpParsePrompt } from '../ai/prompts'
 import { recordAiGameMasterDebug } from './aiGameMasterDebug'
+import {
+    clamp01,
+    hasNorthSchemeParseShape,
+    hasPolicyReasonParseShape,
+    hasSchemeFollowUpParseShape,
+    normalizeNorthSchemeParse,
+    normalizePolicyReasonParse,
+} from './aiNativeValidation'
 import { normalizeSchemeFollowUpParse } from './schemeFollowUp'
+import {
+    NORTH_EXECUTION_WORDS,
+    NORTH_EXPOSURE_WORDS,
+    NORTH_FINANCE_WORDS,
+    NORTH_GOVERNANCE_WORDS,
+    NORTH_GRAIN_WORDS,
+    NORTH_MILITARY_WORDS,
+    NORTH_SOCIAL_ORDER_WORDS,
+    NORTH_STRUCTURAL_WORDS,
+} from './semanticSignals'
 import type {
     AdvicePolarity,
-    DelayedBacklash,
-    NationDimensions,
     NorthDominantIntent,
     NorthSchemeParseResult,
     NPC,
@@ -15,103 +31,14 @@ import type {
     PolicyReasonParseResult,
     PolicyResolutionMeta,
     PolicyStance,
+    SchemeFollowUpFallbackReason,
     SchemeFollowUpParseResult,
+    SchemeFollowUpParseSource,
     SchemeType,
 } from './types'
 
-const NORTH_INTENTS: NorthDominantIntent[] = ['neutral', 'induce', 'threaten', 'divide', 'empathize', 'strategize']
-const POLICY_STANCES: PolicyStance[] = ['neutral', 'balanced', 'aggressive', 'conservative', 'expedient']
-const ADVICE_POLARITIES: AdvicePolarity[] = ['pro_state', 'pro_target_anti_state', 'neutral_or_vague']
-const OMEN_POLARITIES: OmenPolarity[] = ['legitimizing', 'destabilizing', 'vague_or_ceremonial']
-
-const NORTH_STRUCTURAL_WORDS = ['中枢', '兵权', '饷权', '仓储', '粮道', '门阀', '河北', '寿春', '边镇', '诏令', '流民', '节度', '平叛', '法统', '名分', '军令', '州郡', '接管']
-const NORTH_EXECUTION_WORDS = ['先', '再', '随后', '收回', '清丈', '并收', '稳住', '转运', '分州郡', '压住', '堵住', '调度', '接管', '断粮', '编户', '屯田', '安置']
-const NORTH_EXPOSURE_WORDS = ['夺权', '逼宫', '起兵', '翻掉', '杀', '今夜', '一举', '反旗', '举兵']
-const NORTH_FINANCE_WORDS = ['财政', '国库', '赋税', '钱粮', '商道', '饷银', '军费', '开源', '节流', '库藏', '财用']
-const NORTH_GRAIN_WORDS = ['粮道', '军粮', '口粮', '转运', '漕运', '仓储', '屯田', '后勤', '补给', '仓廪', '粮秣']
-const NORTH_MILITARY_WORDS = ['兵权', '前线', '战线', '调兵', '帅印', '节度', '都督', '平叛', '守军', '军令', '边镇', '诸军', '将令']
-const NORTH_SOCIAL_ORDER_WORDS = ['流民', '民变', '人心', '骚乱', '州郡', '百姓', '安民', '哗变', '恐慌', '离散']
-const NORTH_GOVERNANCE_WORDS = ['中枢', '诏令', '门阀', '权柄', '体制', '调度', '执行', '都督', '节度', '官吏', '法令', '秩序', '接管', '州郡', '法统', '名分']
-
-export function clamp01(value: unknown): number {
-    const numeric = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(numeric)) return 0
-    return Math.max(0, Math.min(1, Math.round(numeric * 100) / 100))
-}
-
-function clampSigned(value: unknown): number {
-    const numeric = typeof value === 'number' ? value : Number(value)
-    if (!Number.isFinite(numeric)) return 0
-    return Math.max(-1, Math.min(1, Math.round(numeric * 100) / 100))
-}
-
-function isNorthIntent(value: unknown): value is NorthDominantIntent {
-    return typeof value === 'string' && NORTH_INTENTS.includes(value as NorthDominantIntent)
-}
-
-function isPolicyStance(value: unknown): value is PolicyStance {
-    return typeof value === 'string' && POLICY_STANCES.includes(value as PolicyStance)
-}
-
-function isAdvicePolarity(value: unknown): value is AdvicePolarity {
-    return typeof value === 'string' && ADVICE_POLARITIES.includes(value as AdvicePolarity)
-}
-
-function isOmenPolarity(value: unknown): value is OmenPolarity {
-    return typeof value === 'string' && OMEN_POLARITIES.includes(value as OmenPolarity)
-}
-
-function cleanEvidence(input: unknown): string[] {
-    return Array.isArray(input)
-        ? input.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).slice(0, 3)
-        : []
-}
-
-export function normalizeNorthSchemeParse(input: unknown): NorthSchemeParseResult {
-    const candidate = (input ?? {}) as Partial<NorthSchemeParseResult>
-    return {
-        characterFit: clamp01(candidate.characterFit),
-        eventFit: clamp01(candidate.eventFit),
-        structuralPenetration: clamp01(candidate.structuralPenetration),
-        executability: clamp01(candidate.executability),
-        exposureRisk: clamp01(candidate.exposureRisk),
-        financeRelevance: clamp01(candidate.financeRelevance),
-        grainRelevance: clamp01(candidate.grainRelevance),
-        militaryRelevance: clamp01(candidate.militaryRelevance),
-        socialOrderRelevance: clamp01(candidate.socialOrderRelevance),
-        governanceRelevance: clamp01(candidate.governanceRelevance),
-        dominantIntent: isNorthIntent(candidate.dominantIntent) ? candidate.dominantIntent : 'neutral',
-        omenAccusationClarity: clamp01(candidate.omenAccusationClarity),
-        centralSanctionLeverage: clamp01(candidate.centralSanctionLeverage),
-        stateBenefit: clampSigned(candidate.stateBenefit),
-        targetBenefit: clampSigned(candidate.targetBenefit),
-        factionBenefit: clampSigned(candidate.factionBenefit),
-        advicePolarity: isAdvicePolarity(candidate.advicePolarity) ? candidate.advicePolarity : 'neutral_or_vague',
-        legitimacyDirection: clampSigned(candidate.legitimacyDirection),
-        omenPolarity: isOmenPolarity(candidate.omenPolarity) ? candidate.omenPolarity : 'vague_or_ceremonial',
-        selfTrapPotential: clamp01(candidate.selfTrapPotential),
-        scapegoatClarity: clamp01(candidate.scapegoatClarity),
-        omenAnchorStrength: clamp01(candidate.omenAnchorStrength),
-        legitimacyCrack: clamp01(candidate.legitimacyCrack),
-        suspicionDirection: clamp01(candidate.suspicionDirection),
-        suspicionTransmission: clamp01(candidate.suspicionTransmission),
-        fractureTransmission: clamp01(candidate.fractureTransmission),
-        proxyTransmission: clamp01(candidate.proxyTransmission),
-        evidence: cleanEvidence(candidate.evidence),
-    }
-}
-
-export function normalizePolicyReasonParse(input: unknown): PolicyReasonParseResult {
-    const candidate = (input ?? {}) as Partial<PolicyReasonParseResult>
-    return {
-        focusAlignment: clamp01(candidate.focusAlignment),
-        executionClarity: clamp01(candidate.executionClarity),
-        costAwareness: clamp01(candidate.costAwareness),
-        legitimacyAlignment: clamp01(candidate.legitimacyAlignment),
-        policyStance: isPolicyStance(candidate.policyStance) ? candidate.policyStance : 'neutral',
-        evidence: cleanEvidence(candidate.evidence),
-    }
-}
+export { clamp01, normalizeNorthSchemeParse, normalizePolicyReasonParse } from './aiNativeValidation'
+export { applyDelayedBacklashToState } from './aiNativeBacklash'
 
 function extractKeywords(text: string): string[] {
     return Array.from(
@@ -128,58 +55,13 @@ function includesAny(text: string, words: string[]): boolean {
     return words.some(word => word && text.includes(word))
 }
 
-function scoreMatches(text: string, words: string[]): number {
+function scoreMatches(text: string, words: readonly string[]): number {
     const matches = words.filter(word => word && text.includes(word))
     return Math.min(1, matches.length / Math.max(1, Math.min(words.length, 4)))
 }
 
 function countMatches(text: string, words: string[]): number {
     return words.filter(word => word && text.includes(word)).length
-}
-
-function isRecord(input: unknown): input is Record<string, unknown> {
-    return typeof input === 'object' && input !== null
-}
-
-function hasCoercibleNumberField(input: Record<string, unknown>, field: string): boolean {
-    const value = input[field]
-    const numeric = typeof value === 'number' ? value : Number(value)
-    return Number.isFinite(numeric)
-}
-
-function hasStructuredNumberShape(input: unknown, fields: string[]): boolean {
-    return isRecord(input) && fields.every(field => hasCoercibleNumberField(input, field))
-}
-
-function hasNorthSchemeParseShape(input: unknown): boolean {
-    return hasStructuredNumberShape(input, [
-        'characterFit',
-        'eventFit',
-        'structuralPenetration',
-        'executability',
-        'exposureRisk',
-    ])
-}
-
-function hasSchemeFollowUpParseShape(input: unknown): boolean {
-    return hasStructuredNumberShape(input, [
-        'clarificationFit',
-        'npcInterestFit',
-        'pressureControl',
-        'contradictionRisk',
-        'exposureRiskDelta',
-        'successRateDelta',
-        'effectMultiplierDelta',
-    ])
-}
-
-function hasPolicyReasonParseShape(input: unknown): boolean {
-    return hasStructuredNumberShape(input, [
-        'focusAlignment',
-        'executionClarity',
-        'costAwareness',
-        'legitimacyAlignment',
-    ])
 }
 
 const NORTH_CONCRETE_ACTION_WORDS = [
@@ -897,7 +779,19 @@ function fallbackSchemeFollowUpParseFromReply(params: {
     })
 }
 
-export async function parseSchemeFollowUpInput(params: {
+export interface ParseSchemeFollowUpInputDetailedResult {
+    parse: SchemeFollowUpParseResult
+    source: SchemeFollowUpParseSource
+    fallbackReason?: SchemeFollowUpFallbackReason
+}
+
+function getFollowUpParseFallbackReason(
+    aiResult: ChatCompletionJsonDetailedResult<SchemeFollowUpParseResult>,
+): SchemeFollowUpFallbackReason {
+    return aiResult.parseFallbackReason ?? aiResult.fallbackReason ?? 'parse_invalid_json'
+}
+
+type ParseSchemeFollowUpInputParams = {
     round: number
     eventName: string
     eventBriefing: string
@@ -907,8 +801,12 @@ export async function parseSchemeFollowUpInput(params: {
     originalParse: NorthSchemeParseResult
     npcQuestion: string
     playerReply: string
-}): Promise<SchemeFollowUpParseResult> {
-    const aiParsed = await chatCompletionJson<SchemeFollowUpParseResult>(
+}
+
+export async function parseSchemeFollowUpInputDetailed(
+    params: ParseSchemeFollowUpInputParams,
+): Promise<ParseSchemeFollowUpInputDetailedResult> {
+    const aiResult = await chatCompletionJsonDetailed<SchemeFollowUpParseResult>(
         buildSchemeFollowUpParsePrompt({
             round: params.round,
             eventName: params.eventName,
@@ -923,8 +821,8 @@ export async function parseSchemeFollowUpInput(params: {
         { temperature: 0.2, maxTokens: 180, tag: 'scheme_follow_up_parse' },
     )
 
-    if (hasSchemeFollowUpParseShape(aiParsed)) {
-        const parsed = normalizeSchemeFollowUpParse(aiParsed)
+    if (hasSchemeFollowUpParseShape(aiResult.parsed)) {
+        const parsed = normalizeSchemeFollowUpParse(aiResult.parsed)
         recordAiGameMasterDebug({
             chain: 'scheme_follow_up',
             source: 'ai',
@@ -932,12 +830,16 @@ export async function parseSchemeFollowUpInput(params: {
             npcId: params.npc.id,
             npcName: params.npc.name,
             schemeType: params.schemeType,
-            summary: `${params.npc.name} · ${params.schemeType} follow-up`,
+            summary: `${params.npc.name} -> ${params.schemeType} follow-up`,
             notes: ['AI follow-up parse matched schema.'],
         })
-        return parsed
+        return {
+            parse: parsed,
+            source: 'ai',
+        }
     }
 
+    const fallbackReason = getFollowUpParseFallbackReason(aiResult)
     recordAiGameMasterDebug({
         chain: 'scheme_follow_up',
         source: 'invalid_ai_fallback',
@@ -945,14 +847,25 @@ export async function parseSchemeFollowUpInput(params: {
         npcId: params.npc.id,
         npcName: params.npc.name,
         schemeType: params.schemeType,
-        summary: `${params.npc.name} · ${params.schemeType} follow-up`,
-        notes: ['AI follow-up parse was invalid; local fallback was used.'],
+        summary: `${params.npc.name} -> ${params.schemeType} follow-up`,
+        notes: [`AI follow-up parse fallback reason: ${fallbackReason}.`],
     })
-    return fallbackSchemeFollowUpParseFromReply({
-        originalParse: params.originalParse,
-        playerReply: params.playerReply,
-        npcQuestion: params.npcQuestion,
-    })
+    return {
+        parse: fallbackSchemeFollowUpParseFromReply({
+            originalParse: params.originalParse,
+            playerReply: params.playerReply,
+            npcQuestion: params.npcQuestion,
+        }),
+        source: 'invalid_ai_fallback',
+        fallbackReason,
+    }
+}
+
+export async function parseSchemeFollowUpInput(
+    params: ParseSchemeFollowUpInputParams,
+): Promise<SchemeFollowUpParseResult> {
+    const result = await parseSchemeFollowUpInputDetailed(params)
+    return result.parse
 }
 
 export async function parsePolicyReasonInput(params: {
@@ -993,56 +906,4 @@ export async function parsePolicyReasonInput(params: {
         notes: ['AI policy reason parse was invalid; local fallback was used.'],
     })
     return fallbackPolicyParseFromReason(params.reason, params.meta)
-}
-
-export function applyDelayedBacklashToState(params: {
-    backlog: DelayedBacklash[]
-    currentRound: number
-    npcs: NPC[]
-    northStats: NationDimensions
-}): {
-    npcs: NPC[]
-    northStats: NationDimensions
-    appliedBacklash: DelayedBacklash[]
-} {
-    const active = params.backlog.filter(item => params.currentRound === item.sourceRound + 1)
-    if (active.length === 0) {
-        return {
-            npcs: params.npcs,
-            northStats: params.northStats,
-            appliedBacklash: [],
-        }
-    }
-
-    const npcs = params.npcs.map(npc => ({ ...npc }))
-    const northStats = { ...params.northStats }
-
-    for (const backlash of active) {
-        const npc = npcs.find(item => item.id === backlash.npcId)
-        if (npc) {
-            if (backlash.type === 'guarded') {
-                npc.trust = Math.max(0, npc.trust - Math.max(2, Math.round(backlash.intensity * 5)))
-            } else if (backlash.type === 'shock') {
-                npc.trust = Math.max(0, npc.trust - Math.max(4, Math.round(backlash.intensity * 7)))
-            } else if (backlash.type === 'exposed') {
-                npc.trust = Math.max(0, npc.trust - Math.max(1, Math.round(backlash.intensity * 4)))
-            }
-        }
-
-        if (backlash.type === 'misdirected' || backlash.type === 'shock') {
-            northStats.governance = Math.max(0, roundOne(northStats.governance - backlash.intensity * (backlash.type === 'shock' ? 1.6 : 0.9)))
-            northStats.socialOrder = Math.max(0, roundOne(northStats.socialOrder - backlash.intensity * (backlash.type === 'shock' ? 1.2 : 0.7)))
-            northStats.military = Math.max(0, roundOne(northStats.military - backlash.intensity * (backlash.type === 'shock' ? 1.1 : 0.4)))
-        }
-
-        if ((backlash.type === 'exposed' || backlash.type === 'shock') && npc) {
-            npc.trust = Math.max(0, npc.trust - Math.max(2, Math.round(backlash.intensity * (backlash.type === 'shock' ? 8 : 5))))
-        }
-    }
-
-    return { npcs, northStats, appliedBacklash: active }
-}
-
-function roundOne(value: number): number {
-    return Math.round(value * 10) / 10
 }

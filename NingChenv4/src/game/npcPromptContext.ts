@@ -6,7 +6,8 @@ import {
 } from './npcMemoryLedger'
 import { isCourtDispositionTarget, normalizeCourtDispositionNpc } from './courtDisposition'
 import { selectRelationMemoryEntries, summarizeRelationMemoryEntries } from './npcRelationshipMemory'
-import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
+import { selectWorldEventMemoriesForPrompt, summarizeWorldEventMemories } from './worldEventMemory'
+import type { DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry, SchemeType, WorldMemoryLedger } from './types'
 
 const SCHEME_NAMES: Record<SchemeType, string> = {
     probe: '试探',
@@ -31,6 +32,7 @@ export interface NpcPromptDynamicContext {
     factionPressure: string
     longTermMemorySummary: string
     relationMemorySummary?: string
+    worldMemorySummary: string
 }
 
 const initialNpcMap = new Map(INITIAL_NPCS.map(npc => [npc.id, npc]))
@@ -43,6 +45,7 @@ export function buildNpcPromptDynamicContext(params: {
     recentBacklash?: DelayedBacklash[]
     npcMemoryLedger?: NpcMemoryLedger
     relationMemoryLedger?: RelationMemoryLedger
+    worldMemoryLedger?: WorldMemoryLedger
     relatedNpcId?: string
     currentRound?: number
     schemeType?: SchemeType
@@ -54,6 +57,7 @@ export function buildNpcPromptDynamicContext(params: {
         recentBacklash = [],
         npcMemoryLedger = {},
         relationMemoryLedger = {},
+        worldMemoryLedger = [],
         relatedNpcId,
         currentRound = (roundHistory[roundHistory.length - 1]?.round ?? 0) + 1,
         schemeType,
@@ -76,6 +80,15 @@ export function buildNpcPromptDynamicContext(params: {
             ledger: relationMemoryLedger,
             currentRound,
         }),
+        worldMemorySummary: summarizeWorldEventMemories(selectWorldEventMemoriesForPrompt({
+            ledger: worldMemoryLedger,
+            scopes: ['court_public', 'faction_private', 'local_rumor'],
+            currentRound,
+            npc,
+            relatedNpcId,
+            schemeType,
+            limit: 3,
+        })),
     }
 }
 
@@ -216,9 +229,6 @@ function describeRecentCourtFortune(
         }
         if (npc.externalStatus === 'rebellion') {
             return `${npc.name}近来已把局面闹到明处，朝廷与边镇都在盯着他的下一步。`
-        }
-        if (npc.externalStatus === 'watchful') {
-            return `${npc.name}近来边心浮动，既想抬价，也不愿过早把底牌全摊出来。`
         }
     }
 

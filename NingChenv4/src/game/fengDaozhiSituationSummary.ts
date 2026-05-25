@@ -1,7 +1,7 @@
 import { getRoundCampaignEventContext, getRoundStartCampaignDisplay } from './campaignDisplayEngine'
 import { buildNpcPromptDynamicContext } from './npcPromptContext'
 import { getNpcRoundReaction } from './roundIntelEngine'
-import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry, SchemeType } from './types'
+import type { CampaignState, DelayedBacklash, Faction, NPC, NpcMemoryLedger, RelationMemoryLedger, RoundHistoryEntry, SchemeType, WorldMemoryLedger } from './types'
 
 export interface FengDaozhiSituationSummary {
     eventName: string
@@ -14,6 +14,7 @@ export interface FengDaozhiSituationSummary {
     factionPressure: string
     longTermMemorySummary: string
     relationMemorySummary?: string
+    worldMemorySummary: string
     relationshipSummary: string
     courtSituationSummary: string
 }
@@ -29,6 +30,7 @@ export function buildFengDaozhiSituationSummary(params: {
     huainanCampaign: CampaignState
     npcMemoryLedger?: NpcMemoryLedger
     relationMemoryLedger?: RelationMemoryLedger
+    worldMemoryLedger?: WorldMemoryLedger
     relatedNpcId?: string
     schemeType?: SchemeType
 }): FengDaozhiSituationSummary {
@@ -43,6 +45,7 @@ export function buildFengDaozhiSituationSummary(params: {
         huainanCampaign,
         npcMemoryLedger = {},
         relationMemoryLedger = {},
+        worldMemoryLedger = [],
         relatedNpcId,
         schemeType,
     } = params
@@ -56,6 +59,7 @@ export function buildFengDaozhiSituationSummary(params: {
         recentBacklash,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         relatedNpcId,
         currentRound: round,
         schemeType,
@@ -77,6 +81,7 @@ export function buildFengDaozhiSituationSummary(params: {
         factionPressure: dynamicContext.factionPressure,
         longTermMemorySummary: dynamicContext.longTermMemorySummary,
         relationMemorySummary: dynamicContext.relationMemorySummary,
+        worldMemorySummary: dynamicContext.worldMemorySummary,
         relationshipSummary: compactJoin([
             `上回往来：${dynamicContext.previousDealings}`,
             `近两回合关系温度：${dynamicContext.relationshipTemperature}`,
@@ -87,6 +92,7 @@ export function buildFengDaozhiSituationSummary(params: {
             currentPublicStatement ? `公开表态：${currentPublicStatement}` : null,
             `近来得失：${dynamicContext.recentCourtFortune}`,
             `派系压力：${dynamicContext.factionPressure}`,
+            dynamicContext.worldMemorySummary ? `可借旧事：${dynamicContext.worldMemorySummary}` : null,
         ]),
     }
 }

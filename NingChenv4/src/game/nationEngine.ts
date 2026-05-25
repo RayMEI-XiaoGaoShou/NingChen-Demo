@@ -60,9 +60,12 @@ export function applyDimensionChanges(
 
 /**
  * 问政对南陈国力的影响
- * 规则：选项影响占 80%，理由修正 ±20%
- * 参考：天道判官结算规则.md §4
+ * 规则：选项决定基础方向，附言决定执行成色。
+ * 基础正向收益轻收，质量足够的附言再给受限补正，避免南陈因 AI Native 层单向增强。
  */
+const POLICY_BASE_POSITIVE_SCALE = 0.86
+const POLICY_REASON_SUPPLEMENT_CAP = 1.2
+
 export function calculatePolicyEffect(
     optionEffects: Partial<NationDimensions>,
     reasonText: string,
@@ -76,7 +79,17 @@ export function calculatePolicyEffect(
     const result: Partial<NationDimensions> = {}
     for (const [key, value] of Object.entries(optionEffects)) {
         if (value !== undefined) {
-            result[key as keyof NationDimensions] = Math.round(value * reasonModifier * profile.policyImmediateMultiplier * 10) / 10
+            const baseValue = value > 0 ? value * POLICY_BASE_POSITIVE_SCALE : value
+            const modifier = value < 0 ? calculatePolicyCostModifier(parse) : reasonModifier
+            result[key as keyof NationDimensions] = Math.round(baseValue * modifier * profile.policyImmediateMultiplier * 10) / 10
+        }
+    }
+
+    if (reasonText.trim()) {
+        const supplement = calculatePolicyReasonSupplement(optionEffects, parse, meta, difficulty)
+        for (const [key, value] of Object.entries(supplement) as Array<[keyof NationDimensions, number | undefined]>) {
+            if (!value) continue
+            result[key] = roundOneDecimal((result[key] ?? 0) + value)
         }
     }
     return result
@@ -96,6 +109,68 @@ function calculateReasonModifier(parse: PolicyReasonParseResult, round: number):
             ) * phaseScale,
         ),
     )
+}
+
+function calculatePolicyCostModifier(parse: PolicyReasonParseResult): number {
+    const mitigation = 1 - parse.costAwareness * 0.34 - parse.executionClarity * 0.12
+    const weakCostPenalty =
+        Math.max(0, 0.48 - parse.costAwareness) * 0.35
+        + Math.max(0, 0.45 - parse.executionClarity) * 0.2
+
+    return Math.max(0.58, Math.min(1.25, mitigation + weakCostPenalty))
+}
+
+function calculatePolicyReasonSupplement(
+    optionEffects: Partial<NationDimensions>,
+    parse: PolicyReasonParseResult,
+    meta: PolicyResolutionMeta,
+    difficulty: GameDifficulty,
+): Partial<NationDimensions> {
+    const quality =
+        parse.focusAlignment * 0.34
+        + parse.executionClarity * 0.28
+        + parse.costAwareness * 0.2
+        + parse.legitimacyAlignment * 0.18
+    if (quality < 0.56 || parse.focusAlignment < 0.48) return {}
+
+    const profile = getDifficultyProfile(difficulty)
+    const roundScale = getPolicyAftereffectScale(meta.round ?? 1)
+    let remaining = Math.min(
+        POLICY_REASON_SUPPLEMENT_CAP,
+        Math.max(0, (quality - 0.5) * 2.35 * profile.policyAftereffectMultiplier * (0.82 + roundScale * 0.24)),
+    )
+    if (remaining <= 0) return {}
+
+    const supplement: Partial<NationDimensions> = {}
+    const positiveEntries = (Object.entries(optionEffects) as Array<[keyof NationDimensions, number | undefined]>)
+        .filter(([, value]) => typeof value === 'number' && value > 0)
+        .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+
+    const add = (dimension: keyof NationDimensions, amount: number) => {
+        if (remaining <= 0 || amount <= 0) return
+        const applied = Math.min(remaining, amount)
+        supplement[dimension] = roundOneDecimal((supplement[dimension] ?? 0) + applied)
+        remaining = roundOneDecimal(remaining - applied)
+    }
+
+    const primary = positiveEntries[0]?.[0] ?? 'governance'
+    add(primary, 0.28 + parse.focusAlignment * 0.28)
+
+    if (parse.executionClarity >= 0.58) {
+        add(positiveEntries[1]?.[0] ?? 'governance', 0.18 + parse.executionClarity * 0.18)
+    }
+
+    if (parse.costAwareness >= 0.58) {
+        const negative = (Object.entries(optionEffects) as Array<[keyof NationDimensions, number | undefined]>)
+            .find(([, value]) => typeof value === 'number' && value < 0)
+        add(negative?.[0] ?? 'socialOrder', 0.16 + parse.costAwareness * 0.16)
+    }
+
+    if (parse.legitimacyAlignment >= 0.62 || meta.legitimacyEffect === 'up') {
+        add(meta.legitimacyEffect === 'up' ? 'socialOrder' : 'governance', 0.12 + parse.legitimacyAlignment * 0.16)
+    }
+
+    return supplement
 }
 
 export function buildPolicyAftereffect(params: {
@@ -220,11 +295,12 @@ export function getEventImpact(round: number): Partial<NationDimensions> {
 }
 
 /**
- * 检查死亡条件
+ * 旧版死亡条件，仅保留给回归测试对照。
+ * 正式回合结算必须使用 checkDeathConditionWithPressure。
  * 参考：数值初值与阈值表.md §6.2
  * 条件：NPC 朝堂影响力 ≥ 60 + 信任 ≤ 10 + 有处置能力
  */
-export function checkDeathCondition(
+export function legacyCheckDeathCondition(
     npcs: Pick<NPC, 'name' | 'trust' | 'canExecute' | 'factionId' | 'powerBase' | 'militaryPower' | 'loyaltyToCourt'>[],
     factions: Array<{ id: string; courtInfluence: number }>,
     round: number,
@@ -314,12 +390,13 @@ function getPolicyAftereffectScale(round: number): number {
 }
 
 /**
- * 检查提前南伐条件
+ * 旧版提前南伐条件，仅保留给回归测试对照。
+ * 正式回合结算必须使用 checkEarlyInvasionWithPressure。
  * 参考：数值初值与阈值表.md §6.3
  * A. 政治意愿：南征派影响力 ≥ 安内派 × 1.3
  * B. 可战能力：军≥65, 财≥55, 粮≥55, 社≥45，四项中≥3项达标
  */
-export function checkEarlyInvasion(
+export function legacyCheckEarlyInvasion(
     northStats: NationDimensions,
     factions: Array<{ id: string; courtInfluence: number }>,
     npcs: Pick<NPC, 'powerBase' | 'isAlive' | 'alignmentBias' | 'loyaltyToCourt' | 'militaryPower' | 'externalStatus'>[],
@@ -371,6 +448,190 @@ export function checkEarlyInvasion(
         warCapabilityMet: metCount,
         windowLabel: roundRule.invasionWindowLabel,
         pressureSummary: `帝党 ${Math.round(proWarInfluence * 10) / 10} vs 后党 ${Math.round(antiWarInfluence * 10) / 10}`,
+    }
+}
+
+export function checkDeathConditionWithPressure(
+    npcs: Pick<NPC, 'name' | 'trust' | 'canExecute' | 'factionId' | 'powerBase' | 'militaryPower' | 'loyaltyToCourt'>[],
+    factions: Array<{ id: string; courtInfluence: number }>,
+    round: number,
+    currentStage: PlayerDangerStage,
+    playerSuspicionHeat = 0,
+    previousSuspicionHeat = 0,
+): { triggered: boolean; killerName: string | null; nextStage: PlayerDangerStage; summary: string } {
+    const heat = clampPressureValue(playerSuspicionHeat)
+    const previousHeat = clampPressureValue(previousSuspicionHeat)
+
+    if (round < 4) {
+        return {
+            triggered: false,
+            killerName: null,
+            nextStage: 'safe',
+            summary: heat >= 36 ? '风声已有些不稳，但尚未到朝堂追查成形的时候。' : '风声暂稳。',
+        }
+    }
+
+    let watchCandidate: { name: string; influence: number } | null = null
+    let reviewCandidate: { name: string; influence: number } | null = null
+    let executeCandidate: { name: string; influence: number } | null = null
+
+    for (const npc of npcs) {
+        if (!npc.canExecute || npc.powerBase !== 'court') continue
+
+        const faction = factions.find(f => f.id === npc.factionId)
+        if (!faction) continue
+
+        if (npc.trust <= 16 && faction.courtInfluence >= 55) {
+            if (!watchCandidate || faction.courtInfluence > watchCandidate.influence) {
+                watchCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
+        }
+
+        if (round >= 6 && npc.trust <= 8 && faction.courtInfluence >= 60) {
+            if (!reviewCandidate || faction.courtInfluence > reviewCandidate.influence) {
+                reviewCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
+        }
+
+        if (round >= 7 && npc.trust <= 5 && faction.courtInfluence >= 62) {
+            if (!executeCandidate || faction.courtInfluence > executeCandidate.influence) {
+                executeCandidate = { name: npc.name, influence: faction.courtInfluence }
+            }
+        }
+    }
+
+    const strongestExecutor = findStrongestCourtExecutor(npcs, factions)
+    const emergencyWatchCandidate = heat >= 48 ? strongestExecutor : null
+    const emergencyReviewCandidate = round >= 7 && heat >= 82 ? strongestExecutor : null
+    const emergencyExecuteCandidate = round >= 8 && heat >= 92 && previousHeat >= 74 ? strongestExecutor : null
+    const activeWatchCandidate = watchCandidate ?? emergencyWatchCandidate
+    const activeReviewCandidate = reviewCandidate ?? emergencyReviewCandidate
+    const activeExecuteCandidate = executeCandidate ?? emergencyExecuteCandidate
+
+    if (currentStage === 'under_review' && activeExecuteCandidate && heat >= 86 && previousHeat >= 68) {
+        return {
+            triggered: true,
+            killerName: activeExecuteCandidate.name,
+            nextStage: 'under_review',
+            summary: `${activeExecuteCandidate.name} 已将你纳入正式处置链，杀机已至。`,
+        }
+    }
+
+    if (activeReviewCandidate && heat >= 66) {
+        return {
+            triggered: false,
+            killerName: activeReviewCandidate.name,
+            nextStage: 'under_review',
+            summary: `${activeReviewCandidate.name} 已将你列入审查，案牍将成；若下回合仍压不住风声，便可能出事。`,
+        }
+    }
+
+    if (activeWatchCandidate && heat >= 36) {
+        return {
+            triggered: false,
+            killerName: activeWatchCandidate.name,
+            nextStage: 'under_watch',
+            summary: `${activeWatchCandidate.name} 对你的行止已有疑心，暗流渐浓。`,
+        }
+    }
+
+    return {
+        triggered: false,
+        killerName: null,
+        nextStage: 'safe',
+        summary: currentStage === 'safe'
+            ? '风声暂稳。'
+            : '这一回合风声稍缓，暂未继续收紧。',
+    }
+}
+
+function findStrongestCourtExecutor(
+    npcs: Pick<NPC, 'name' | 'canExecute' | 'factionId' | 'powerBase'>[],
+    factions: Array<{ id: string; courtInfluence: number }>,
+): { name: string; influence: number } | null {
+    let candidate: { name: string; influence: number } | null = null
+
+    for (const npc of npcs) {
+        if (!npc.canExecute || npc.powerBase !== 'court') continue
+        const faction = factions.find(item => item.id === npc.factionId)
+        const influence = faction?.courtInfluence ?? 0
+        if (influence < 55) continue
+        if (!candidate || influence > candidate.influence) {
+            candidate = { name: npc.name, influence }
+        }
+    }
+
+    return candidate
+}
+
+export function checkEarlyInvasionWithPressure(
+    northStats: NationDimensions,
+    factions: Array<{ id: string; courtInfluence: number }>,
+    npcs: Pick<NPC, 'powerBase' | 'isAlive' | 'alignmentBias' | 'loyaltyToCourt' | 'militaryPower' | 'externalStatus'>[],
+    hasDisaster: boolean,
+    round: number,
+    pressure: {
+        current: number
+        previous?: number
+        difficulty?: GameDifficulty
+    } = { current: 0, previous: 0, difficulty: 'normal' },
+): {
+    triggered: boolean
+    politicalWillRatio: number
+    warCapabilityMet: number
+    windowLabel: string
+    pressureSummary: string
+} {
+    const emperorFaction = factions.find(f => f.id === 'emperor')
+    const empressFaction = factions.find(f => f.id === 'empress')
+    const { emperorBonus, empressBonus } = calculateExternalSupport(npcs)
+    const roundRule = getRoundRuleContext(round)
+    const proWarInfluence = (emperorFaction?.courtInfluence ?? 0) + emperorBonus + roundRule.emperorPressure
+    const antiWarInfluence = (empressFaction?.courtInfluence ?? 0) + empressBonus + roundRule.empressPressure
+
+    const politicalWillRatio = antiWarInfluence > 0
+        ? proWarInfluence / antiWarInfluence
+        : 999
+    const politicalWillMet = politicalWillRatio >= 1.3
+
+    const warBonus = hasDisaster ? 10 : 0
+    const thresholds = {
+        military: 65 + warBonus,
+        finance: 55 + warBonus,
+        grain: 55 + warBonus,
+        socialOrder: 45 + warBonus,
+    }
+
+    let metCount = 0
+    if (northStats.military >= thresholds.military) metCount++
+    if (northStats.finance >= thresholds.finance) metCount++
+    if (northStats.grain >= thresholds.grain) metCount++
+    if (northStats.socialOrder >= thresholds.socialOrder) metCount++
+
+    const warCapabilityMet = metCount >= 3
+    const difficulty = pressure.difficulty ?? 'normal'
+    const thresholdsByDifficulty: Record<GameDifficulty, { trigger: number; warning: number }> = {
+        easy: { trigger: 94, warning: 80 },
+        normal: { trigger: 86, warning: 70 },
+        hard: { trigger: 80, warning: 62 },
+        hell: { trigger: 74, warning: 56 },
+    }
+    const pressureThreshold = thresholdsByDifficulty[difficulty]
+    const currentPressure = clampPressureValue(pressure.current)
+    const previousPressure = clampPressureValue(pressure.previous ?? 0)
+    const pressureMet = currentPressure >= pressureThreshold.trigger
+    const sustained = previousPressure >= pressureThreshold.warning || currentPressure >= 96
+    const emergencyPressure = currentPressure >= 94 && previousPressure >= pressureThreshold.warning
+    const effectivePoliticalWillMet = politicalWillMet || (emergencyPressure && politicalWillRatio >= 0.95)
+    const effectiveWarCapabilityMet = warCapabilityMet || (emergencyPressure && metCount >= 2)
+    const triggered = round >= 6 && effectivePoliticalWillMet && effectiveWarCapabilityMet && pressureMet && sustained
+
+    return {
+        triggered,
+        politicalWillRatio,
+        warCapabilityMet: metCount,
+        windowLabel: roundRule.invasionWindowLabel,
+        pressureSummary: `帝党 ${Math.round(proWarInfluence * 10) / 10} vs 后党 ${Math.round(antiWarInfluence * 10) / 10}；南征压力 ${Math.round(currentPressure)}，可战条件满足 ${metCount} 项`,
     }
 }
 
@@ -462,6 +723,11 @@ export function checkFactionCollapse(
 }
 
 // 维度值钳制在 0-100
+function clampPressureValue(value: number): number {
+    if (!Number.isFinite(value)) return 0
+    return Math.max(0, Math.min(100, Math.round(value * 10) / 10))
+}
+
 function clampDimension(value: number): number {
     return Math.round(Math.max(0, Math.min(100, value)) * 10) / 10
 }

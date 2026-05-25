@@ -276,7 +276,7 @@ describe('buildSchemeOutcomeExplanation', () => {
                 ...ansiming,
                 trust: 90,
                 loyaltyToCourt: 12,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 militaryPower: 58,
                 highActionBias: 'rebellion',
             },

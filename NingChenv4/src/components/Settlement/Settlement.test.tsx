@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import settlementSource from './Settlement.tsx?raw'
 import roundSettlementSource from '../../game/roundSettlement.ts?raw'
+import settlementTypesSource from '../../game/settlementTypes.ts?raw'
 import {
     formatChronicleVolumeNumber,
     getChronicleVolumeTitle,
@@ -89,9 +90,10 @@ describe('Settlement source contract', () => {
     })
 
     it('stores the full policy question and policy parse in the settlement report', () => {
-        expect(roundSettlementSource).toContain('question: string')
+        expect(settlementTypesSource).toContain('question: string')
+        expect(settlementTypesSource).toContain('policyParse: PolicyReasonParseResult | null')
         expect(roundSettlementSource).toContain('question: question.question')
-        expect(roundSettlementSource).toContain('policyParse: PolicyReasonParseResult | null')
+        expect(roundSettlementSource).toContain('policyParse: hasPolicyReason ? policyParse ?? null : null')
     })
 
     it('keeps court disposition reports in settlement data but no longer renders them on settlement', () => {

@@ -32,11 +32,13 @@ export function buildBattleReport(history: RoundHistoryEntry[]): BattleReport {
         : ['本局几乎没有形成清晰的南陈施政路线。']
 
     const dangerRounds = history
-        .filter(item => item.invasionTriggered || item.factionCollapseCount > 0)
+        .filter(item => item.invasionTriggered || item.factionCollapseCount > 0 || (item.playerSuspicionHeat ?? 0) >= 66 || (item.invasionPressure ?? 0) >= 68)
         .slice(-3)
         .map(item => {
             const parts: string[] = []
             if (item.invasionTriggered) parts.push('提前南征威胁成形')
+            if ((item.playerSuspicionHeat ?? 0) >= 66) parts.push('自身安危进入高危')
+            if ((item.invasionPressure ?? 0) >= 68) parts.push('南征压力逼近箭在弦上')
             if (item.factionCollapseCount > 0) parts.push(`朝堂势力出现 ${item.factionCollapseCount} 处崩口/崩盘`)
             return `第 ${item.round} 回合：${parts.join('，')}`
         })
@@ -67,6 +69,8 @@ export function buildRoundHistoryEntry(params: {
     relationshipBreakCount: number
     factionCollapseCount: number
     invasionTriggered: boolean
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     northPower: number
     southPower: number
     summary: string
@@ -84,6 +88,8 @@ export function buildRoundHistoryEntry(params: {
         relationshipBreakCount: params.relationshipBreakCount,
         factionCollapseCount: params.factionCollapseCount,
         invasionTriggered: params.invasionTriggered,
+        playerSuspicionHeat: params.playerSuspicionHeat,
+        invasionPressure: params.invasionPressure,
         northPower: params.northPower,
         southPower: params.southPower,
         summary: params.summary,
@@ -96,6 +102,8 @@ function disruptionScore(entry: RoundHistoryEntry): number {
         entry.relationshipBreakCount * 2 +
         entry.factionCollapseCount * 2 +
         (entry.invasionTriggered ? 3 : 0) +
+        ((entry.playerSuspicionHeat ?? 0) >= 66 ? 2 : 0) +
+        ((entry.invasionPressure ?? 0) >= 68 ? 2 : 0) +
         entry.schemeSuccessCount
     )
 }

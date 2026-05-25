@@ -1,4 +1,4 @@
-﻿import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { SchemeFeedback } from './SchemeFeedback'
 
@@ -276,7 +276,8 @@ describe('SchemeFeedback omen echo rendering', () => {
 
         expect(markup).not.toContain('feedback-omen-echo')
         expect(markup).not.toContain('This should stay hidden.')
-        expect(markup).toContain('Still no echo block.')
+        expect(markup).toContain('No echo should appear.')
+        expect(markup).not.toContain('Still no echo block.')
     })
 })
 

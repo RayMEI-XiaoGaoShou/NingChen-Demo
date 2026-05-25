@@ -3,9 +3,14 @@ import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundar
 import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorBoundary/PhaseFallback'
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
+import { INITIAL_FACTIONS } from './data/factions'
+import { NORTH_INITIAL, SOUTH_INITIAL } from './data/nationStats'
+import { INITIAL_RELATIONSHIP_EDGES } from './data/npcRelationships'
+import { INITIAL_NPCS } from './data/npcs'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
-import type { SchemeType } from './game/types'
-import { useGameStore } from './stores/gameStore'
+import { settleRound } from './game/roundSettlement'
+import type { NorthSchemeParseResult, SchemeAction, SchemeType } from './game/types'
+import { useGameStore, type NpcFeedback } from './stores/gameStore'
 import { useMediaStore } from './stores/mediaStore'
 
 const Cover = lazy(() => import('./components/Cover/Cover').then(module => ({ default: module.Cover })))
@@ -78,6 +83,167 @@ export function getSchemePreviewRequest(search = typeof window !== 'undefined' ?
     }
 }
 
+export function isSchemeFeedbackPreviewRequest(search = typeof window !== 'undefined' ? window.location.search : ''): boolean {
+    return new URLSearchParams(search).get('preview') === 'scheme-feedback'
+}
+
+const PREVIEW_NORTH_PARSE: NorthSchemeParseResult = {
+    characterFit: 0.7,
+    eventFit: 0.62,
+    structuralPenetration: 0.38,
+    executability: 0.48,
+    exposureRisk: 0.16,
+    financeRelevance: 0,
+    grainRelevance: 0,
+    militaryRelevance: 0,
+    socialOrderRelevance: 0,
+    governanceRelevance: 0.2,
+    dominantIntent: 'neutral',
+    stateBenefit: 0,
+    targetBenefit: 0,
+    factionBenefit: 0,
+    advicePolarity: 'neutral_or_vague',
+    legitimacyDirection: 0,
+    omenPolarity: 'vague_or_ceremonial',
+    selfTrapPotential: 0,
+    scapegoatClarity: 0,
+    omenAnchorStrength: 0.45,
+    legitimacyCrack: 0.12,
+    suspicionDirection: 0,
+    suspicionTransmission: 0,
+    fractureTransmission: 0,
+    proxyTransmission: 0,
+    evidence: ['预览用解析'],
+}
+
+function buildSchemeFeedbackPreviewActions(): SchemeAction[] {
+    return [
+        {
+            id: 'preview-feedback-zuting',
+            targetNpcId: 'zuting',
+            schemeType: 'probe',
+            playerSpeech: '臣只问一句，昨夜中书省灯火不灭，究竟是谁先改了奏牍？',
+            northParse: PREVIEW_NORTH_PARSE,
+            resolutionRoll: 0.42,
+        },
+        {
+            id: 'preview-feedback-zongai',
+            targetNpcId: 'zongai',
+            relatedNpcId: 'zuting',
+            schemeType: 'alienate',
+            playerSpeech: '宗公若仍把宫门钥匙交给旧人，今日的安稳明日便会成罪证。',
+            northParse: {
+                ...PREVIEW_NORTH_PARSE,
+                fractureTransmission: 0.42,
+                targetBenefit: 0.12,
+            },
+            resolutionRoll: 0.62,
+        },
+        {
+            id: 'preview-feedback-hebaqi',
+            targetNpcId: 'hebaqí',
+            schemeType: 'omen',
+            playerSpeech: '赤气压星，边镇兵符恐将另有所归。',
+            omenSpeechInput: {
+                omenText: '赤气压星',
+                interpretationText: '边镇兵符恐将另有所归',
+            },
+            northParse: {
+                ...PREVIEW_NORTH_PARSE,
+                omenAnchorStrength: 0.72,
+                legitimacyCrack: 0.28,
+            },
+            resolutionRoll: 0.36,
+        },
+    ]
+}
+
+const PREVIEW_SCHEME_NAMES: Partial<Record<SchemeType, string>> = {
+    probe: '试探',
+    alienate: '离间',
+    omen: '谶纬',
+}
+
+function buildSchemeFeedbackPreviewState() {
+    const currentRound = 13
+    const actions = buildSchemeFeedbackPreviewActions()
+    const targetIds = new Set(actions.map(action => action.targetNpcId))
+    const npcsBefore = INITIAL_NPCS.map(npc => (
+        targetIds.has(npc.id)
+            ? { ...npc, trust: Math.max(npc.trust, 70) }
+            : { ...npc }
+    ))
+    const factionsBefore = INITIAL_FACTIONS.map(faction => ({ ...faction }))
+    const relationshipsBefore = INITIAL_RELATIONSHIP_EDGES.map(edge => ({ ...edge }))
+    const intelProgress = Object.fromEntries(
+        npcsBefore.map(npc => [
+            npc.id,
+            targetIds.has(npc.id) ? Math.max(npc.secretThreads.length, 1) : 0,
+        ]),
+    )
+
+    const settlement = settleRound({
+        round: currentRound,
+        difficulty: 'normal',
+        schemes: actions,
+        northStats: { ...NORTH_INITIAL },
+        southStats: { ...SOUTH_INITIAL },
+        npcs: npcsBefore,
+        factions: factionsBefore,
+        relationships: relationshipsBefore,
+        intelProgress,
+        policyOptionIndex: null,
+        policyReason: '',
+    })
+    const npcById = new Map(npcsBefore.map(npc => [npc.id, npc] as const))
+    const feedbacks: NpcFeedback[] = actions.map(action => {
+        const npc = npcById.get(action.targetNpcId)
+        const npcName = npc?.name ?? action.targetNpcId
+        const base: NpcFeedback = {
+            id: action.id ?? `${action.targetNpcId}-${action.schemeType}`,
+            npcId: action.targetNpcId,
+            npcName,
+            schemeType: action.schemeType,
+            schemeName: PREVIEW_SCHEME_NAMES[action.schemeType] ?? action.schemeType,
+            playerSpeech: action.playerSpeech,
+            feedback: `${npcName}读完你的话，先收住声色，只留下一句可以被旁人听见的回信。真正的态度藏在停顿里：他已经把这一步记下了。`,
+            isLoading: false,
+            source: '本地预览',
+        }
+
+        if (action.targetNpcId === 'zongai') {
+            return {
+                ...base,
+                feedback: '宗爱把钥牌在掌心轻轻一叩，面上仍是笑意：宫门旧人自会换掉，但这份人情，他要你记得。',
+            }
+        }
+
+        if (action.targetNpcId === 'hebaqí') {
+            return {
+                ...base,
+                feedback: '贺拔琪没有立刻应声，只问那句赤气压星究竟从何人口中传出。边镇兵符四字，已经让他听出了第二层意思。',
+                omenEcho: {
+                    speakerNpcId: 'zuting',
+                    speakerNpcName: '祖珽',
+                    speakerTitle: '中书令',
+                    text: '赤气之说一入宫门，便不只是在说天象。有人会借星变看边镇，也有人会借边镇看人心。',
+                    source: 'fallback',
+                },
+            }
+        }
+
+        return base
+    })
+
+    return {
+        actions,
+        feedbacks,
+        settlement,
+        intelProgress,
+        currentRound,
+    }
+}
+
 function PhaseLoadingFallback() {
     return (
         <div className="app-phase-loading" role="status" aria-live="polite">
@@ -106,11 +272,14 @@ function App() {
     const helpOverlayOpen = useGameStore(state => state.helpOverlayOpen)
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const schemePreview = getSchemePreviewRequest()
+    const schemeFeedbackPreview = isSchemeFeedbackPreviewRequest()
+    const isPreviewRoute = Boolean(schemePreview) || schemeFeedbackPreview
     const schemePreviewKey = schemePreview ? `${schemePreview.schemeType}:${schemePreview.targetNpcId}` : ''
-    const isCoverStep = prologueStep === 'COVER'
-    const isRoundStartFullscreenStep = shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
-    const isCourtStageStep = Boolean(schemePreview) || (prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
-    const hideGlobalHeader = Boolean(schemePreview) || shouldHideGlobalHeader(prologueStep, currentPhase)
+    const schemeFeedbackPreviewKey = schemeFeedbackPreview ? 'scheme-feedback' : ''
+    const isCoverStep = !isPreviewRoute && prologueStep === 'COVER'
+    const isRoundStartFullscreenStep = !isPreviewRoute && shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
+    const isCourtStageStep = Boolean(schemePreview) || (!schemeFeedbackPreview && prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
+    const hideGlobalHeader = isPreviewRoute || shouldHideGlobalHeader(prologueStep, currentPhase)
 
     useEffect(() => {
         if (!schemePreview) return
@@ -156,14 +325,84 @@ function App() {
     }, [schemePreviewKey])
 
     useEffect(() => {
-        if (schemePreview) return
+        if (!schemeFeedbackPreview) return
+
+        const preview = buildSchemeFeedbackPreviewState()
+        const updatedNpcs = preview.settlement.updatedNpcs
+        const updatedIntelProgress = { ...preview.intelProgress }
+        for (const [npcId, count] of Object.entries(preview.settlement.intelUnlocks)) {
+            updatedIntelProgress[npcId] = Math.min(
+                (updatedIntelProgress[npcId] ?? 0) + count,
+                updatedNpcs.find(npc => npc.id === npcId)?.secretThreads.length ?? count,
+            )
+        }
+
+        useGameStore.setState({
+            currentRound: preview.currentRound,
+            currentPhase: 'SCHEME_FEEDBACK',
+            prologueStep: 'INGAME',
+            schemeCount: preview.actions.length,
+            currentSchemes: preview.actions,
+            npcFeedbacks: preview.feedbacks,
+            pendingStructuredSchemeIds: [],
+            lastSettlement: preview.settlement,
+            lastPolicyReport: preview.settlement.policyReport,
+            lastPolicyAftereffect: preview.settlement.policyAftereffect,
+            empressReplyRecord: null,
+            northStats: preview.settlement.northStatsAfter,
+            southStats: preview.settlement.southStatsAfter,
+            northPower: preview.settlement.northPowerAfter,
+            southPower: preview.settlement.southPowerAfter,
+            playerDangerStage: preview.settlement.playerDangerStage,
+            playerSuspicionHeat: preview.settlement.playerSuspicionHeat,
+            invasionPressure: preview.settlement.invasionPressure,
+            isGameOver: preview.settlement.gameResult !== 'NONE',
+            gameResult: preview.settlement.gameResult,
+            npcs: updatedNpcs,
+            factions: preview.settlement.factionsAfter,
+            relationships: preview.settlement.relationshipsAfter,
+            intelProgress: updatedIntelProgress,
+            pendingBacklash: preview.settlement.delayedBacklash,
+            recentBacklash: [],
+            roundHistory: [],
+            npcMemoryLedger: {},
+            relationMemoryLedger: {},
+            worldMemoryLedger: [],
+            endingReport: null,
+            battleReport: null,
+            shuCampaign: preview.settlement.shuCampaign,
+            huainanCampaign: preview.settlement.huainanCampaign,
+            shuMomentum: preview.settlement.shuMomentum,
+            huainanMomentum: preview.settlement.huainanMomentum,
+            firstRoundGuideSeen: {
+                round_start: true,
+                court_observe: true,
+                scheme_phase: true,
+                empress_letter: true,
+                scheme_feedback: true,
+                settlement: true,
+            },
+            schemeOnboardingSeen: {
+                scheme_master_guide: true,
+                first_omen_teaching: true,
+                first_external_line_teaching: true,
+                first_follow_up_teaching: true,
+            },
+            omenGuideSeen: {
+                first_omen_modal: true,
+            },
+        })
+    }, [schemeFeedbackPreviewKey])
+
+    useEffect(() => {
+        if (isPreviewRoute) return
 
         const unsubscribe = useGameStore.subscribe(state => {
             const snapshot = buildPersistedSnapshot(state)
             if (snapshot) saveGameSnapshot(snapshot)
         })
         return unsubscribe
-    }, [schemePreviewKey])
+    }, [isPreviewRoute])
 
     useEffect(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
@@ -195,6 +434,10 @@ function App() {
     }
 
     const renderContent = () => {
+        if (schemeFeedbackPreview) {
+            return <SchemeFeedback />
+        }
+
         if (schemePreview) {
             return <CourtView previewScheme={schemePreview} />
         }
@@ -244,7 +487,7 @@ function App() {
                     </button>
                 </header>
             )}
-            <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}`} phaseName={currentPhase} fallback={errorFallback}>
+            <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}:${schemePreviewKey}:${schemeFeedbackPreviewKey}`} phaseName={currentPhase} fallback={errorFallback}>
                 <>
                     <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}${isCourtStageStep ? ' app-content-court' : ''}`}>
                         <Suspense fallback={<PhaseLoadingFallback />}>

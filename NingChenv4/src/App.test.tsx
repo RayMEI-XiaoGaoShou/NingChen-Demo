@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import appSource from './App.tsx?raw'
 import coverSource from './components/Cover/Cover.tsx?raw'
 import viteConfigSource from '../vite.config.ts?raw'
-import { getSchemePreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
+import { getSchemePreviewRequest, isSchemeFeedbackPreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
 
 describe('App phase loading contract', () => {
     it('lazy-loads the narrative entry and main round pages', () => {
@@ -41,6 +41,15 @@ describe('App phase loading contract', () => {
         expect(appSource).toContain('previewScheme={schemePreview}')
         expect(appSource).toContain('currentRound: 13')
         expect(appSource).toContain('first_omen_modal: true')
+    })
+
+    it('supports a direct scheme feedback preview URL', () => {
+        expect(isSchemeFeedbackPreviewRequest('?preview=scheme-feedback')).toBe(true)
+        expect(isSchemeFeedbackPreviewRequest('?preview=scheme-omen')).toBe(false)
+        expect(appSource).toContain('buildSchemeFeedbackPreviewState')
+        expect(appSource).toContain("currentPhase: 'SCHEME_FEEDBACK'")
+        expect(appSource).toContain('settleRound({')
+        expect(appSource).toContain('npcFeedbacks: preview.feedbacks')
     })
 
     it('defines stable manual chunk groups for React and the main phase clusters', () => {

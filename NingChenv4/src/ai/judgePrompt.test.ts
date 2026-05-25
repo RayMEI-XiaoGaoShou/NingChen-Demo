@@ -34,7 +34,9 @@ describe('buildJudgePrompt chronicle mode', () => {
         const messages = buildBaseJudgePrompt()
         expect(messages[0]?.content).toContain('编年体史书写法')
         expect(messages[0]?.content).toContain('不得虚构“初三月、初四月”等具体日期')
-        expect(messages[1]?.content).toContain('纪年标签：建文五年上 / 天嘉元年上')
+        expect(messages[1]?.content).toContain('北周纪年标签：北周建文五年')
+        expect(messages[1]?.content).toContain('南陈纪年标签：南陈天嘉元年')
+        expect(messages[1]?.content).toContain('正文第一句必须以“北周建文五年”开头')
         expect(messages[1]?.content).toContain('请据此写一段本回合史书记录')
     })
 

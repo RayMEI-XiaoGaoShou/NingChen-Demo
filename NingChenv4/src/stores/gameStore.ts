@@ -4,22 +4,27 @@
 // ========================================
 
 import { create } from 'zustand'
-import type { BattleReport, CampaignState, DelayedBacklash, EmpressReplyRecord, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenEchoFeedback, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap } from '../game/types'
+import type { BattleReport, CampaignState, DelayedBacklash, EmpressReplyRecord, EndingReport, FengDaozhiDraftRequest, FengDaozhiDraftResult, FirstRoundGuideKey, FirstRoundGuideSeenMap, GameDifficulty, HelpOverlaySource, NationDimensions, NorthSchemeParseResult, NpcMemoryLedger, OmenEchoFeedback, OmenGuideSeenMap, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult, PrologueStep, RelationMemoryLedger, RelationshipEdge, RoundHistoryEntry, RoundPhase, GameResult, SchemeAction, SchemeFollowUp, SchemeFollowUpAnswerMetadata, SchemeFollowUpParseResult, SchemeOnboardingGuideKey, SchemeOnboardingSeenMap, WorldMemoryLedger } from '../game/types'
 import { calculateCompositePower } from '../game/types'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { settleRound, type RoundSettlementResult, type PolicySettlementReport } from '../game/roundSettlement'
 import { applyDimensionChanges } from '../game/nationEngine'
-import { applyDelayedBacklashToState } from '../game/aiNativeEngine'
+import { applyDelayedBacklashToState } from '../game/aiNativeBacklash'
 import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_RELATIONSHIP_EDGES } from '../data/npcRelationships'
 import { ROUND_EVENTS } from '../data/rounds'
 import type { NPC, Faction } from '../game/types'
-import { getAvailableSchemesForNpc } from '../game/schemeEngine'
+import { getAvailableSchemesForNpc, type SchemeNpcActionNarrative } from '../game/schemeEngine'
 import { buildEndingReport } from '../game/endingEngine'
 import { buildBattleReport, buildRoundHistoryEntry } from '../game/battleReportEngine'
 import { deriveNpcMemoryEntriesForRound, mergeNpcMemoryEntries } from '../game/npcMemoryLedger'
 import { deriveRelationMemoryEntriesForRound, mergeRelationMemoryEntries } from '../game/npcRelationshipMemory'
+import {
+    deriveWorldEventMemoriesForRound,
+    mergeWorldEventMemories,
+    patchWorldMemoryLedgerForSchemeNpcAction,
+} from '../game/worldEventMemory'
 import {
     buildPersistedSnapshot,
     buildRoundStartSnapshot,
@@ -33,9 +38,24 @@ import { getDifficultyProfile } from '../game/difficulty'
 import { chatCompletionJson } from '../ai/aiService'
 import { buildFengDaozhiDraftPrompt } from '../ai/prompts'
 import { buildFallbackFengDaozhiDraft, buildFengDaozhiDraftContext, normalizeFengDaozhiDraft } from '../game/fengDaozhiAdvisor'
+import {
+    answerSchemeFollowUpOnActions,
+    appendNpcFeedback,
+    attachNorthSchemeParse,
+    buildAddSchemePatch,
+    markSchemeParsePendingIds,
+    patchNpcMemoryLedgerForSchemeNpcAction,
+    patchRelationMemoryLedgerForSchemeNpcAction,
+    removePendingSchemeParseId,
+    setSchemeFollowUpOnActions,
+    skipSchemeFollowUpOnActions,
+    updateNpcFeedbackOmenEcho,
+    updateNpcFeedbackText,
+    type NpcFeedbackRecord,
+} from './gameStoreActionHelpers'
 
 /** 单条NPC反馈记录 */
-export interface NpcFeedback {
+export interface NpcFeedback extends NpcFeedbackRecord {
     id: string
     npcId: string
     npcName: string
@@ -63,6 +83,8 @@ interface GameState {
     omenGuideSeen: OmenGuideSeenMap
     fengDaozhiAssistsRemaining: number
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat: number
+    invasionPressure: number
 
     // 游戏结果
     isGameOver: boolean
@@ -101,6 +123,7 @@ interface GameState {
     roundHistory: RoundHistoryEntry[]
     npcMemoryLedger: NpcMemoryLedger
     relationMemoryLedger: RelationMemoryLedger
+    worldMemoryLedger: WorldMemoryLedger
     endingReport: EndingReport | null
     battleReport: BattleReport | null
     shuCampaign: CampaignState
@@ -128,17 +151,19 @@ interface GameState {
     requestFengDaozhiDraft: (request: FengDaozhiDraftRequest) => Promise<FengDaozhiDraftResult | null>
     saveRoundStartSnapshot: () => void
     restoreRoundStartSnapshot: () => void
+    prepareSchemeSettlementForFeedback: () => void
     resetGame: () => void
     addScheme: (scheme: SchemeAction) => void
     selectPolicy: (optionIndex: number, reason: string, policyParse?: PolicyReasonParseResult | null) => void
     addNpcFeedback: (feedback: NpcFeedback) => void
     updateNpcFeedback: (feedbackId: string, text: string, source?: string) => void
     updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => void
+    updateSchemeNpcAction: (actionId: string, npcAction: SchemeNpcActionNarrative) => void
     setEmpressReplyRecord: (record: EmpressReplyRecord | null) => void
     markSchemeParsePending: (actionId: string) => void
     updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => void
     setSchemeFollowUp: (actionId: string, followUp: SchemeFollowUp) => void
-    answerSchemeFollowUp: (actionId: string, playerReply: string, parse: SchemeFollowUpParseResult, finalNpcReply: string) => void
+    answerSchemeFollowUp: (actionId: string, playerReply: string, parse: SchemeFollowUpParseResult, finalNpcReply: string, metadata?: SchemeFollowUpAnswerMetadata) => void
     skipSchemeFollowUp: (actionId: string) => void
     hydrateSnapshot: (snapshot: PersistedGameSnapshot) => void
 }
@@ -169,6 +194,7 @@ const initialOmenGuideSeen: OmenGuideSeenMap = {
 }
 const initialNpcMemoryLedger: NpcMemoryLedger = {}
 const initialRelationMemoryLedger: RelationMemoryLedger = {}
+const initialWorldMemoryLedger: WorldMemoryLedger = []
 const initialSchemeOnboardingSeen: SchemeOnboardingSeenMap = {
     scheme_master_guide: false,
     first_omen_teaching: false,
@@ -238,6 +264,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     omenGuideSeen: initialOmenGuideSeen,
     fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
     playerDangerStage: 'safe',
+    playerSuspicionHeat: 0,
+    invasionPressure: 0,
     isGameOver: false,
     gameResult: 'NONE',
     roundStartSnapshot: null,
@@ -264,6 +292,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     roundHistory: [],
     npcMemoryLedger: initialNpcMemoryLedger,
     relationMemoryLedger: initialRelationMemoryLedger,
+    worldMemoryLedger: initialWorldMemoryLedger,
     endingReport: null,
     battleReport: null,
     shuCampaign: { ...initialCampaignState },
@@ -271,9 +300,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     shuMomentum: 0,
     huainanMomentum: 0,
 
+    prepareSchemeSettlementForFeedback: () => {
+        const state = get()
+        if (state.currentPhase !== 'SCHEME_FEEDBACK' || state.lastSettlement) return
+        get().nextPhase()
+    },
+
+    completeSchemingIfReady: () => {
+        const state = get()
+        if (state.schemeCount >= state.maxSchemes) {
+            set({ currentPhase: 'EMPRESS_LETTER' })
+        }
+    },
+
     nextPhase: () => {
         const state = get()
-        const { currentPhase, currentRound } = state
+        const { currentPhase, currentRound, schemeCount, maxSchemes } = state
 
         switch (currentPhase) {
             case 'PROLOGUE':
@@ -292,7 +334,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             case 'SCHEME_PHASE':
                 // 三次计谋用完后进入女帝来信（AI在后台继续处理）
-                get().completeSchemingIfReady()
+                if (schemeCount >= maxSchemes) {
+                    set({ currentPhase: 'EMPRESS_LETTER' })
+                }
                 break
 
             case 'EMPRESS_LETTER':
@@ -324,6 +368,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         relationships: s.relationships,
                         intelProgress: s.intelProgress,
                         playerDangerStage: s.playerDangerStage,
+                        playerSuspicionHeat: s.playerSuspicionHeat,
+                        invasionPressure: s.invasionPressure,
                         policyOptionIndex: s.selectedPolicyOption,
                         policyReason: s.policyReason,
                         policyParse: s.selectedPolicyParse,
@@ -371,6 +417,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                         relationshipBreakCount: result.relationshipReports.length,
                         factionCollapseCount: result.factionCollapseReports.length,
                         invasionTriggered: result.invasionTriggered,
+                        playerSuspicionHeat: result.playerSuspicionHeat,
+                        invasionPressure: result.invasionPressure,
                         northPower: result.northPowerAfter,
                         southPower: result.southPowerAfter,
                         summary: result.summaryText,
@@ -397,6 +445,15 @@ export const useGameStore = create<GameState>((set, get) => ({
                             npcsAfter: updatedNpcs,
                         }),
                     )
+                    const worldMemoryLedger = mergeWorldEventMemories(
+                        s.worldMemoryLedger,
+                        deriveWorldEventMemoriesForRound({
+                            round: s.currentRound,
+                            actions: processedSchemes,
+                            schemeResults: result.schemeResults,
+                            npcs: updatedNpcs,
+                        }),
+                    )
 
                     // ????????
                     if (result.gameResult !== 'NONE') {
@@ -416,6 +473,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             isGameOver: true,
                             gameResult: result.gameResult,
                             playerDangerStage: result.playerDangerStage,
+                            playerSuspicionHeat: result.playerSuspicionHeat,
+                            invasionPressure: result.invasionPressure,
                             northStats: result.northStatsAfter,
                             southStats: result.southStatsAfter,
                             northPower: result.northPowerAfter,
@@ -433,6 +492,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             roundHistory,
                             npcMemoryLedger,
                             relationMemoryLedger,
+                            worldMemoryLedger,
                             endingReport,
                             battleReport,
                             shuCampaign: result.shuCampaign,
@@ -450,6 +510,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                             northPower: result.northPowerAfter,
                             southPower: result.southPowerAfter,
                             playerDangerStage: result.playerDangerStage,
+                            playerSuspicionHeat: result.playerSuspicionHeat,
+                            invasionPressure: result.invasionPressure,
                             npcs: updatedNpcs,
                             factions: result.factionsAfter,
                             relationships: result.relationshipsAfter,
@@ -463,6 +525,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                             roundHistory,
                             npcMemoryLedger,
                             relationMemoryLedger,
+                            worldMemoryLedger,
                             shuCampaign: result.shuCampaign,
                             huainanCampaign: result.huainanCampaign,
                             shuMomentum: result.shuMomentum,
@@ -553,13 +616,6 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
             default:
                 break
-        }
-    },
-
-    completeSchemingIfReady: () => {
-        const state = get()
-        if (state.schemeCount >= state.maxSchemes) {
-            set({ currentPhase: 'EMPRESS_LETTER' })
         }
     },
 
@@ -688,8 +744,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         const relatedNpc = request.relatedNpcId
             ? state.npcs.find(item => item.id === request.relatedNpcId)
             : null
+        const pressureAwareRequest = {
+            ...request,
+            playerSuspicionHeat: request.playerSuspicionHeat ?? state.playerSuspicionHeat,
+            invasionPressure: request.invasionPressure ?? state.invasionPressure,
+        }
         const context = buildFengDaozhiDraftContext({
-            request,
+            request: pressureAwareRequest,
             npc,
             relatedNpc,
             factions: state.factions,
@@ -700,6 +761,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             huainanCampaign: state.huainanCampaign,
             npcMemoryLedger: state.npcMemoryLedger,
             relationMemoryLedger: state.relationMemoryLedger,
+            worldMemoryLedger: state.worldMemoryLedger,
         })
 
         try {
@@ -742,6 +804,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: state.omenGuideSeen,
             fengDaozhiAssistsRemaining: state.fengDaozhiAssistsRemaining,
             playerDangerStage: state.playerDangerStage,
+            playerSuspicionHeat: state.playerSuspicionHeat,
+            invasionPressure: state.invasionPressure,
             isGameOver: false,
             gameResult: 'NONE',
             northStats: state.northStats,
@@ -767,6 +831,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             roundHistory: state.roundHistory.map(item => ({ ...item })),
             npcMemoryLedger: state.npcMemoryLedger,
             relationMemoryLedger: cloneRelationMemoryLedger(state.relationMemoryLedger),
+            worldMemoryLedger: state.worldMemoryLedger.map(item => ({ ...item })),
             endingReport: null,
             battleReport: null,
             shuCampaign: {
@@ -804,6 +869,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: snapshot.omenGuideSeen,
             fengDaozhiAssistsRemaining: snapshot.fengDaozhiAssistsRemaining,
             playerDangerStage: snapshot.playerDangerStage,
+            playerSuspicionHeat: snapshot.playerSuspicionHeat ?? 0,
+            invasionPressure: snapshot.invasionPressure ?? 0,
             isGameOver: false,
             gameResult: 'NONE',
             roundStartSnapshot: snapshot,
@@ -830,6 +897,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             roundHistory: snapshot.roundHistory,
             npcMemoryLedger: snapshot.npcMemoryLedger,
             relationMemoryLedger: cloneRelationMemoryLedger(snapshot.relationMemoryLedger ?? {}),
+            worldMemoryLedger: snapshot.worldMemoryLedger ?? [],
             endingReport: null,
             battleReport: null,
             shuCampaign: snapshot.shuCampaign,
@@ -855,6 +923,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             omenGuideSeen: initialOmenGuideSeen,
             fengDaozhiAssistsRemaining: getAssistQuotaForDifficulty(initialDifficulty),
             playerDangerStage: 'safe',
+            playerSuspicionHeat: 0,
+            invasionPressure: 0,
             northStats: { ...NORTH_INITIAL },
             southStats: { ...SOUTH_INITIAL },
             northPower: initialNorthPower,
@@ -879,6 +949,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             roundHistory: [],
             npcMemoryLedger: initialNpcMemoryLedger,
             relationMemoryLedger: cloneRelationMemoryLedger(initialRelationMemoryLedger),
+            worldMemoryLedger: initialWorldMemoryLedger,
             endingReport: null,
             battleReport: null,
             shuCampaign: { ...initialCampaignState },
@@ -890,12 +961,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     addScheme: (scheme: SchemeAction) => {
         const state = get()
-        if (state.schemeCount >= state.maxSchemes) return
-        if (state.currentSchemes.some(item => item.targetNpcId === scheme.targetNpcId)) return
-        set({
-            currentSchemes: [...state.currentSchemes, scheme],
-            schemeCount: state.schemeCount + 1,
-        })
+        const patch = buildAddSchemePatch(state, scheme)
+        if (!patch) return
+        set(patch)
     },
 
     selectPolicy: (optionIndex: number, reason: string, policyParse: PolicyReasonParseResult | null = null) => {
@@ -908,23 +976,69 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     addNpcFeedback: (feedback: NpcFeedback) => {
         set({
-            npcFeedbacks: [...get().npcFeedbacks, feedback],
+            npcFeedbacks: appendNpcFeedback(get().npcFeedbacks, feedback),
         })
     },
 
     updateNpcFeedback: (feedbackId: string, text: string, source?: string) => {
         set({
-            npcFeedbacks: get().npcFeedbacks.map(f =>
-                f.id === feedbackId ? { ...f, feedback: text, isLoading: false, source: source ?? f.source } : f
-            ),
+            npcFeedbacks: updateNpcFeedbackText(get().npcFeedbacks, feedbackId, text, source),
         })
     },
 
     updateNpcFeedbackOmenEcho: (feedbackId: string, omenEcho: OmenEchoFeedback) => {
         set({
-            npcFeedbacks: get().npcFeedbacks.map(f =>
-                f.id === feedbackId ? { ...f, omenEcho } : f
-            ),
+            npcFeedbacks: updateNpcFeedbackOmenEcho(get().npcFeedbacks, feedbackId, omenEcho),
+        })
+    },
+
+    updateSchemeNpcAction: (actionId: string, npcAction: SchemeNpcActionNarrative) => {
+        set(state => {
+            if (!state.lastSettlement) return {}
+            const resultIndex = state.lastSettlement.processedSchemes.findIndex(action => action.id === actionId)
+            if (resultIndex < 0) return {}
+            const action = state.lastSettlement.processedSchemes[resultIndex]
+            const previousResult = state.lastSettlement.schemeResults[resultIndex]
+            if (!action || !previousResult) return {}
+            const previousMotionText = previousResult.causalEvent?.motionText ?? previousResult.npcAction?.text ?? null
+
+            return {
+                lastSettlement: {
+                    ...state.lastSettlement,
+                    schemeResults: state.lastSettlement.schemeResults.map((result, index) => (
+                        index === resultIndex
+                            ? {
+                                ...result,
+                                npcAction,
+                                causalEvent: result.causalEvent
+                                    ? {
+                                        ...result.causalEvent,
+                                        motionText: npcAction.text,
+                                        motionSource: npcAction.source,
+                                    }
+                                    : result.causalEvent,
+                            }
+                            : result
+                    )),
+                },
+                npcMemoryLedger: patchNpcMemoryLedgerForSchemeNpcAction(state.npcMemoryLedger, {
+                    action,
+                    round: state.currentRound,
+                    previousMotionText,
+                    nextMotionText: npcAction.text,
+                }),
+                relationMemoryLedger: patchRelationMemoryLedgerForSchemeNpcAction(state.relationMemoryLedger, {
+                    action,
+                    round: state.currentRound,
+                    nextMotionText: npcAction.text,
+                }),
+                worldMemoryLedger: patchWorldMemoryLedgerForSchemeNpcAction(state.worldMemoryLedger, {
+                    action,
+                    round: state.currentRound,
+                    previousMotionText,
+                    nextMotionText: npcAction.text,
+                }),
+            }
         })
     },
 
@@ -934,68 +1048,39 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     markSchemeParsePending: (actionId: string) => {
         set(state => ({
-            pendingStructuredSchemeIds: state.pendingStructuredSchemeIds.includes(actionId)
-                ? state.pendingStructuredSchemeIds
-                : [...state.pendingStructuredSchemeIds, actionId],
+            pendingStructuredSchemeIds: markSchemeParsePendingIds(state.pendingStructuredSchemeIds, actionId),
         }))
     },
 
     updateSchemeParse: (actionId: string, northParse: NorthSchemeParseResult) => {
         set(state => ({
-            currentSchemes: state.currentSchemes.map(action =>
-                action.id === actionId ? { ...action, northParse } : action,
-            ),
-            pendingStructuredSchemeIds: state.pendingStructuredSchemeIds.filter(id => id !== actionId),
+            currentSchemes: attachNorthSchemeParse(state.currentSchemes, actionId, northParse),
+            pendingStructuredSchemeIds: removePendingSchemeParseId(state.pendingStructuredSchemeIds, actionId),
         }))
     },
 
     setSchemeFollowUp: (actionId: string, followUp: SchemeFollowUp) => {
         set(state => ({
-            currentSchemes: state.currentSchemes.map(action => {
-                if (action.id === actionId) return { ...action, followUp }
-                if (followUp.status === 'available' && action.followUp?.status === 'available') {
-                    return { ...action, followUp: undefined }
-                }
-                return action
-            }),
+            currentSchemes: setSchemeFollowUpOnActions(state.currentSchemes, actionId, followUp),
         }))
     },
 
-    answerSchemeFollowUp: (actionId: string, playerReply: string, parse: SchemeFollowUpParseResult, finalNpcReply: string) => {
+    answerSchemeFollowUp: (actionId: string, playerReply: string, parse: SchemeFollowUpParseResult, finalNpcReply: string, metadata?: SchemeFollowUpAnswerMetadata) => {
         set(state => ({
-            currentSchemes: state.currentSchemes.map(action => {
-                if (action.id !== actionId) return action
-
-                const currentFollowUp = action.followUp
-                if (!currentFollowUp) return action
-
-                return {
-                    ...action,
-                    followUp: {
-                        ...currentFollowUp,
-                        questionText: currentFollowUp.questionText,
-                        playerReply,
-                        parse,
-                        finalNpcReply,
-                        status: 'answered',
-                    },
-                }
-            }),
+            currentSchemes: answerSchemeFollowUpOnActions(
+                state.currentSchemes,
+                actionId,
+                playerReply,
+                parse,
+                finalNpcReply,
+                metadata,
+            ),
         }))
     },
 
     skipSchemeFollowUp: (actionId: string) => {
         set(state => ({
-            currentSchemes: state.currentSchemes.map(action => {
-                if (action.id !== actionId || !action.followUp) return action
-                return {
-                    ...action,
-                    followUp: {
-                        ...action.followUp,
-                        status: 'skipped',
-                    },
-                }
-            }),
+            currentSchemes: skipSchemeFollowUpOnActions(state.currentSchemes, actionId),
         }))
     },
 
@@ -1033,6 +1118,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 guideSnapshot.fengDaozhiAssistsRemaining ??
                 getAssistQuotaForDifficulty(snapshot.difficulty ?? initialDifficulty),
             playerDangerStage: snapshot.playerDangerStage ?? 'safe',
+            playerSuspicionHeat: snapshot.playerSuspicionHeat ?? 0,
+            invasionPressure: snapshot.invasionPressure ?? 0,
             isGameOver: snapshot.isGameOver,
             gameResult: snapshot.gameResult,
             roundStartSnapshot: snapshot.roundStartSnapshot
@@ -1045,6 +1132,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     },
                     npcMemoryLedger: snapshot.roundStartSnapshot.npcMemoryLedger ?? {},
                     relationMemoryLedger: cloneRelationMemoryLedger(snapshot.roundStartSnapshot.relationMemoryLedger ?? {}),
+                    worldMemoryLedger: snapshot.roundStartSnapshot.worldMemoryLedger ?? [],
+                    playerSuspicionHeat: snapshot.roundStartSnapshot.playerSuspicionHeat ?? 0,
+                    invasionPressure: snapshot.roundStartSnapshot.invasionPressure ?? 0,
                     npcs: attachAvailableSchemes(
                         snapshot.roundStartSnapshot.npcs,
                         snapshot.roundStartSnapshot.currentRound,
@@ -1075,6 +1165,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             roundHistory: snapshot.roundHistory,
             npcMemoryLedger: snapshot.npcMemoryLedger ?? {},
             relationMemoryLedger: cloneRelationMemoryLedger(snapshot.relationMemoryLedger ?? {}),
+            worldMemoryLedger: snapshot.worldMemoryLedger ?? [],
             endingReport: snapshot.endingReport,
             battleReport: snapshot.battleReport,
             shuCampaign: snapshot.shuCampaign ?? { ...initialCampaignState },

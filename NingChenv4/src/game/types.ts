@@ -1,4 +1,4 @@
-﻿export type RoundPhase =
+export type RoundPhase =
     | 'PROLOGUE'
     | 'ROUND_START'
     | 'COURT_OBSERVE'
@@ -223,6 +223,17 @@ export interface RoundEvent {
 }
 
 export type SchemeFollowUpStatus = 'available' | 'answered' | 'skipped'
+export type SchemeFollowUpParseSource = 'ai' | 'invalid_ai_fallback'
+export type SchemeFollowUpTextSource = 'ai' | 'fallback'
+export type SchemeFollowUpFallbackReason =
+    | 'fallback_mode'
+    | 'request_failed'
+    | 'empty_response'
+    | 'parse_invalid_json'
+    | 'parse_exception'
+    | 'completion_exception'
+    | 'sanitized_empty'
+    | 'validation_failed'
 
 export interface SchemeFollowUpParseResult {
     clarificationFit: number
@@ -240,8 +251,17 @@ export interface SchemeFollowUp {
     playerReply?: string
     parse?: SchemeFollowUpParseResult
     finalNpcReply?: string
+    parseSource?: SchemeFollowUpParseSource
+    parseFallbackReason?: SchemeFollowUpFallbackReason
+    finalNpcReplySource?: SchemeFollowUpTextSource
+    finalNpcReplyFallbackReason?: SchemeFollowUpFallbackReason
     status: SchemeFollowUpStatus
 }
+
+export type SchemeFollowUpAnswerMetadata = Pick<
+    SchemeFollowUp,
+    'parseSource' | 'parseFallbackReason' | 'finalNpcReplySource' | 'finalNpcReplyFallbackReason'
+>
 
 export interface SchemeAction {
     id?: string
@@ -275,6 +295,8 @@ export interface FengDaozhiDraftRequest {
     targetNpcId: string
     schemeType: SchemeType
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     relatedNpcId?: string
     omenSpeechInput?: OmenSpeechInput
 }
@@ -412,6 +434,33 @@ export interface RelationMemoryEntry {
 
 export type RelationMemoryLedger = Record<string, RelationMemoryEntry[]>
 
+export type WorldMemoryScope =
+    | 'court_public'
+    | 'faction_private'
+    | 'local_rumor'
+    | 'south_intel'
+    | 'chronicle_fact'
+
+export type WorldMemoryVisibility = 'public' | 'limited' | 'secret'
+
+export interface WorldEventMemory {
+    id: string
+    sourceRound: number
+    sourceActionId?: string
+    scope: WorldMemoryScope
+    visibility: WorldMemoryVisibility
+    involvedNpcIds: string[]
+    affectedFactionIds: CourtFactionId[]
+    dimensions: Array<keyof NationDimensions>
+    schemeType?: SchemeType
+    summary: string
+    reliability: number
+    secrecyRisk: number
+    tags: string[]
+}
+
+export type WorldMemoryLedger = WorldEventMemory[]
+
 export interface AiNativeSummary {
     schemeHints: string[]
     backlashHints: string[]
@@ -453,6 +502,8 @@ export interface RoundHistoryEntry {
     relationshipBreakCount: number
     factionCollapseCount: number
     invasionTriggered: boolean
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     northPower: number
     southPower: number
     summary: string
@@ -565,8 +616,8 @@ export function getPowerLevel(power: number): PowerLevel {
 
 export function getPowerLabel(power: number): string {
     const labels: Record<PowerLevel, string> = {
-        collapsed: '倾覆',
-        declining: '式微',
+        collapsed: '崩坏',
+        declining: '衰弱',
         moderate: '中平',
         strong: '强盛',
         peak: '鼎盛',
@@ -594,7 +645,7 @@ export function getAlignmentLabel(alignment: AlignmentBias): string {
 export function getExternalStatusLabel(status: ExternalStatus): string {
     const labels: Record<ExternalStatus, string> = {
         loyal: '仍受节制',
-        watchful: '观望离心',
+        watchful: '观望',
         secession: '割据坐大',
         rebellion: '明旗反叛',
     }

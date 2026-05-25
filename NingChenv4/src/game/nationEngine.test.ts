@@ -4,16 +4,16 @@ import {
     buildPolicyAftereffect,
     calculatePolicyEffect,
     calculateExternalSupport,
-    checkDeathCondition,
-    checkEarlyInvasion,
+    legacyCheckDeathCondition,
+    legacyCheckEarlyInvasion,
 } from './nationEngine'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { INITIAL_NPCS } from '../data/npcs'
 import { NORTH_INITIAL } from '../data/nationStats'
 
-describe('checkDeathCondition', () => {
+describe('legacyCheckDeathCondition', () => {
     it('ignores external power figures even if they have force and low trust', () => {
-        const result = checkDeathCondition(
+        const result = legacyCheckDeathCondition(
             [
                 {
                     name: '贺拔伯圭',
@@ -39,7 +39,7 @@ describe('checkDeathCondition', () => {
     })
 
     it('marks the player under review before execution and prefers the strongest court actor', () => {
-        const result = checkDeathCondition(
+        const result = legacyCheckDeathCondition(
             [
                 {
                     name: '祖珽',
@@ -77,7 +77,7 @@ describe('checkDeathCondition', () => {
     })
 
     it('does not allow direct execution before round 4 and keeps the stage safe', () => {
-        const result = checkDeathCondition(
+        const result = legacyCheckDeathCondition(
             [
                 {
                     name: '宇文棣',
@@ -102,7 +102,7 @@ describe('checkDeathCondition', () => {
     })
 
     it('only executes after a review-stage warning round if extreme danger persists', () => {
-        const result = checkDeathCondition(
+        const result = legacyCheckDeathCondition(
             [
                 {
                     name: '宇文棣',
@@ -128,16 +128,16 @@ describe('checkDeathCondition', () => {
     })
 })
 
-describe('checkEarlyInvasion', () => {
+describe('legacyCheckEarlyInvasion', () => {
     it('returns round-window diagnostics that match the updated pressure model', () => {
-        const result = checkEarlyInvasion(
+        const result = legacyCheckEarlyInvasion(
             { ...NORTH_INITIAL, military: 72, finance: 62, grain: 64, socialOrder: 54, governance: 56 },
             INITIAL_FACTIONS.map(faction => ({ ...faction })),
             INITIAL_NPCS.map(npc => ({ ...npc })),
             false,
             16,
         )
-        const calmerRound = checkEarlyInvasion(
+        const calmerRound = legacyCheckEarlyInvasion(
             { ...NORTH_INITIAL, military: 72, finance: 62, grain: 64, socialOrder: 54, governance: 56 },
             INITIAL_FACTIONS.map(faction => ({ ...faction })),
             INITIAL_NPCS.map(npc => ({ ...npc })),
@@ -151,20 +151,16 @@ describe('checkEarlyInvasion', () => {
     })
 })
 
-describe('checkEarlyInvasion', () => {
-    it('lets loyalty stay the main external-support brake instead of double-penalizing watchful status', () => {
+describe('calculateExternalSupport', () => {
+    it('lets loyalty stay the main external-support brake after non-terminal status cleanup', () => {
         const duguwenyue = INITIAL_NPCS.find(npc => npc.id === 'duguwenyue')!
         const loyalSupport = calculateExternalSupport([
             { ...duguwenyue, externalStatus: 'loyal', loyaltyToCourt: 58, militaryPower: 45 },
-        ])
-        const watchfulSupport = calculateExternalSupport([
-            { ...duguwenyue, externalStatus: 'watchful', loyaltyToCourt: 58, militaryPower: 45 },
         ])
         const lowLoyaltySupport = calculateExternalSupport([
             { ...duguwenyue, externalStatus: 'loyal', loyaltyToCourt: 30, militaryPower: 45 },
         ])
 
-        expect(watchfulSupport.empressBonus).toBe(loyalSupport.empressBonus)
         expect(lowLoyaltySupport.empressBonus).toBeLessThan(loyalSupport.empressBonus)
     })
 })
@@ -199,6 +195,61 @@ describe('calculatePolicyEffect', () => {
 
         expect(aligned.governance).toBeGreaterThan(plain.governance ?? 0)
         expect(aligned.socialOrder).toBeGreaterThan(plain.socialOrder ?? 0)
+    })
+
+    it('trims base positive policy effects before rewarding authored reasons', () => {
+        const plain = calculatePolicyEffect(
+            { grain: 3, governance: 1 },
+            '',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
+                round: 2,
+            },
+        )
+
+        expect(plain.grain ?? 0).toBeLessThan(2)
+        expect(plain.governance ?? 0).toBeLessThan(0.8)
+    })
+
+    it('lets strong cost-aware reasons soften policy downsides without exposing raw scores', () => {
+        const strong = calculatePolicyEffect(
+            { military: 3, finance: -2, grain: -1 },
+            '先定军令，再按月核粮饷和转运，不足处先从州郡调剂，避免一口气掏空国库。',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否有清晰的战役目标与后勤意识',
+                round: 16,
+                policyParse: {
+                    focusAlignment: 0.86,
+                    executionClarity: 0.82,
+                    costAwareness: 0.88,
+                    legitimacyAlignment: 0.62,
+                    policyStance: 'balanced',
+                    evidence: [],
+                },
+            },
+        )
+        const weak = calculatePolicyEffect(
+            { military: 3, finance: -2, grain: -1 },
+            '速速进兵。',
+            {
+                legitimacyEffect: 'steady',
+                aiScoringFocus: '是否有清晰的战役目标与后勤意识',
+                round: 16,
+                policyParse: {
+                    focusAlignment: 0.25,
+                    executionClarity: 0.18,
+                    costAwareness: 0.08,
+                    legitimacyAlignment: 0.2,
+                    policyStance: 'aggressive',
+                    evidence: [],
+                },
+            },
+        )
+
+        expect(strong.military ?? 0).toBeGreaterThan(weak.military ?? 0)
+        expect(strong.finance ?? 0).toBeGreaterThan(weak.finance ?? 0)
     })
 
     it('lets clear execution and cost-aware policy reasons outperform generic righteous wording', () => {

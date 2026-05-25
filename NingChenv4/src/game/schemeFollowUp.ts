@@ -3,6 +3,7 @@ import type {
     SchemeAction,
     SchemeFollowUp,
     SchemeFollowUpParseResult,
+    SchemeType,
 } from './types'
 
 function clamp(value: number, min: number, max: number): number {
@@ -213,11 +214,143 @@ export function forceStatementReplyText(reply: string): string {
 }
 
 export function forceQuestionCandidateReplyText(reply: string, fallbackQuestion: string): string {
-    const statementReply = forceStatementReplyText(reply)
     const terminalQuestion = extractTerminalQuestion(reply)
-    if (terminalQuestion) return `${statementReply} ${terminalQuestion}`.trim()
+    if (terminalQuestion) return `${forceStatementReplyText(reply)} ${terminalQuestion}`.trim()
 
-    return `${statementReply}（稍作停顿）${fallbackQuestion}`.trim()
+    const embeddedQuestion = extractFinalQuestion(reply)
+    if (embeddedQuestion) {
+        const statementReply = forceStatementReplyText(removeQuestionSegment(reply, embeddedQuestion))
+        return `${statementReply} ${embeddedQuestion}`.trim()
+    }
+
+    return `${forceStatementReplyText(reply)} ${fallbackQuestion}`.trim()
+}
+
+function removeQuestionSegment(reply: string, question: string): string {
+    const questionStart = reply.lastIndexOf(question)
+    if (questionStart < 0) return reply
+
+    return `${reply.slice(0, questionStart)}${reply.slice(questionStart + question.length)}`.trim()
+}
+
+function removeAllQuestionSegments(reply: string): string {
+    let next = reply
+    let guard = 0
+
+    while (guard < 6) {
+        const question = extractFinalQuestion(next)
+        if (!question) return next
+
+        const stripped = removeQuestionSegment(next, question)
+        if (stripped === next) return next
+        next = stripped
+        guard += 1
+    }
+
+    return next
+}
+
+export function sanitizeSchemeFollowUpFinalReplyText(reply: string): string {
+    const cleaned = reply
+        .replace(/```[\s\S]*?```/g, ' ')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/\bJSON\b/gi, '')
+        .replace(/\bsystem\b/gi, '')
+        .trim()
+
+    if (!cleaned) return ''
+    if (/[{}\[\]`]/.test(cleaned)) return ''
+
+    const statementOnly = closeAsStatement(removeAllQuestionSegments(cleaned))
+        .replace(/^[\s"'“”‘’）)》]+/u, '')
+        .trim()
+    if (!statementOnly || /[?？]/.test(statementOnly)) return ''
+
+    return statementOnly
+}
+
+type FollowUpAnchorDimension = 'finance' | 'grain' | 'military' | 'socialOrder' | 'governance'
+
+function getDominantFollowUpDimension(parse?: NorthSchemeParseResult): FollowUpAnchorDimension | null {
+    if (!parse) return null
+
+    const dimensions: Array<{ dimension: FollowUpAnchorDimension; relevance: number }> = [
+        { dimension: 'finance', relevance: parse.financeRelevance },
+        { dimension: 'grain', relevance: parse.grainRelevance },
+        { dimension: 'military', relevance: parse.militaryRelevance },
+        { dimension: 'socialOrder', relevance: parse.socialOrderRelevance },
+        { dimension: 'governance', relevance: parse.governanceRelevance },
+    ]
+    const best = dimensions.reduce((current, candidate) => candidate.relevance > current.relevance ? candidate : current)
+
+    return best.relevance >= 0.45 ? best.dimension : null
+}
+
+function pickFollowUpAnchor(playerSpeech = '', parse?: NorthSchemeParseResult): string {
+    if (/粮|粟|仓|漕|运|饷|军需/.test(playerSpeech)) return '粮道与军需'
+    if (/兵|军|械|营|关|戍|调度|征发/.test(playerSpeech)) return '军令与兵械'
+    if (/账|度支|库|钱|税|户籍|支账/.test(playerSpeech)) return '度支账册'
+    if (/州|县|吏|文书|诏|政令|案牍/.test(playerSpeech)) return '州县文书'
+    if (/谣|口供|证词|人证|旧案|案/.test(playerSpeech)) return '口供案牍'
+    if (/民|士心|人心|风声|流言/.test(playerSpeech)) return '人心风声'
+
+    switch (getDominantFollowUpDimension(parse)) {
+        case 'grain':
+            return '粮道与军需'
+        case 'military':
+            return '军令与兵械'
+        case 'finance':
+            return '度支账册'
+        case 'governance':
+            return '州县文书'
+        case 'socialOrder':
+            return '人心风声'
+        default:
+            return '实据与落点'
+    }
+}
+
+export function buildContextualFallbackFollowUpQuestion(params: {
+    schemeType: SchemeType
+    targetNpcName?: string
+    relatedNpcName?: string | null
+    playerSpeech?: string
+    northParse?: NorthSchemeParseResult
+}): string {
+    const anchor = pickFollowUpAnchor(params.playerSpeech, params.northParse)
+    const targetName = params.targetNpcName?.trim() || '此人'
+    const relatedName = params.relatedNpcName?.trim()
+
+    switch (params.schemeType) {
+        case 'probe':
+            return `你既把话递到这里，先拿哪一处${anchor}来试我的虚实？`
+        case 'advise':
+            return `若真按你这策走，第一刀该落在哪一处${anchor}上？`
+        case 'slander':
+            return relatedName
+                ? `你要我疑到${relatedName}身上，先拿哪一处${anchor}作实据？`
+                : `你要我起疑，先拿哪一处${anchor}作实据？`
+        case 'alienate':
+            return relatedName
+                ? `若要撬开我与${relatedName}之间的裂缝，先从哪一处${anchor}下手？`
+                : `若要撬开这层嫌隙，先从哪一处${anchor}下手？`
+        case 'frame':
+            return `${targetName}若要自露破绽，你准备先把哪一处${anchor}递到案前？`
+        case 'proxy':
+            return relatedName
+                ? `若要借势压向${relatedName}，你要我先把哪一处${anchor}递到御前？`
+                : `若要借势收网，你要我先把哪一处${anchor}递到御前？`
+        case 'appeal':
+            return `你来求援，最先要我替你扛住哪一处${anchor}的风险？`
+        case 'omen':
+            return `${targetName}若被这句谶语缠住，先会在哪一处${anchor}上失措？`
+        case 'secession':
+            return `若真要自保割据，第一步是扣住哪一处${anchor}？`
+        case 'rebellion':
+            return `若真要起事，第一声军令该落在哪一处${anchor}？`
+        default:
+            return `你这番话，最先要我盯住哪一处${anchor}？`
+    }
 }
 
 function getSchemeTypeBonus(action: SchemeAction): number {

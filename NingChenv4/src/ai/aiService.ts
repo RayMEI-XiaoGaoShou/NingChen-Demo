@@ -1,7 +1,38 @@
 import type { ChatMessage } from './prompts'
 import { getFallbackResponse } from './fallback'
+import {
+    recordAiCallDiagnostic,
+    sanitizeAiDiagnosticText,
+    type AiCallFallbackReason,
+} from './aiCallDiagnostics'
 
-type AiMode = 'mujian' | 'deepseek' | 'fallback'
+export type AiMode = 'mujian' | 'deepseek' | 'fallback'
+type AiTextSource = 'ai' | 'fallback'
+
+type ChatCompletionOptions = {
+    temperature?: number
+    maxTokens?: number
+    tag?: string
+}
+
+export interface ChatCompletionDetailedResult {
+    text: string
+    mode: AiMode
+    source: AiTextSource
+    tag: string
+    fallbackReason?: AiCallFallbackReason
+    model?: string
+}
+
+export interface ChatCompletionJsonDetailedResult<T> {
+    parsed: T | null
+    text: string
+    mode: AiMode
+    source: AiTextSource
+    fallbackReason?: AiCallFallbackReason
+    parseFallbackReason?: AiCallFallbackReason
+    attempts: number
+}
 
 type MujianOpenApiConfig = {
     baseURL: string
@@ -120,14 +151,13 @@ function getMujianOpenApiConfig(): MujianOpenApiConfig | null {
     }
 }
 
-async function openAiCompatibleCompletion(
+async function openAiCompatibleCompletionRaw(
     baseUrl: string,
     apiKey: string,
     model: string,
     messages: ChatMessage[],
     temperature: number,
     maxTokens: number,
-    tag: string,
     extraBody: Record<string, unknown> = {},
 ): Promise<string> {
     const response = await fetchWithTimeout(`${baseUrl}/chat/completions`, {
@@ -151,7 +181,7 @@ async function openAiCompatibleCompletion(
     }
 
     const data = await response.json()
-    return data?.choices?.[0]?.message?.content?.trim() || getFallbackResponse(tag)
+    return data?.choices?.[0]?.message?.content?.trim() || ''
 }
 
 function cleanStructuredJsonText(text: string): string {
@@ -249,81 +279,298 @@ export function getAiModeLabel(mode: AiMode = currentMode): string {
     }
 }
 
+function getConfiguredAiSecrets(extraSecrets: string[] = []): string[] {
+    return [
+        getEnvValueWithLegacy('VITE_DEEPSEEK_API_KEY', 'VITE_KIMI_API_KEY'),
+        ...extraSecrets,
+    ].filter((value): value is string => Boolean(value && value.length >= 4))
+}
+
+function getErrorName(error: unknown): string {
+    return error instanceof Error ? error.name : typeof error
+}
+
+function getErrorMessage(error: unknown, secrets: string[] = []): string | undefined {
+    if (error instanceof Error) {
+        return sanitizeAiDiagnosticText(error.message, getConfiguredAiSecrets(secrets))
+    }
+    if (typeof error === 'string') {
+        return sanitizeAiDiagnosticText(error, getConfiguredAiSecrets(secrets))
+    }
+    return undefined
+}
+
+function recordCompletionSuccess(params: {
+    tag: string
+    mode: AiMode
+    model?: string
+    provider?: string
+    messageCount: number
+    maxTokens: number
+    temperature: number
+}): void {
+    recordAiCallDiagnostic({
+        tag: params.tag,
+        mode: params.mode,
+        status: 'success',
+        model: params.model,
+        provider: params.provider,
+        messageCount: params.messageCount,
+        maxTokens: params.maxTokens,
+        temperature: params.temperature,
+    })
+}
+
+function buildSuccessResult(params: {
+    text: string
+    tag: string
+    mode: AiMode
+    model?: string
+}): ChatCompletionDetailedResult {
+    return {
+        text: params.text,
+        mode: params.mode,
+        source: 'ai',
+        tag: params.tag,
+        model: params.model,
+    }
+}
+
+function buildFallbackResult(params: {
+    tag: string
+    mode: AiMode
+    reason: AiCallFallbackReason
+    model?: string
+    provider?: string
+    messageCount: number
+    maxTokens: number
+    temperature: number
+    error?: unknown
+    secrets?: string[]
+}): ChatCompletionDetailedResult {
+    const errorName = params.error === undefined ? undefined : getErrorName(params.error)
+    const errorMessage = params.error === undefined ? undefined : getErrorMessage(params.error, params.secrets)
+
+    recordAiCallDiagnostic({
+        tag: params.tag,
+        mode: params.mode,
+        status: 'fallback',
+        fallbackReason: params.reason,
+        model: params.model,
+        provider: params.provider,
+        messageCount: params.messageCount,
+        maxTokens: params.maxTokens,
+        temperature: params.temperature,
+        errorName,
+        errorMessage,
+    })
+
+    return {
+        text: getFallbackResponse(params.tag),
+        mode: params.mode,
+        source: 'fallback',
+        tag: params.tag,
+        fallbackReason: params.reason,
+        model: params.model,
+    }
+}
+
 export async function chatCompletion(
     messages: ChatMessage[],
-    options?: { temperature?: number; maxTokens?: number; tag?: string },
+    options?: ChatCompletionOptions,
 ): Promise<string> {
-    const { temperature = 0.8, maxTokens = 500, tag = '' } = options ?? {}
-    await initAiService()
+    const result = await chatCompletionDetailed(messages, options)
+    return result.text
+}
 
-    switch (currentMode) {
+export async function chatCompletionDetailed(
+    messages: ChatMessage[],
+    options?: ChatCompletionOptions,
+): Promise<ChatCompletionDetailedResult> {
+    const { temperature = 0.8, maxTokens = 500, tag = '' } = options ?? {}
+    const mode = await initAiService()
+
+    switch (mode) {
         case 'mujian':
-            return mujianCompletion(messages, temperature, maxTokens, tag)
+            return mujianCompletionDetailed(messages, temperature, maxTokens, tag)
         case 'deepseek':
-            return deepSeekCompletion(messages, temperature, maxTokens, tag)
+            return deepSeekCompletionDetailed(messages, temperature, maxTokens, tag)
         case 'fallback':
-            return getFallbackResponse(tag)
+            return buildFallbackResult({
+                tag,
+                mode,
+                reason: 'fallback_mode',
+                provider: 'local',
+                messageCount: messages.length,
+                maxTokens,
+                temperature,
+            })
     }
+}
+
+function getParseFallbackReason(result: ChatCompletionDetailedResult): AiCallFallbackReason {
+    return result.source === 'fallback'
+        ? result.fallbackReason ?? 'request_failed'
+        : 'parse_invalid_json'
 }
 
 export async function chatCompletionJson<T>(
     messages: ChatMessage[],
-    options?: { temperature?: number; maxTokens?: number; tag?: string },
+    options?: ChatCompletionOptions,
 ): Promise<T | null> {
+    const result = await chatCompletionJsonDetailed<T>(messages, options)
+    return result.parsed
+}
+
+export async function chatCompletionJsonDetailed<T>(
+    messages: ChatMessage[],
+    options?: ChatCompletionOptions,
+): Promise<ChatCompletionJsonDetailedResult<T>> {
     const { temperature = 0.8, maxTokens = 500, tag = '' } = options ?? {}
 
     try {
-        const firstText = await chatCompletion(messages, { temperature, maxTokens, tag })
-        const firstParsed = tryParseStructuredJson<T>(firstText)
+        const firstResult = await chatCompletionDetailed(messages, { temperature, maxTokens, tag })
+        const firstParsed = tryParseStructuredJson<T>(firstResult.text)
         if (firstParsed) {
-            return firstParsed
+            return {
+                parsed: firstParsed,
+                text: firstResult.text,
+                mode: firstResult.mode,
+                source: firstResult.source,
+                fallbackReason: firstResult.fallbackReason,
+                attempts: 1,
+            }
         }
 
-        if (shouldRetryStructuredJson(firstText)) {
-            const retryText = await chatCompletion(messages, {
+        if (shouldRetryStructuredJson(firstResult.text)) {
+            const retryResult = await chatCompletionDetailed(messages, {
                 temperature,
                 maxTokens: getStructuredRetryMaxTokens(maxTokens),
                 tag,
             })
-            const retryParsed = tryParseStructuredJson<T>(retryText)
+            const retryParsed = tryParseStructuredJson<T>(retryResult.text)
             if (retryParsed) {
-                return retryParsed
+                return {
+                    parsed: retryParsed,
+                    text: retryResult.text,
+                    mode: retryResult.mode,
+                    source: retryResult.source,
+                    fallbackReason: retryResult.fallbackReason,
+                    attempts: 2,
+                }
             }
-        } else if (shouldRetryStructuredJsonCorrection(firstText)) {
-            const retryText = await chatCompletion(buildStructuredJsonCorrectionMessages(messages), {
+        } else if (shouldRetryStructuredJsonCorrection(firstResult.text)) {
+            const retryResult = await chatCompletionDetailed(buildStructuredJsonCorrectionMessages(messages), {
                 temperature,
                 maxTokens: getStructuredRetryMaxTokens(maxTokens),
                 tag,
             })
-            const retryParsed = tryParseStructuredJson<T>(retryText)
+            const retryParsed = tryParseStructuredJson<T>(retryResult.text)
             if (retryParsed) {
-                return retryParsed
+                return {
+                    parsed: retryParsed,
+                    text: retryResult.text,
+                    mode: retryResult.mode,
+                    source: retryResult.source,
+                    fallbackReason: retryResult.fallbackReason,
+                    attempts: 2,
+                }
             }
         }
 
-        return null
+        const parseFallbackReason = getParseFallbackReason(firstResult)
+        const attempts = firstResult.source === 'fallback' ? 1 : 2
+        recordAiCallDiagnostic({
+            tag,
+            mode: firstResult.mode,
+            status: 'fallback',
+            fallbackReason: parseFallbackReason,
+            provider: 'json_parse',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+            attempts,
+        })
+
+        return {
+            parsed: null,
+            text: firstResult.text,
+            mode: firstResult.mode,
+            source: firstResult.source,
+            fallbackReason: firstResult.fallbackReason,
+            parseFallbackReason,
+            attempts,
+        }
     } catch (error) {
-        console.warn('[AI] Structured JSON parse failed, returning null', error)
-        return null
+        const errorMessage = getErrorMessage(error)
+        console.warn('[AI] Structured JSON parse failed, returning null', getErrorName(error), errorMessage)
+        recordAiCallDiagnostic({
+            tag,
+            mode: currentMode,
+            status: 'fallback',
+            fallbackReason: 'parse_exception',
+            provider: 'json_parse',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+            attempts: 0,
+            errorName: getErrorName(error),
+            errorMessage,
+        })
+        return {
+            parsed: null,
+            text: '',
+            mode: currentMode,
+            source: 'fallback',
+            fallbackReason: 'parse_exception',
+            parseFallbackReason: 'parse_exception',
+            attempts: 0,
+        }
     }
 }
 
-async function mujianCompletion(
+async function mujianCompletionDetailed(
     messages: ChatMessage[],
     temperature: number,
     maxTokens: number,
     tag: string,
-): Promise<string> {
+): Promise<ChatCompletionDetailedResult> {
+    const mode: AiMode = 'mujian'
+    const model = 'deepseek-v3.2'
+
     try {
         if (mujianSdk?.ai?.openai?.chat?.completions?.create) {
             const response = await mujianSdk.ai.openai.chat.completions.create({
-                model: 'deepseek-v3.2',
+                model,
                 messages: messages.map(message => ({ role: message.role, content: message.content })),
                 temperature,
                 max_tokens: maxTokens,
             })
+            const text = response?.choices?.[0]?.message?.content?.trim() || ''
 
-            return response?.choices?.[0]?.message?.content?.trim() || getFallbackResponse(tag)
+            if (!text) {
+                return buildFallbackResult({
+                    tag,
+                    mode,
+                    reason: 'empty_response',
+                    model,
+                    provider: 'mujian_sdk',
+                    messageCount: messages.length,
+                    maxTokens,
+                    temperature,
+                })
+            }
+
+            recordCompletionSuccess({
+                tag,
+                mode,
+                model,
+                provider: 'mujian_sdk',
+                messageCount: messages.length,
+                maxTokens,
+                temperature,
+            })
+            return buildSuccessResult({ text, tag, mode, model })
         }
 
         const openapi = getMujianOpenApiConfig()
@@ -331,18 +578,51 @@ async function mujianCompletion(
             throw new Error('Mujian openapi config unavailable')
         }
 
-        return await openAiCompatibleCompletion(
+        const text = await openAiCompatibleCompletionRaw(
             openapi.baseURL,
             openapi.apiKey,
-            'deepseek-v3.2',
+            model,
             messages,
             temperature,
             maxTokens,
-            tag,
         )
+        if (!text) {
+            return buildFallbackResult({
+                tag,
+                mode,
+                reason: 'empty_response',
+                model,
+                provider: 'mujian_openapi',
+                messageCount: messages.length,
+                maxTokens,
+                temperature,
+                secrets: [openapi.apiKey],
+            })
+        }
+
+        recordCompletionSuccess({
+            tag,
+            mode,
+            model,
+            provider: 'mujian_openapi',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+        })
+        return buildSuccessResult({ text, tag, mode, model })
     } catch (error) {
-        console.error('[AI] Mujian completion failed:', error)
-        return getFallbackResponse(tag)
+        console.error('[AI] Mujian completion failed:', getErrorName(error), getErrorMessage(error))
+        return buildFallbackResult({
+            tag,
+            mode,
+            reason: 'request_failed',
+            model,
+            provider: 'mujian',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+            error,
+        })
     }
 }
 
@@ -350,33 +630,68 @@ function shouldDisableDeepSeekThinking(model: string): boolean {
     return model.startsWith('deepseek-v4')
 }
 
-async function deepSeekCompletion(
+async function deepSeekCompletionDetailed(
     messages: ChatMessage[],
     temperature: number,
     maxTokens: number,
     tag: string,
-): Promise<string> {
+): Promise<ChatCompletionDetailedResult> {
     const apiKey = getEnvValueWithLegacy('VITE_DEEPSEEK_API_KEY', 'VITE_KIMI_API_KEY') || ''
     const model = getEnvValueWithLegacy('VITE_DEEPSEEK_MODEL', 'VITE_KIMI_MODEL') || 'deepseek-v4-flash'
     const baseUrl = getEnvValueWithLegacy('VITE_DEEPSEEK_BASE_URL', 'VITE_KIMI_BASE_URL') || 'https://api.deepseek.com'
     const isDev = isDevRuntime()
+    const mode: AiMode = 'deepseek'
     const extraBody = shouldDisableDeepSeekThinking(model)
         ? { thinking: { type: 'disabled' } }
         : {}
 
     try {
-        return await openAiCompatibleCompletion(
+        const text = await openAiCompatibleCompletionRaw(
             isDev ? '/api/ai' : baseUrl,
             apiKey,
             model,
             messages,
             temperature,
             maxTokens,
-            tag,
             extraBody,
         )
+        if (!text) {
+            return buildFallbackResult({
+                tag,
+                mode,
+                reason: 'empty_response',
+                model,
+                provider: 'deepseek',
+                messageCount: messages.length,
+                maxTokens,
+                temperature,
+                secrets: [apiKey],
+            })
+        }
+
+        recordCompletionSuccess({
+            tag,
+            mode,
+            model,
+            provider: 'deepseek',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+        })
+        return buildSuccessResult({ text, tag, mode, model })
     } catch (error) {
-        console.error('[AI] DeepSeek completion failed:', error)
-        return getFallbackResponse(tag)
+        console.error('[AI] DeepSeek completion failed:', getErrorName(error), getErrorMessage(error, [apiKey]))
+        return buildFallbackResult({
+            tag,
+            mode,
+            reason: 'request_failed',
+            model,
+            provider: 'deepseek',
+            messageCount: messages.length,
+            maxTokens,
+            temperature,
+            error,
+            secrets: [apiKey],
+        })
     }
 }

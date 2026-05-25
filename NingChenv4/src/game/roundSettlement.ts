@@ -1,41 +1,58 @@
 import { getPolicyQuestionForRound } from '../data/policyQuestions'
 import { INITIAL_RELATIONSHIP_EDGES, RELATIONSHIP_STRUCTURES } from '../data/npcRelationships'
 import { getRoundIntel } from '../data/roundIntel'
-import { isDisasterRound } from '../data/roundRuleConfig'
 import {
     applyDimensionChanges,
     applyNaturalGrowth,
     buildPolicyAftereffect,
     calculatePolicyEffect,
     checkFactionCollapse,
-    checkDeathCondition,
-    checkEarlyInvasion,
     getEventImpact,
 } from './nationEngine'
 import { applyRelationshipShock, combineStructureEffects } from './relationshipEngine'
-import { settleScheme, type FactionVector, type SchemeResult } from './schemeEngine'
-import { evaluateHuainanCampaignOutcome, evaluateShuCampaignOutcome, tickCampaignFallout } from './campaignEngine'
+import { settleScheme, type SchemeResult } from './schemeEngine'
+import type { FactionVector } from './schemeTemplates'
 import {
     deriveCampaignMomentumGain,
     getCampaignMomentumSurface,
     type CampaignMomentumSurface,
 } from './campaignMomentum'
-import { deriveCampaignPreparedBonus } from './campaignPreparedBonus'
-import { deriveHuainanCarryBonus, deriveShuGainBias } from './campaignCarryover'
-import { getRoundCampaignEventContext } from './campaignDisplayEngine'
 import { isTerminalCourtDispositionNpc, seedCourtDispositionNpc } from './courtDisposition'
 import {
     deriveCourtDispositionNationDamage,
     deriveCourtFavorHit,
     resolveCourtDispositionProxy,
 } from './courtDispositionEngine'
-import { deriveMainlineHuainanBonus, deriveMainlineShuBonus } from './mainlineCampaignBonus'
 import { derivePolicyCampaignMomentum } from './policyCampaignMomentum'
 import { buildSchemeOutcomeExplanation, type SchemeOutcomeExplanation } from './schemeOutcomeExplanation'
-import { normalizeNonTerminalExternalStatus } from './externalStatus'
+import { resolveExternalAction, type ExternalActionReport } from './externalActionResolution'
+import { attachBorrowedBladePostResolution, attachExternalActionPostResolution } from './schemePostResolutionEvent'
+import {
+    applyCourtDispositionUpdates,
+    applyCourtFavorHitToNpc,
+    applyFactionCollapseNpcDrift,
+    applyFactionEffects,
+    applyPersonEffects,
+    deriveFactionCollapsePenalty,
+    deriveRelationshipShock,
+    extraEffectsToFactionVectors,
+    filterNewFactionCollapseReports,
+} from './roundSettlementEffects'
+import { deriveSettlementPressureFlow } from './settlementPressure'
+import {
+    applyCampaignFalloutForRound,
+    cloneCampaign,
+    resolveCampaignOutcomesForRound,
+} from './settlementCampaign'
+import {
+    buildJudgeFacts,
+    buildSettlementKeyChangeHighlights,
+    generateSummary,
+    summarizeDimensions,
+} from './settlementNarrative'
+import type { JudgeFacts, PolicySettlementReport, SettlementKeyChangeHighlight } from './settlementTypes'
 import { calculateCompositePower } from './types'
 import type {
-    AiNativeSummary,
     BorrowedBladeReport,
     CampaignState,
     CourtFactionId,
@@ -53,49 +70,10 @@ import type {
     RelationshipReport,
     SchemeAction,
 } from './types'
+export type { JudgeFacts, PolicySettlementReport, SettlementKeyChangeHighlight } from './settlementTypes'
+export { buildAiNativeSummary } from './settlementNarrative'
 
-export interface PolicySettlementReport {
-    sourceRound: number
-    topic: string
-    question: string
-    optionLabel: string
-    optionContent: string
-    reason: string
-    effects: Partial<NationDimensions>
-    effectSummary: string
-    legitimacyTone: 'up' | 'down' | 'steady'
-    focusMatched: boolean
-    scoringFocus?: string
-    policyParse: PolicyReasonParseResult | null
-}
-
-export interface ExternalActionReport {
-    npcId: string
-    npcName: string
-    action: 'secession' | 'rebellion'
-    outcome: string
-    nationEffects: Partial<NationDimensions>
-}
-
-export interface JudgeFacts {
-    eventImpactSummary: string
-    factionSummary: string
-    relationshipSummary: string
-    externalSummary: string
-    northSummary: string
-    southSummary: string
-    invasionSummary: string
-    survivalSummary: string
-    aiNativeSummary: AiNativeSummary
-}
-
-export interface SettlementKeyChangeHighlight {
-    id: string
-    category: 'external' | 'faction' | 'court'
-    title: string
-    text: string
-    tone: 'positive' | 'negative' | 'neutral'
-}
+export type { ExternalActionReport } from './externalActionResolution'
 
 export interface RoundSettlementResult {
     processedSchemes: SchemeAction[]
@@ -118,8 +96,14 @@ export interface RoundSettlementResult {
     deathTriggered: boolean
     deathKiller: string | null
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat: number
+    playerSuspicionDelta: number
+    playerSuspicionReasons: string[]
     invasionTriggered: boolean
     invasionPoliticalRatio: number
+    invasionPressure: number
+    invasionPressureDelta: number
+    invasionPressureReasons: string[]
     gameResult: GameResult
     summaryText: string
     policyReport: PolicySettlementReport | null
@@ -149,6 +133,8 @@ export function settleRound(params: {
     relationships?: RelationshipEdge[]
     intelProgress: Record<string, number>
     playerDangerStage?: PlayerDangerStage
+    playerSuspicionHeat?: number
+    invasionPressure?: number
     policyOptionIndex: number | null
     policyReason: string
     policyParse?: PolicyReasonParseResult | null
@@ -184,29 +170,18 @@ export function settleRound(params: {
 
     northStats = applyDimensionChanges(northStats, getEventImpact(round))
 
-    if (round >= 11 && round <= 12) {
-        const fallout = tickCampaignFallout(shuCampaign)
-        if (fallout.applied) {
-            northStats = applyDimensionChanges(northStats, fallout.northImpact)
-            southStats = applyDimensionChanges(southStats, fallout.southImpact)
-            shuCampaign = fallout.nextCampaign
-            if (fallout.nextCampaign.state !== 'idle') {
-                campaignReports.push('蜀地方向的战后余波仍在发酵。')
-            }
-        }
-    }
-
-    if (round >= 17 && round <= 18) {
-        const fallout = tickCampaignFallout(huainanCampaign)
-        if (fallout.applied) {
-            northStats = applyDimensionChanges(northStats, fallout.northImpact)
-            southStats = applyDimensionChanges(southStats, fallout.southImpact)
-            huainanCampaign = fallout.nextCampaign
-            if (fallout.nextCampaign.state !== 'idle') {
-                campaignReports.push('淮南方向的战后余波尚未平息。')
-            }
-        }
-    }
+    const campaignFallout = applyCampaignFalloutForRound({
+        round,
+        northStats,
+        southStats,
+        shuCampaign,
+        huainanCampaign,
+    })
+    northStats = campaignFallout.northStats
+    southStats = campaignFallout.southStats
+    shuCampaign = campaignFallout.shuCampaign
+    huainanCampaign = campaignFallout.huainanCampaign
+    campaignReports.push(...campaignFallout.campaignReports)
 
     const eventIntelUnlocks = getRoundIntel(round)?.autoUnlocks ?? {}
     for (const [npcId, count] of Object.entries(eventIntelUnlocks)) {
@@ -233,14 +208,16 @@ export function settleRound(params: {
         const relatedBefore = activeRelatedNpc ? { ...activeRelatedNpc } : null
         const factionsBeforeAction = factionsAfter.map(faction => ({ ...faction }))
 
-        const result = settleScheme(
+        const unlockedSecretsBeforeAction = (intelProgress[action.targetNpcId] ?? 0) + (intelUnlocks[action.targetNpcId] ?? 0)
+
+        let result = settleScheme(
             action,
             targetNpc,
             activeRelatedNpc,
             actionsPerNpc[action.targetNpcId] ?? 0,
             {
                 round,
-                unlockedSecrets: intelProgress[action.targetNpcId] ?? 0,
+                unlockedSecrets: unlockedSecretsBeforeAction,
                 difficulty,
             },
         )
@@ -368,6 +345,8 @@ export function settleRound(params: {
                         summary: proxyResolution.summary,
                     },
                 )
+                result = attachBorrowedBladePostResolution(result, borrowedBladeReports[borrowedBladeReports.length - 1])
+                schemeResults[schemeResults.length - 1] = result
             }
         }
 
@@ -399,6 +378,8 @@ export function settleRound(params: {
                 externalActionReports.push(report.report)
                 northStats = applyDimensionChanges(northStats, report.report.nationEffects)
                 factionsAfter = applyFactionEffects(factionsAfter, report.factionPenalty)
+                result = attachExternalActionPostResolution(result, report.report)
+                schemeResults[schemeResults.length - 1] = result
             }
         }
 
@@ -433,14 +414,26 @@ export function settleRound(params: {
         updatedNpcs = applyFactionCollapseNpcDrift(updatedNpcs, factionCollapseReports)
     }
 
-    const deathCheck = checkDeathCondition(updatedNpcs, factionsAfter, round, params.playerDangerStage ?? 'safe')
-    const invasionCheck = checkEarlyInvasion(
-        northStats,
-        factionsAfter,
-        updatedNpcs,
-        isDisasterRound(round),
+    const {
+        pressureUpdate,
+        deathCheck,
+        invasionCheck,
+    } = deriveSettlementPressureFlow({
         round,
-    )
+        difficulty,
+        previousPlayerSuspicionHeat: params.playerSuspicionHeat,
+        previousInvasionPressure: params.invasionPressure,
+        playerDangerStage: params.playerDangerStage,
+        schemes: processedSchemes,
+        schemeResults,
+        npcsBefore: params.npcs,
+        npcsAfter: updatedNpcs,
+        factionsBefore: params.factions,
+        factionsAfter,
+        northBefore: params.northStats,
+        northAfter: northStats,
+        delayedBacklash,
+    })
 
     if (policyOptionIndex !== null) {
         const question = getPolicyQuestionForRound(round, {
@@ -496,82 +489,28 @@ export function settleRound(params: {
         }
     }
 
-    if (round === 10) {
-        const shuPreparedBonus = deriveCampaignPreparedBonus({
-            campaign: 'shu',
-            momentum: shuMomentum,
-            recentBattleSignal: deriveRecentBattleSignal('shu', schemeResults, policyReport, hasPolicyReason ? policyParse ?? null : null),
-            policyMomentum: policyMomentumGain.shuMomentumGain,
-        })
-        const shuGainBias = deriveShuGainBias(difficulty, Math.min(5, shuMomentum), shuPreparedBonus)
-        const mainlineShuPreparednessBonus = deriveMainlineShuBonus({
-            difficulty,
-            schemeSignals: collectMainlineShuSignals(schemes, schemeResults),
-            commandSignal: deriveMainlineCommandSignal(schemes, schemeResults),
-            preparedBonus: shuPreparedBonus,
-            existingMomentum: shuMomentum,
-        })
-        const evaluation = evaluateShuCampaignOutcome({
-            round,
-            difficulty,
-            southStats,
-            northStats,
-            northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'shu'),
-            policyBoost: derivePolicyBoost(policyReport),
-            preparednessBonus: mainlineShuPreparednessBonus,
-            momentumBonus: Math.min(5, shuMomentum) + shuPreparedBonus + shuGainBias,
-        })
-        northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
-        southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
-        shuCampaign = {
-            state: evaluation.state,
-            resolvedState: evaluation.resolvedState ?? evaluation.state,
-            sourceRound: evaluation.sourceRound,
-            summary: evaluation.summary,
-            ongoingNorthImpact: evaluation.ongoingNorthImpact,
-            ongoingSouthImpact: evaluation.ongoingSouthImpact,
-            remainingRounds: evaluation.remainingRounds,
-        }
-        campaignReports.push(evaluation.summary)
-    }
-
-    if (round === 16) {
-        const huainanPreparedBonus = deriveCampaignPreparedBonus({
-            campaign: 'huainan',
-            momentum: huainanMomentum,
-            recentBattleSignal: deriveRecentBattleSignal('huainan', schemeResults, policyReport, hasPolicyReason ? policyParse ?? null : null),
-            policyMomentum: policyMomentumGain.huainanMomentumGain,
-        })
-        const huainanCarryBonus = deriveHuainanCarryBonus(shuCampaign.resolvedState ?? shuCampaign.state, difficulty)
-        const mainlineHuainanBonus = deriveMainlineHuainanBonus({
-            difficulty,
-            shuResolvedState: shuCampaign.resolvedState ?? shuCampaign.state,
-            schemeSignals: collectMainlineHuainanSignals(schemes, schemeResults),
-            commandSignal: deriveMainlineHuainanCommandSignal(schemes, schemeResults),
-            preparedBonus: huainanPreparedBonus,
-        })
-        const evaluation = evaluateHuainanCampaignOutcome({
-            round,
-            difficulty,
-            southStats,
-            northStats,
-            northPressurePenalty: deriveNorthPressurePenalty(updatedNpcs, factionsAfter, 'huainan'),
-            policyBoost: derivePolicyBoost(policyReport),
-            momentumBonus: Math.min(5, huainanMomentum) + huainanPreparedBonus + huainanCarryBonus + mainlineHuainanBonus,
-        })
-        northStats = applyDimensionChanges(northStats, evaluation.instantNorthImpact)
-        southStats = applyDimensionChanges(southStats, evaluation.instantSouthImpact)
-        huainanCampaign = {
-            state: evaluation.state,
-            resolvedState: evaluation.resolvedState ?? evaluation.state,
-            sourceRound: evaluation.sourceRound,
-            summary: evaluation.summary,
-            ongoingNorthImpact: evaluation.ongoingNorthImpact,
-            ongoingSouthImpact: evaluation.ongoingSouthImpact,
-            remainingRounds: evaluation.remainingRounds,
-        }
-        campaignReports.push(evaluation.summary)
-    }
+    const campaignOutcomes = resolveCampaignOutcomesForRound({
+        round,
+        difficulty,
+        northStats,
+        southStats,
+        updatedNpcs,
+        factionsAfter,
+        schemes,
+        schemeResults,
+        policyReport,
+        policyParse: hasPolicyReason ? policyParse ?? null : null,
+        policyMomentumGain,
+        shuMomentum,
+        huainanMomentum,
+        shuCampaign,
+        huainanCampaign,
+    })
+    northStats = campaignOutcomes.northStats
+    southStats = campaignOutcomes.southStats
+    shuCampaign = campaignOutcomes.shuCampaign
+    huainanCampaign = campaignOutcomes.huainanCampaign
+    campaignReports.push(...campaignOutcomes.campaignReports)
 
     northStats = applyNaturalGrowth(northStats, true, difficulty)
     southStats = applyNaturalGrowth(southStats, false, difficulty)
@@ -607,6 +546,7 @@ export function settleRound(params: {
         factionCollapseReports,
         invasionCheck,
         deathCheck,
+        pressureUpdate,
         policyReport,
         policyAftereffect,
         schemeResults,
@@ -643,8 +583,14 @@ export function settleRound(params: {
         deathTriggered: deathCheck.triggered,
         deathKiller: deathCheck.killerName,
         playerDangerStage: deathCheck.nextStage,
+        playerSuspicionHeat: pressureUpdate.playerSuspicionHeat,
+        playerSuspicionDelta: pressureUpdate.suspicionDelta.value,
+        playerSuspicionReasons: pressureUpdate.suspicionDelta.reasons,
         invasionTriggered: invasionCheck.triggered,
         invasionPoliticalRatio: invasionCheck.politicalWillRatio,
+        invasionPressure: pressureUpdate.invasionPressure,
+        invasionPressureDelta: pressureUpdate.invasionDelta.value,
+        invasionPressureReasons: pressureUpdate.invasionDelta.reasons,
         gameResult,
         summaryText,
         policyReport,
@@ -657,825 +603,5 @@ export function settleRound(params: {
         shuMomentum,
         huainanMomentum,
         campaignMomentumSurface,
-    }
-}
-
-function applyPersonEffects(
-    npc: NPC,
-    trustDelta: number,
-    loyaltyDelta: number,
-    militaryPowerDelta: number,
-    alignmentShift: NPC['alignmentBias'] | null,
-    externalStatus: NPC['externalStatus'] | null,
-) {
-    npc.trust = clamp(npc.trust + trustDelta)
-    npc.loyaltyToCourt = clamp(npc.loyaltyToCourt + loyaltyDelta)
-    npc.militaryPower = clamp(npc.militaryPower + militaryPowerDelta)
-
-    if (alignmentShift) {
-        npc.alignmentBias = alignmentShift
-    }
-
-    if (externalStatus) {
-        npc.externalStatus = externalStatus
-    } else if (npc.powerBase === 'external') {
-        npc.externalStatus = normalizeNonTerminalExternalStatus(npc.externalStatus)
-    }
-}
-
-function applyFactionEffects(
-    factions: Faction[],
-    factionEffects: Partial<Record<CourtFactionId, FactionVector>>,
-): Faction[] {
-    return factions.map(faction => {
-        const delta = factionEffects[faction.id]
-        if (!delta) return faction
-
-        return {
-            ...faction,
-            militaryPower: clamp(faction.militaryPower + delta.militaryPower),
-            courtInfluence: clamp(faction.courtInfluence + delta.courtInfluence),
-            internalStability: clamp(faction.internalStability + delta.internalStability),
-        }
-    })
-}
-
-function applyCourtFavorHitToNpc(
-    npc: NPC,
-    hit: { emperorFavorDelta: number; empressDowagerFavorDelta: number },
-) {
-    if (hit.emperorFavorDelta !== 0) {
-        npc.emperorFavor = clamp((npc.emperorFavor ?? 100) + hit.emperorFavorDelta)
-    }
-
-    if (hit.empressDowagerFavorDelta !== 0) {
-        npc.empressDowagerFavor = clamp((npc.empressDowagerFavor ?? 100) + hit.empressDowagerFavorDelta)
-    }
-}
-
-function applyCourtDispositionUpdates(npc: NPC, updates: Partial<NPC>) {
-    Object.assign(npc, updates)
-}
-
-function resolveExternalAction(targetNpc: NPC, action: 'secession' | 'rebellion'): {
-    report: ExternalActionReport
-    factionPenalty: Partial<Record<CourtFactionId, FactionVector>>
-} | null {
-    if (!targetNpc.isAlive) return null
-
-    const leverage =
-        targetNpc.militaryPower * 0.9 +
-        targetNpc.trust * 0.18 +
-        Math.max(0, 40 - targetNpc.loyaltyToCourt) * 0.9 +
-        (targetNpc.highActionBias === action ? 8 : -4)
-
-    if (action === 'secession') {
-        if (leverage >= 58) {
-            targetNpc.externalStatus = 'secession'
-            const damage = damageByMilitaryTier(targetNpc.militaryPower, 'secession')
-            return {
-                report: {
-                    npcId: targetNpc.id,
-                    npcName: targetNpc.name,
-                    action,
-                    outcome: `${targetNpc.name}借乱局坐实地方自雄，明面仍奉朝廷，实则已成割据。`,
-                    nationEffects: damage,
-                },
-                factionPenalty: linkedFactionPenalty(targetNpc, 1.4, 1.1),
-            }
-        }
-
-        targetNpc.externalStatus = 'loyal'
-        targetNpc.loyaltyToCourt = clamp(targetNpc.loyaltyToCourt + 6)
-        return {
-            report: {
-                npcId: targetNpc.id,
-                npcName: targetNpc.name,
-                action,
-                outcome: `${targetNpc.name}权衡之后仍未敢明牌，只是离心更重，暂观朝局。`,
-                nationEffects: {
-                    governance: -0.8,
-                    socialOrder: -0.5,
-                },
-            },
-            factionPenalty: linkedFactionPenalty(targetNpc, 0.6, 0.4),
-        }
-    }
-
-    if (leverage >= 72) {
-        targetNpc.externalStatus = 'rebellion'
-        const damage = damageByMilitaryTier(targetNpc.militaryPower, 'rebellion')
-        return {
-            report: {
-                npcId: targetNpc.id,
-                npcName: targetNpc.name,
-                action,
-                outcome: `${targetNpc.name}击退平叛军队后割据一方，北周不得不正面应对其明旗反周之势。`,
-                nationEffects: damage,
-            },
-            factionPenalty: linkedFactionPenalty(targetNpc, 2.4, 2.1),
-        }
-    }
-
-    const fallbackForce = Math.max(18, targetNpc.militaryPower)
-    targetNpc.isAlive = false
-    targetNpc.externalStatus = 'rebellion'
-    targetNpc.militaryPower = 0
-    return {
-        report: {
-            npcId: targetNpc.id,
-            npcName: targetNpc.name,
-            action,
-            outcome: `${targetNpc.name}起兵旋即为平叛军所剿，虽未坐大，却已逼北周为此折损兵粮。`,
-            nationEffects: downshiftDamage(damageByMilitaryTier(fallbackForce, 'rebellion')),
-        },
-        factionPenalty: linkedFactionPenalty(targetNpc, 1.8, 1.5),
-    }
-}
-
-function linkedFactionPenalty(
-    npc: NPC,
-    courtInfluenceLoss: number,
-    militaryLoss: number,
-): Partial<Record<CourtFactionId, FactionVector>> {
-    if (npc.alignmentBias === 'emperor' || npc.alignmentBias === 'empress') {
-        return {
-            [npc.alignmentBias]: {
-                militaryPower: -militaryLoss,
-                courtInfluence: -courtInfluenceLoss,
-                internalStability: -1.2,
-            },
-        }
-    }
-
-    if (npc.alignmentBias === 'swing') {
-        return {
-            emperor: {
-                militaryPower: -round(militaryLoss * 0.5),
-                courtInfluence: -round(courtInfluenceLoss * 0.5),
-                internalStability: -0.6,
-            },
-            empress: {
-                militaryPower: -round(militaryLoss * 0.5),
-                courtInfluence: -round(courtInfluenceLoss * 0.5),
-                internalStability: -0.6,
-            },
-        }
-    }
-
-    return {}
-}
-
-function summarizeDimensions(changes: Partial<NationDimensions>): string {
-    const names: Record<keyof NationDimensions, string> = {
-        finance: '财政',
-        grain: '粮赋',
-        military: '军事',
-        socialOrder: '民生秩序',
-        governance: '统治穿透力',
-    }
-
-    return Object.entries(changes)
-        .map(([key, value]) => `${names[key as keyof NationDimensions]}${(value ?? 0) >= 0 ? '+' : ''}${(value ?? 0).toFixed(1)}`)
-        .join('，')
-}
-
-function cloneCampaign(campaign?: CampaignState): CampaignState {
-    return campaign
-        ? {
-            ...campaign,
-            resolvedState: campaign.resolvedState ?? campaign.state,
-            ongoingNorthImpact: { ...campaign.ongoingNorthImpact },
-            ongoingSouthImpact: { ...campaign.ongoingSouthImpact },
-        }
-        : {
-            state: 'idle',
-            resolvedState: null,
-            sourceRound: null,
-            summary: '',
-            ongoingNorthImpact: {},
-            ongoingSouthImpact: {},
-            remainingRounds: 0,
-        }
-}
-
-function derivePolicyBoost(policyReport: PolicySettlementReport | null): number {
-    if (!policyReport) return 0
-    const total = Object.values(policyReport.effects).reduce((sum, value) => sum + (value ?? 0), 0)
-    return Math.max(0, Math.min(6, total / 2.5 + (policyReport.focusMatched ? 1 : 0)))
-}
-
-function deriveRecentBattleSignal(
-    campaign: 'shu' | 'huainan',
-    schemeResults: SchemeResult[],
-    policyReport: PolicySettlementReport | null,
-    policyParse: PolicyReasonParseResult | null,
-): number {
-    const schemeSignal = Math.max(
-        0,
-        ...schemeResults
-            .filter(result => result.success)
-            .map(result => {
-                if (campaign === 'shu') {
-                    return (
-                        result.northParse.grainRelevance * 0.38 +
-                        result.northParse.governanceRelevance * 0.34 +
-                        result.northParse.militaryRelevance * 0.28
-                    )
-                }
-
-                return (
-                    result.northParse.militaryRelevance * 0.4 +
-                    result.northParse.grainRelevance * 0.34 +
-                    result.northParse.financeRelevance * 0.26
-                )
-            }),
-    )
-
-    if (!policyReport || !policyParse) {
-        return round(schemeSignal)
-    }
-
-    const policyEffectSignal =
-        campaign === 'shu'
-            ? Math.max(0, policyReport.effects.grain ?? 0) * 0.45
-            + Math.max(0, policyReport.effects.governance ?? 0) * 0.35
-            + Math.max(0, policyReport.effects.finance ?? 0) * 0.2
-            : Math.max(0, policyReport.effects.military ?? 0) * 0.4
-            + Math.max(0, policyReport.effects.grain ?? 0) * 0.3
-            + Math.max(0, policyReport.effects.finance ?? 0) * 0.3
-
-    const policySignal =
-        policyEffectSignal > 0
-            ? (
-                policyParse.focusAlignment * 0.42 +
-                policyParse.executionClarity * 0.36 +
-                policyParse.costAwareness * 0.22
-            ) * Math.min(1, policyEffectSignal / 1)
-            : 0
-
-    return round(Math.max(schemeSignal, policySignal))
-}
-
-function collectMainlineShuSignals(schemes: SchemeAction[], schemeResults: SchemeResult[]): number[] {
-    return schemeResults
-        .map((result, index) => ({ result, action: schemes[index] }))
-        .filter(item => item.result.success)
-        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
-        .map(item => round(
-            item.result.northParse.grainRelevance * 0.38
-            + item.result.northParse.governanceRelevance * 0.36
-            + item.result.northParse.militaryRelevance * 0.16
-            + item.result.northParse.executability * 0.1,
-        ))
-}
-
-function deriveMainlineCommandSignal(schemes: SchemeAction[], schemeResults: SchemeResult[]): number {
-    const strongest = schemeResults
-        .map((result, index) => ({ result, action: schemes[index] }))
-        .filter(item => item.result.success)
-        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
-        .map(item => round(
-            item.result.northParse.governanceRelevance * 0.4
-            + item.result.northParse.structuralPenetration * 0.32
-            + item.result.northParse.executability * 0.18
-            + item.result.northParse.eventFit * 0.1,
-        ))
-
-    return strongest.length > 0 ? Math.max(...strongest) : 0
-}
-
-function collectMainlineHuainanSignals(schemes: SchemeAction[], schemeResults: SchemeResult[]): number[] {
-    return schemeResults
-        .map((result, index) => ({ result, action: schemes[index] }))
-        .filter(item => item.result.success)
-        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
-        .map(item => round(
-            item.result.northParse.militaryRelevance * 0.34
-            + item.result.northParse.grainRelevance * 0.28
-            + item.result.northParse.financeRelevance * 0.22
-            + item.result.northParse.executability * 0.16,
-        ))
-}
-
-function deriveMainlineHuainanCommandSignal(schemes: SchemeAction[], schemeResults: SchemeResult[]): number {
-    const strongest = schemeResults
-        .map((result, index) => ({ result, action: schemes[index] }))
-        .filter(item => item.result.success)
-        .filter(item => item.action?.schemeType === 'advise' || item.action?.schemeType === 'probe')
-        .map(item => round(
-            item.result.northParse.militaryRelevance * 0.3
-            + item.result.northParse.structuralPenetration * 0.28
-            + item.result.northParse.executability * 0.18
-            + item.result.northParse.eventFit * 0.14
-            + item.result.northParse.governanceRelevance * 0.1,
-        ))
-
-    return strongest.length > 0 ? Math.max(...strongest) : 0
-}
-
-function deriveNorthPressurePenalty(
-    npcs: NPC[],
-    factions: Faction[],
-    campaign: 'shu' | 'huainan',
-): number {
-    let penalty = 0
-    const lowLoyaltyExternal = npcs.filter(npc =>
-        npc.powerBase === 'external'
-        && npc.isAlive
-        && npc.externalStatus !== 'secession'
-        && npc.externalStatus !== 'rebellion'
-        && npc.loyaltyToCourt <= 60,
-    ).length
-    penalty += lowLoyaltyExternal * 1.2
-    penalty += npcs.filter(npc =>
-        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus === 'secession',
-    ).length * 2.6
-    penalty += npcs.filter(npc =>
-        npc.powerBase === 'external' && npc.isAlive && npc.externalStatus === 'rebellion',
-    ).length * 3.4
-
-    const emperor = factions.find(faction => faction.id === 'emperor')
-    const empress = factions.find(faction => faction.id === 'empress')
-    if ((emperor?.internalStability ?? 100) <= 25) penalty += 2
-    if ((empress?.internalStability ?? 100) <= 25) penalty += 2
-    if ((emperor?.courtInfluence ?? 100) <= 22) penalty += 1.6
-    if ((empress?.courtInfluence ?? 100) <= 22) penalty += 1.6
-
-    if (campaign === 'shu') {
-        penalty += npcs.filter(npc => /河西|陇右|诸军事/.test(npc.title) && npc.trust <= 25).length * 0.8
-    } else {
-        penalty += npcs.filter(npc => /河南|河北|节度使|诸军事/.test(npc.title) && npc.trust <= 25).length * 0.8
-    }
-
-    return round(penalty)
-}
-
-function diffDimensions(after: NationDimensions, before: NationDimensions): Partial<NationDimensions> {
-    return {
-        finance: round(after.finance - before.finance),
-        grain: round(after.grain - before.grain),
-        military: round(after.military - before.military),
-        socialOrder: round(after.socialOrder - before.socialOrder),
-        governance: round(after.governance - before.governance),
-    }
-}
-
-function summarizeFactionChanges(before: Faction[], after: Faction[]): string {
-    return after.map(faction => {
-        const previous = before.find(item => item.id === faction.id)
-        if (!previous) return `${faction.name}维持现状`
-        const parts: string[] = []
-        const influence = round(faction.courtInfluence - previous.courtInfluence)
-        const stability = round(faction.internalStability - previous.internalStability)
-        const military = round(faction.militaryPower - previous.militaryPower)
-        if (influence !== 0) parts.push(`朝堂影响${influence > 0 ? '+' : ''}${influence}`)
-        if (stability !== 0) parts.push(`稳定${stability > 0 ? '+' : ''}${stability}`)
-        if (military !== 0) parts.push(`军权${military > 0 ? '+' : ''}${military}`)
-        return parts.length > 0 ? `${faction.name}${parts.join('、')}` : `${faction.name}维持现状`
-    }).join('；')
-}
-
-function summarizeExternalState(reports: ExternalActionReport[]): string {
-    if (reports.length === 0) return '外部人物尚未彻底明牌，更多仍在观望试价。'
-    return reports.map(report => `${report.npcName}${report.action === 'rebellion' ? '举兵' : '坐大'}：${report.outcome}`).join('；')
-}
-
-function summarizeRelationshipReports(reports: RelationshipReport[]): string {
-    if (reports.length === 0) return ''
-    return reports.map(report => report.summary).join('；')
-}
-
-function summarizeFactionCollapseReports(reports: FactionCollapseReport[]): string {
-    if (reports.length === 0) return ''
-    return reports.map(report => report.summary).join('；')
-}
-
-function buildSettlementKeyChangeHighlights(params: {
-    beforeNpcs: NPC[]
-    afterNpcs: NPC[]
-    beforeFactions: Faction[]
-    afterFactions: Faction[]
-}): SettlementKeyChangeHighlight[] {
-    const highlights: SettlementKeyChangeHighlight[] = []
-
-    for (const after of params.afterNpcs) {
-        const before = params.beforeNpcs.find(npc => npc.id === after.id)
-        if (!before) continue
-
-        if (after.powerBase === 'external') {
-            const trustDelta = round(after.trust - before.trust)
-            const loyaltyDelta = round(after.loyaltyToCourt - before.loyaltyToCourt)
-            const militaryDelta = round(after.militaryPower - before.militaryPower)
-            const statusChanged = after.externalStatus !== before.externalStatus
-            const shouldShow =
-                Math.abs(trustDelta) >= 3 ||
-                Math.abs(loyaltyDelta) >= 3 ||
-                Math.abs(militaryDelta) >= 2 ||
-                statusChanged
-
-            if (shouldShow) {
-                const deltas = [
-                    trustDelta !== 0 ? `信任${signed(trustDelta)}` : '',
-                    loyaltyDelta !== 0 ? `忠诚${signed(loyaltyDelta)}` : '',
-                    militaryDelta !== 0 ? `军力${signed(militaryDelta)}` : '',
-                    statusChanged ? `状态转为${getExternalStatusNarrativeLabel(after.externalStatus)}` : '',
-                ].filter(Boolean)
-                const reason = statusChanged
-                    ? '这已经不只是态度松动，而是地方军头公开改变了与中枢的关系。'
-                    : '这说明你的计谋已经从言语层面传到地方军头的资源、兵势或离心程度上。'
-
-                highlights.push({
-                    id: `external-${after.id}`,
-                    category: 'external',
-                    title: `${after.name}动向`,
-                    text: `${after.name}：${deltas.join('，')}。${reason}`,
-                    tone: loyaltyDelta < 0 || militaryDelta < 0 || statusChanged ? 'negative' : 'positive',
-                })
-            }
-        }
-
-        if (after.powerBase === 'court') {
-            const emperorDelta = round((after.emperorFavor ?? 100) - (before.emperorFavor ?? 100))
-            const dowagerDelta = round((after.empressDowagerFavor ?? 100) - (before.empressDowagerFavor ?? 100))
-            const statusChanged = Boolean(
-                after.courtStatus &&
-                after.courtStatus !== 'active' &&
-                after.courtStatus !== before.courtStatus,
-            )
-            const shouldShow = Math.abs(emperorDelta) >= 4 || Math.abs(dowagerDelta) >= 4 || statusChanged
-
-            if (shouldShow) {
-                const deltas = [
-                    emperorDelta !== 0 ? `皇帝恩宠${signed(emperorDelta)}` : '',
-                    dowagerDelta !== 0 ? `太后眷顾${signed(dowagerDelta)}` : '',
-                    statusChanged ? `状态转为${getCourtStatusNarrativeLabel(after.courtStatus)}` : '',
-                ].filter(Boolean)
-                highlights.push({
-                    id: `court-${after.id}`,
-                    category: 'court',
-                    title: `${after.name}处境`,
-                    text: `${after.name}：${deltas.join('，')}。这类变化意味着他在御前或帘前的庇护正在改变，后续借刀、罢黜或处置的空间也会随之变化。`,
-                    tone: emperorDelta < 0 || dowagerDelta < 0 || statusChanged ? 'negative' : 'positive',
-                })
-            }
-        }
-    }
-
-    for (const after of params.afterFactions) {
-        const before = params.beforeFactions.find(faction => faction.id === after.id)
-        if (!before) continue
-
-        const influenceDelta = round(after.courtInfluence - before.courtInfluence)
-        const stabilityDelta = round(after.internalStability - before.internalStability)
-        const militaryDelta = round(after.militaryPower - before.militaryPower)
-        const shouldShow =
-            Math.abs(influenceDelta) >= 0.8 ||
-            Math.abs(stabilityDelta) >= 0.8 ||
-            Math.abs(militaryDelta) >= 0.8
-
-        if (!shouldShow) continue
-
-        const deltas = [
-            influenceDelta !== 0 ? `朝堂影响${signed(influenceDelta)}` : '',
-            stabilityDelta !== 0 ? `内部稳定${signed(stabilityDelta)}` : '',
-            militaryDelta !== 0 ? `军事实力${signed(militaryDelta)}` : '',
-        ].filter(Boolean)
-
-        highlights.push({
-            id: `faction-${after.id}`,
-            category: 'faction',
-            title: `${after.name}消长`,
-            text: `${after.name}：${deltas.join('，')}。这代表本回合的计谋已经影响到派系层面的调度、声势或内聚力。`,
-            tone: influenceDelta < 0 || stabilityDelta < 0 || militaryDelta < 0 ? 'negative' : 'positive',
-        })
-    }
-
-    return dedupeHighlights(highlights).slice(0, 8)
-}
-
-function dedupeHighlights(highlights: SettlementKeyChangeHighlight[]): SettlementKeyChangeHighlight[] {
-    const seen = new Set<string>()
-    return highlights.filter(item => {
-        if (seen.has(item.id)) return false
-        seen.add(item.id)
-        return true
-    })
-}
-
-function getExternalStatusNarrativeLabel(status: NPC['externalStatus']): string {
-    if (status === 'secession') return '已割据'
-    if (status === 'rebellion') return '已造反'
-    if (status === 'watchful') return '观望'
-    return '仍属中枢'
-}
-
-function getCourtStatusNarrativeLabel(status: NPC['courtStatus']): string {
-    if (status === 'dismissed') return '已被罢黜'
-    if (status === 'executed') return '已被处决'
-    return '仍在朝'
-}
-
-function buildJudgeFacts(params: {
-    round: number
-    beforeFactions: Faction[]
-    afterFactions: Faction[]
-    relationshipReports: RelationshipReport[]
-    beforeNorth: NationDimensions
-    afterNorth: NationDimensions
-    afterSouth: NationDimensions
-    externalActionReports: ExternalActionReport[]
-    factionCollapseReports: FactionCollapseReport[]
-    invasionCheck: {
-        politicalWillRatio: number
-        warCapabilityMet: number
-        windowLabel: string
-        pressureSummary: string
-    }
-    deathCheck: {
-        triggered: boolean
-        killerName: string | null
-        nextStage: PlayerDangerStage
-        summary: string
-    }
-    policyReport: PolicySettlementReport | null
-    policyAftereffect: PolicyAftereffect | null
-    schemeResults: SchemeResult[]
-    delayedBacklash: DelayedBacklash[]
-    shuCampaign: CampaignState
-    huainanCampaign: CampaignState
-}): JudgeFacts {
-    const event = getRoundCampaignEventContext(params.round, params.shuCampaign, params.huainanCampaign)
-    const eventImpactSummary = `主线事件「${event.eventName}」继续发酵；${event.eventBriefing}`
-
-    const northDelta = summarizeDimensions(diffDimensions(params.afterNorth, params.beforeNorth))
-    const relationshipSummary = summarizeRelationshipReports(params.relationshipReports)
-    const collapseSummary = summarizeFactionCollapseReports(params.factionCollapseReports)
-    const southSummary = params.policyReport
-        ? `南陈问政依“${params.policyReport.optionContent}”施行，${params.policyReport.effectSummary}。${params.policyAftereffect ? `其后效为：${params.policyAftereffect.summary}` : ''}`
-        : '南陈本回合无额外问政回批收益。'
-    const aiNativeSummary = buildAiNativeSummaryV2(params.schemeResults, params.delayedBacklash, params.policyReport, params.policyAftereffect)
-
-    return {
-        eventImpactSummary,
-        factionSummary: summarizeFactionChanges(params.beforeFactions, params.afterFactions)
-            + (relationshipSummary ? `；${relationshipSummary}` : '')
-            + (collapseSummary ? `；${collapseSummary}` : ''),
-        relationshipSummary,
-        externalSummary: summarizeExternalState(params.externalActionReports),
-        northSummary: northDelta || '北周五维无明显波动。',
-        southSummary,
-        invasionSummary: `${params.invasionCheck.windowLabel}；${params.invasionCheck.pressureSummary}；可战条件满足 ${params.invasionCheck.warCapabilityMet} 项；比值 ${params.invasionCheck.politicalWillRatio.toFixed(2)}。`,
-        survivalSummary: params.deathCheck.summary,
-        aiNativeSummary,
-    }
-}
-
-function deriveRelationshipShock(
-    action: SchemeAction,
-    result: SchemeResult,
-    targetNpc: NPC,
-    relatedNpc: NPC | null,
-    edges: RelationshipEdge[],
-): { edgeId: string; delta: number; source: string } | null {
-    if (!result.success) return null
-
-    const shockByScheme: Partial<Record<SchemeAction['schemeType'], number>> = {
-        slander: -1.1,
-        alienate: -1.4,
-        frame: -0.8,
-        proxy: -1.2,
-    }
-    const delta = shockByScheme[action.schemeType]
-    if (!delta || !relatedNpc) return null
-
-    const matchedEdge = edges.find(edge =>
-        (edge.fromNpcId === targetNpc.id && edge.toNpcId === relatedNpc.id) ||
-        (edge.fromNpcId === relatedNpc.id && edge.toNpcId === targetNpc.id),
-    )
-
-    return matchedEdge ? { edgeId: matchedEdge.id, delta, source: action.schemeType } : null
-}
-
-function extraEffectsToFactionVectors(
-    effect: ReturnType<typeof combineStructureEffects>,
-): Partial<Record<CourtFactionId, FactionVector>> {
-    const mapped: Partial<Record<CourtFactionId, FactionVector>> = {}
-    if (effect.emperor) {
-        mapped.emperor = {
-            militaryPower: effect.emperor.militaryPower ?? 0,
-            courtInfluence: effect.emperor.courtInfluence ?? 0,
-            internalStability: effect.emperor.internalStability ?? 0,
-        }
-    }
-    if (effect.empress) {
-        mapped.empress = {
-            militaryPower: effect.empress.militaryPower ?? 0,
-            courtInfluence: effect.empress.courtInfluence ?? 0,
-            internalStability: effect.empress.internalStability ?? 0,
-        }
-    }
-    return mapped
-}
-
-function generateSummary(
-    schemeResults: SchemeResult[],
-    externalActionReports: ExternalActionReport[],
-    borrowedBladeReports: BorrowedBladeReport[],
-    northDelta: number,
-    southDelta: number,
-): string {
-    const successCount = schemeResults.filter(result => result.success).length
-    const dispositionSummary = borrowedBladeReports.length > 0
-        ? `朝堂收网${borrowedBladeReports.length}次，${borrowedBladeReports.map(report => report.summary).join('')}`
-        : ''
-    const actionSummary = externalActionReports.length > 0
-        ? `另有${externalActionReports.length}股外部势力明牌动作。`
-        : '外部势力尚未彻底明牌。'
-
-    return `本回合${schemeResults.length}次计谋中${successCount}次奏效。${dispositionSummary}${actionSummary}北周综合国力${directionLabel(northDelta)}（${signed(northDelta)}），南陈综合国力${directionLabel(southDelta)}（${signed(southDelta)}）。`
-}
-
-function directionLabel(value: number): string {
-    if (value > 0) return '上升'
-    if (value < 0) return '下降'
-    return '持平'
-}
-
-function signed(value: number): string {
-    return `${value > 0 ? '+' : ''}${value.toFixed(1)}`
-}
-
-function clamp(value: number): number {
-    return Math.max(0, Math.min(100, round(value)))
-}
-
-function round(value: number): number {
-    return Math.round(value * 10) / 10
-}
-
-function deriveFactionCollapsePenalty(reports: FactionCollapseReport[]): {
-    factionPenalty: Partial<Record<CourtFactionId, FactionVector>>
-    nationPenalty: Partial<NationDimensions>
-} {
-    const factionPenalty: Partial<Record<CourtFactionId, FactionVector>> = {}
-    const nationPenalty: Partial<NationDimensions> = {}
-
-    for (const report of reports) {
-        const isCollapse = report.severity === 'collapse'
-        factionPenalty[report.factionId] = {
-            militaryPower: (factionPenalty[report.factionId]?.militaryPower ?? 0) + (isCollapse ? -2.2 : -1.1),
-            courtInfluence: (factionPenalty[report.factionId]?.courtInfluence ?? 0) + (isCollapse ? -2.4 : -1.2),
-            internalStability: (factionPenalty[report.factionId]?.internalStability ?? 0) + (isCollapse ? -2.6 : -1.3),
-        }
-        nationPenalty.governance = round((nationPenalty.governance ?? 0) + (isCollapse ? -1.4 : -0.6))
-        nationPenalty.socialOrder = round((nationPenalty.socialOrder ?? 0) + (isCollapse ? -1.1 : -0.5))
-        nationPenalty.military = round((nationPenalty.military ?? 0) + (isCollapse ? -0.8 : -0.3))
-    }
-
-    return { factionPenalty, nationPenalty }
-}
-
-function filterNewFactionCollapseReports(
-    previousReports: FactionCollapseReport[],
-    currentReports: FactionCollapseReport[],
-): FactionCollapseReport[] {
-    const previousSeverity = new Map(previousReports.map(report => [report.factionId, report.severity]))
-    return currentReports.filter(report => {
-        const previous = previousSeverity.get(report.factionId)
-        if (!previous) return true
-        return previous === 'breach' && report.severity === 'collapse'
-    })
-}
-
-function applyFactionCollapseNpcDrift(npcs: NPC[], reports: FactionCollapseReport[]): NPC[] {
-    if (reports.length === 0) return npcs
-
-    const byFaction = new Map(reports.map(report => [report.factionId, report]))
-    return npcs.map(npc => {
-        if (npc.powerBase !== 'court') return npc
-        const report = byFaction.get(npc.factionId as CourtFactionId)
-        if (!report) return npc
-
-        return {
-            ...npc,
-            trust: clamp(npc.trust + (report.severity === 'collapse' ? -2 : -1)),
-            loyaltyToCourt: clamp(npc.loyaltyToCourt + (report.severity === 'collapse' ? -4 : -2)),
-        }
-    })
-}
-
-function damageByMilitaryTier(
-    militaryPower: number,
-    action: 'secession' | 'rebellion',
-): Partial<NationDimensions> {
-    const tier = militaryPower <= 35 ? 'light' : militaryPower <= 44 ? 'mid' : militaryPower <= 54 ? 'heavy' : 'extreme'
-    const tables: Record<'secession' | 'rebellion', Record<'light' | 'mid' | 'heavy' | 'extreme', NationDimensions>> = {
-        secession: {
-            light: { finance: -2, grain: -1, military: -2, socialOrder: -1, governance: -3 },
-            mid: { finance: -2, grain: -1, military: -2, socialOrder: -2, governance: -4 },
-            heavy: { finance: -3, grain: -2, military: -3, socialOrder: -2, governance: -4 },
-            extreme: { finance: -4, grain: -3, military: -4, socialOrder: -3, governance: -5 },
-        },
-        rebellion: {
-            light: { finance: -3, grain: -2, military: -3, socialOrder: -2, governance: -4 },
-            mid: { finance: -3, grain: -2, military: -4, socialOrder: -3, governance: -5 },
-            heavy: { finance: -4, grain: -3, military: -5, socialOrder: -4, governance: -6 },
-            extreme: { finance: -5, grain: -4, military: -6, socialOrder: -5, governance: -7 },
-        },
-    }
-    return tables[action][tier]
-}
-
-function downshiftDamage(damage: Partial<NationDimensions>): Partial<NationDimensions> {
-    const adjusted: Partial<NationDimensions> = {}
-    for (const [key, value] of Object.entries(damage) as Array<[keyof NationDimensions, number | undefined]>) {
-        adjusted[key] = value ? Math.min(-1, value + 1) : value
-    }
-    return adjusted
-}
-
-export function buildAiNativeSummary(
-    schemeResults: SchemeResult[],
-    delayedBacklash: DelayedBacklash[],
-    policyReport: PolicySettlementReport | null,
-    policyAftereffect: PolicyAftereffect | null,
-): AiNativeSummary {
-    const schemeHints = schemeResults
-        .filter(result => result.success)
-        .map(result => {
-            if (result.northParse.structuralPenetration >= 0.62) {
-                return '这步话头借到了权力链条，影响不止停在人物层。'
-            }
-            if (result.northParse.characterFit >= 0.62) {
-                return '这步说辞贴住了对方心结，因此格外容易得手。'
-            }
-            return ''
-        })
-        .filter(Boolean)
-        .slice(0, 2)
-
-    const backlashHints = delayedBacklash
-        .map(item => item.summary)
-        .slice(0, 2)
-
-    const policyHints = policyReport?.reason.trim()
-        ? [
-            policyReport.focusMatched
-                ? '附言切中此题真正关节，因此南陈收益更稳。'
-                : '附言虽表态鲜明，但仍有几分失之宽泛。',
-            policyAftereffect?.focusMatched
-                ? '这道问政的余波也会延续到下一回合。'
-                : '',
-        ].filter(Boolean)
-        : []
-
-    return {
-        schemeHints,
-        backlashHints,
-        policyHints,
-    }
-}
-
-function buildAiNativeSummaryV2(
-    schemeResults: SchemeResult[],
-    delayedBacklash: DelayedBacklash[],
-    policyReport: PolicySettlementReport | null,
-    policyAftereffect: PolicyAftereffect | null,
-): AiNativeSummary {
-    const schemeHints = Array.from(new Set(
-        schemeResults
-            .filter(result => result.success)
-            .map(result => {
-                if (result.northParse.structuralPenetration >= 0.62) {
-                    return '这步说辞顺着权势链条发力，影响已经穿到朝局层。'
-                }
-                if (result.northParse.characterFit >= 0.62) {
-                    return '这步说辞贴住了对方心绪，因此格外容易得手。'
-                }
-                return ''
-            })
-            .filter(Boolean),
-    )).slice(0, 2)
-
-    const backlashHints = delayedBacklash
-        .map(item => item.summary)
-        .slice(0, 2)
-
-    const policyHints = policyReport?.reason.trim()
-        ? [
-            policyReport.focusMatched
-                ? '附言切中此题真正关节，因此南陈收益更稳。'
-                : '附言虽表态鲜明，但仍有几分失之宽泛。',
-            policyAftereffect?.focusMatched
-                ? '这道问政的余波也会延续到下一回合。'
-                : '',
-        ].filter(Boolean)
-        : []
-
-    return {
-        schemeHints,
-        backlashHints,
-        policyHints,
     }
 }

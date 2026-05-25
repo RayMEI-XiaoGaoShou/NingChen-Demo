@@ -1,4 +1,5 @@
 import type { NationDimensions, PlayerDangerStage, PolicyAftereffect, PolicyReasonParseResult } from './types'
+import { adjustConcernOpeningForSafety, getEmpressConcernTemplate, getPlayerDangerConcernOverlay } from './empressConcernTemplates'
 
 export type EmpressPolicyDomain = 'military' | 'finance' | 'grain' | 'governance' | 'socialOrder'
 export type EmpressReasonQuality = 'high' | 'medium' | 'low'
@@ -42,11 +43,17 @@ export interface EmpressFeedbackContext {
     recoveringDimensionLabel: string
     statePrioritySummary: string
     northMirrorSummary: string
+    worldIntelSummary?: string
     warWindow: boolean
     warWindowSummary: string
     playerDangerStage: PlayerDangerStage
     playerPositionSummary: string
     recentAftereffectSummary?: string
+    concernTitle: string
+    concernOpening: string
+    concernClosingHint: string
+    playerConcernOverlay: string
+    policyImplementationHint: string
 }
 
 const DIMENSION_LABELS: Record<EmpressPolicyDomain, string> = {
@@ -58,7 +65,7 @@ const DIMENSION_LABELS: Record<EmpressPolicyDomain, string> = {
 }
 
 const TOPIC_DOMAIN_HINTS: Array<{ pattern: RegExp; domain: EmpressPolicyDomain }> = [
-    { pattern: /征蜀|征淮南|战役方略|练兵|边镇|战略选择|征蜀方略|淮南战役方略|终局国策/, domain: 'military' },
+    { pattern: /征蜀|征淮南|战役方略|练兵|边镇|战略选择|征蜀方略|淮南战役方略|北伐总策/, domain: 'military' },
     { pattern: /战时财政|财政/, domain: 'finance' },
     { pattern: /仓储|粮|流民|灾年/, domain: 'grain' },
     { pattern: /民生|流民|久战之治/, domain: 'socialOrder' },
@@ -176,12 +183,46 @@ function describeWarWindow(warWindow: boolean): string {
 
 function describePlayerPosition(stage: PlayerDangerStage): string {
     if (stage === 'under_review') {
-        return '萧宝颖眼下在北周处境逼仄，回批宜更短、更稳，重在提醒其先自保。'
+        return '此信宜更短、更稳，不明写北边细节，也不把双方关系说满。'
     }
     if (stage === 'under_watch') {
-        return '萧宝颖眼下已在北周被人留意，回批宜更收束，不宜把话说得太满。'
+        return '北来书信终究不稳妥，回批宜更收束，不宜把话说得太满。'
     }
-    return '萧宝颖眼下在北周尚可周旋，回批可多一分期许，但仍不能轻许重诺。'
+    return '可略多一分期许，但仍不能轻许重诺，不写只有萧宝颖才可能知道的北庭细节。'
+}
+
+function describePolicyImplementationHint(report: EmpressFeedbackPolicyReport, parse: PolicyReasonParseResult | null | undefined): string {
+    const questionText = `${report.topic}${report.question}${report.optionContent}`
+    const strongReason = Boolean(parse && parse.focusAlignment >= 0.58 && parse.executionClarity >= 0.5)
+    const costAware = Boolean(parse && parse.costAwareness >= 0.52)
+    const carefulPrefix = strongReason
+        ? '这条附言可转成具体政令：'
+        : report.reason.trim()
+            ? '这条附言可借其意，但仍需朕替你收束：'
+            : '本回合无附言，政令只按所选方向落地：'
+
+    if (/流民|编户|屯田/.test(questionText)) {
+        return `${carefulPrefix}令州县先分口粮、再编户籍，把南渡之人安进田亩与差役，不使沿江州郡彼此推诿。`
+    }
+    if (/灾|赈|粮价|寺院|佛寺/.test(questionText)) {
+        return `${carefulPrefix}先开官仓稳人心，再核寺院与豪右所占田户，${costAware ? '给地方留出缓冲，不让赈济变成新怨。' : '但仍要防地方借赈济之名侵吞户籍。'}`
+    }
+    if (/练兵|军|战|征蜀|淮南|北伐|边镇/.test(questionText)) {
+        return `${carefulPrefix}先定粮道与军籍，再责成都督府、州郡诸司分头承办，使兵事有节奏而不至空耗民力。`
+    }
+    if (/仓|漕|粮道|财政|财赋|国库|度支/.test(questionText)) {
+        return `${carefulPrefix}令度支与州县先清账册，再定转运次序，把钱粮从纸面账目压到可调可用的仓廪。`
+    }
+    if (/情报|密探|耳目|间商/.test(questionText)) {
+        return `${carefulPrefix}以边郡、商旅与密探分线取信，先求可核验的北朝动向，不让虚报牵着朝议走。`
+    }
+    if (/检籍|土断|兼并|田亩|隐户/.test(questionText)) {
+        return `${carefulPrefix}先从州县册籍与田亩契据入手，分层核隐户、抑兼并，让清查能落地而不先激起旧族合力反扑。`
+    }
+    if (/新君|新地|治理|接管|体制|官制/.test(questionText)) {
+        return `${carefulPrefix}先定官署责任，再压实州县执行，让诏令不只停在建康案头，也能落到地方。`
+    }
+    return `${carefulPrefix}先明责任，再定次第，让此策不止是一句方向，而能变成州县和官署可执行的事。`
 }
 
 export function buildEmpressFeedbackContext(params: {
@@ -193,6 +234,7 @@ export function buildEmpressFeedbackContext(params: {
     northEventName: string
     northEventBriefing: string
     northSummary: string
+    worldIntelSummary?: string
     invasionSummary?: string
     playerDangerStage: PlayerDangerStage
 }): EmpressFeedbackContext {
@@ -201,6 +243,10 @@ export function buildEmpressFeedbackContext(params: {
     const recovering = getDominantPositiveDimension(params.policyReport.effects)
     const warWindow = isWarWindowRound(params.currentRound, params.policyReport)
     const reasonQuality = summarizeReasonQuality(params.policyParse, params.policyReport.focusMatched)
+    const concern = getEmpressConcernTemplate(params.policyReport.sourceRound)
+    const concernOpening = adjustConcernOpeningForSafety(concern.opening, params.playerDangerStage)
+    const worldIntelSummary = params.worldIntelSummary?.trim()
+    const northMirrorSummary = `北方眼下是《${params.northEventName}》：${params.northEventBriefing} ${params.northSummary}${worldIntelSummary ? ` 北来消息：${worldIntelSummary}` : ''}`.trim()
 
     return {
         sourceRound: params.policyReport.sourceRound,
@@ -226,11 +272,17 @@ export function buildEmpressFeedbackContext(params: {
         recoveringDimension: recovering,
         recoveringDimensionLabel: DIMENSION_LABELS[recovering],
         statePrioritySummary: describeStatePriority(weakest, warWindow),
-        northMirrorSummary: `北方眼下是《${params.northEventName}》：${params.northEventBriefing} ${params.northSummary}`.trim(),
+        northMirrorSummary,
+        worldIntelSummary,
         warWindow,
         warWindowSummary: describeWarWindow(warWindow),
         playerDangerStage: params.playerDangerStage,
         playerPositionSummary: describePlayerPosition(params.playerDangerStage),
         recentAftereffectSummary: params.policyAftereffect?.summary,
+        concernTitle: concern.title,
+        concernOpening,
+        concernClosingHint: concern.closingHint,
+        playerConcernOverlay: getPlayerDangerConcernOverlay(params.playerDangerStage),
+        policyImplementationHint: describePolicyImplementationHint(params.policyReport, params.policyParse),
     }
 }
