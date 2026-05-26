@@ -8,9 +8,8 @@ describe('EmpressLetter layout copy', () => {
         expect(empressLetterSource).toContain("const optionIndexLabels = ['甲', '乙', '丙', '丁']")
         expect(empressLetterSource).toContain('{optionIndexLabels[i] ?? opt.label}')
         expect(empressLetterSource).toContain('className="question-background question-background-prominent"')
-        expect(empressLetterSource).toContain('<NpcPortrait')
-        expect(empressLetterSource).toContain('name="陈倩"')
-        expect(empressLetterSource).toContain('letter-empress-portrait-float')
+        expect(empressLetterSource).toContain('chenqian-letter-foreground-v3.webp')
+        expect(empressLetterSource).toContain('empress-letter-chenqian')
         expect(empressLetterSource).not.toContain('letter-empress-portrait-wrap')
     })
     it('skips policy reason parsing when the player leaves the note blank', () => {

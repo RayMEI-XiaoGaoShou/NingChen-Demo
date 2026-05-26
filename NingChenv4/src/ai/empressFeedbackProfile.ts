@@ -54,7 +54,7 @@ export function describeEmpressFeedbackProfile(context: EmpressFeedbackContext):
         statePriority,
         playerTone,
         closureMove,
-        lengthAdvice: '正常 2-3 句，必要时可到 4 句，但不宜拖成长札。',
+        lengthAdvice: '正常 120-220 字，先牵挂萧宝颖，再裁断政务，最后以克制叮嘱收束。',
     }
 }
 

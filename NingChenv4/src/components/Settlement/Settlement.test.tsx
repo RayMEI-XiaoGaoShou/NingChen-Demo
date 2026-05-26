@@ -30,23 +30,33 @@ describe('Settlement helpers', () => {
         expect(hasPolicyReason({ reason: '先把粮道与户籍一起清出来。' })).toBe(true)
     })
 
-    it('builds a terse default empress reply when no policy reason was authored', () => {
+    it('builds a concerned default empress reply when no policy reason was authored', () => {
         expect(buildSettlementDefaultEmpressReply(null)).toBeNull()
-        expect(buildSettlementDefaultEmpressReply({ optionContent: '清点户籍仓廪' })).toBe(
-            '朕已按“清点户籍仓廪”着手施行。',
-        )
+        const reply = buildSettlementDefaultEmpressReply({ optionContent: '清点户籍仓廪' })
+
+        expect(reply).toContain('建康夜雨未歇')
+        expect(reply).toContain('朕已按“清点户籍仓廪”着手施行')
+        expect(reply).toContain('你未多写附言')
+        expect(reply).toContain('朕会先照此方向施行，你在北边先保周全。')
     })
 
     it('keeps fallback imperial and richer when the player did author a reason', () => {
-        expect(
-            buildSettlementDefaultEmpressReply({
-                optionContent: '先整军令，再催粮道',
-                reason: '先把节度与军令统一，前线才不会各唱各的调。',
-                weakestDimensionLabel: '军事',
-                warWindow: true,
-                playerDangerStage: 'under_watch',
-            }),
-        ).toContain('朕已按“先整军令，再催粮道”着手施行。')
+        const report = {
+            optionContent: '先整军令，再催粮道',
+            reason: '先把节度与军令统一，前线才不会各唱各的调。',
+            weakestDimensionLabel: '军事',
+            warWindow: true,
+            playerDangerStage: 'under_watch',
+            concernOpening: '淮南军书压到案前，朕读你的字，倒更想起你也在另一处战场。',
+            concernClosingHint: '结尾宜强调战役可进，后勤与性命不可轻掷。',
+        } as const
+        const reply = buildSettlementDefaultEmpressReply(report)
+
+        expect(reply).toContain('淮南军书压到案前')
+        expect(reply).toContain('朕已按“先整军令，再催粮道”着手施行。')
+        expect(reply).toContain('眼下兵事将近，节候与后勤都不可轻纵。')
+        expect(reply).toContain('北来书信隔了数重人手，往后行话宜更收三分。')
+        expect(reply).not.toContain('你在北朝已渐有人留意')
     })
 
     it('avoids repeating guarded backlash summaries that restate the same warning', () => {

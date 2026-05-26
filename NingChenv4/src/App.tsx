@@ -3,10 +3,12 @@ import { PhaseErrorBoundary } from './components/ErrorBoundary/PhaseErrorBoundar
 import { PhaseCrashFallback, SettlementCrashFallback } from './components/ErrorBoundary/PhaseFallback'
 import { GlobalAudio } from './components/GlobalAudio/GlobalAudio'
 import { NPCDetail } from './components/NPCDetail/NPCDetail'
+import { SceneTransitionLayer, SceneTransitionProvider } from './components/SceneTransition/SceneTransition'
 import { INITIAL_FACTIONS } from './data/factions'
 import { NORTH_INITIAL, SOUTH_INITIAL } from './data/nationStats'
 import { INITIAL_RELATIONSHIP_EDGES } from './data/npcRelationships'
 import { INITIAL_NPCS } from './data/npcs'
+import { applyEmpressPreviewFromSearch, isEmpressPreviewSearch, shouldSkipAutosaveForEmpressPreview } from './dev/empressPreview'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
 import { settleRound } from './game/roundSettlement'
 import type { NorthSchemeParseResult, SchemeAction, SchemeType } from './game/types'
@@ -273,13 +275,20 @@ function App() {
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const schemePreview = getSchemePreviewRequest()
     const schemeFeedbackPreview = isSchemeFeedbackPreviewRequest()
-    const isPreviewRoute = Boolean(schemePreview) || schemeFeedbackPreview
+    const empressPreview = isEmpressPreviewSearch(window.location.search)
+    const isPreviewRoute = Boolean(schemePreview) || schemeFeedbackPreview || empressPreview
     const schemePreviewKey = schemePreview ? `${schemePreview.schemeType}:${schemePreview.targetNpcId}` : ''
     const schemeFeedbackPreviewKey = schemeFeedbackPreview ? 'scheme-feedback' : ''
+    const empressPreviewKey = empressPreview ? 'empress-preview' : ''
     const isCoverStep = !isPreviewRoute && prologueStep === 'COVER'
     const isRoundStartFullscreenStep = !isPreviewRoute && shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
     const isCourtStageStep = Boolean(schemePreview) || (!schemeFeedbackPreview && prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
     const hideGlobalHeader = isPreviewRoute || shouldHideGlobalHeader(prologueStep, currentPhase)
+
+    useEffect(() => {
+        if (!import.meta.env.DEV) return
+        applyEmpressPreviewFromSearch(window.location.search)
+    }, [empressPreviewKey])
 
     useEffect(() => {
         if (!schemePreview) return
@@ -395,7 +404,7 @@ function App() {
     }, [schemeFeedbackPreviewKey])
 
     useEffect(() => {
-        if (isPreviewRoute) return
+        if (isPreviewRoute || shouldSkipAutosaveForEmpressPreview(window.location.search, import.meta.env.DEV)) return
 
         const unsubscribe = useGameStore.subscribe(state => {
             const snapshot = buildPersistedSnapshot(state)
@@ -466,48 +475,51 @@ function App() {
         : <PhaseCrashFallback phaseName={currentPhase} />
 
     return (
-        <div className={`app${isCoverStep ? ' app-cover-shell' : ''}${isRoundStartFullscreenStep ? ' app-roundstart-shell' : ''}${isCourtStageStep ? ' app-court-shell' : ''}`}>
-            {!hideGlobalHeader && (
-                <header className="app-header">
-                    <span className="app-header-spacer" />
-                    <span className="app-logo">佞臣</span>
-                    <button
-                        className="btn-audio"
-                        onClick={() => {
-                            if (isMuted || !audioReady) {
-                                setMuted(false)
-                                requestPlayback()
-                                return
-                            }
+        <SceneTransitionProvider>
+            <div className={`app${isCoverStep ? ' app-cover-shell' : ''}${isRoundStartFullscreenStep ? ' app-roundstart-shell' : ''}${isCourtStageStep ? ' app-court-shell' : ''}`}>
+                {!hideGlobalHeader && (
+                    <header className="app-header">
+                        <span className="app-header-spacer" />
+                        <span className="app-logo">佞臣</span>
+                        <button
+                            className="btn-audio"
+                            onClick={() => {
+                                if (isMuted || !audioReady) {
+                                    setMuted(false)
+                                    requestPlayback()
+                                    return
+                                }
 
-                            setMuted(true)
-                        }}
-                    >
-                        {isMuted ? '开声' : '静音'}
-                    </button>
-                </header>
-            )}
-            <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}:${schemePreviewKey}:${schemeFeedbackPreviewKey}`} phaseName={currentPhase} fallback={errorFallback}>
-                <>
-                    <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}${isCourtStageStep ? ' app-content-court' : ''}`}>
-                        <Suspense fallback={<PhaseLoadingFallback />}>
-                            {renderContent()}
-                        </Suspense>
-                        {helpOverlayOpen && (
-                            <div className="help-overlay">
-                                <div className="help-overlay-panel">
-                                    <Suspense fallback={<GuideOverlayFallback />}>
-                                        <GameplayGuide mode="overlay" />
-                                    </Suspense>
+                                setMuted(true)
+                            }}
+                        >
+                            {isMuted ? '开声' : '静音'}
+                        </button>
+                    </header>
+                )}
+                <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}:${schemePreviewKey}:${schemeFeedbackPreviewKey}:${empressPreviewKey}`} phaseName={currentPhase} fallback={errorFallback}>
+                    <>
+                        <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}${isCourtStageStep ? ' app-content-court' : ''}`}>
+                            <Suspense fallback={<PhaseLoadingFallback />}>
+                                {renderContent()}
+                            </Suspense>
+                            {helpOverlayOpen && (
+                                <div className="help-overlay">
+                                    <div className="help-overlay-panel">
+                                        <Suspense fallback={<GuideOverlayFallback />}>
+                                            <GameplayGuide mode="overlay" />
+                                        </Suspense>
+                                    </div>
                                 </div>
-                            </div>
-                        )}
-                    </main>
-                    <GlobalAudio />
-                    <NPCDetail />
-                </>
-            </PhaseErrorBoundary>
-        </div>
+                            )}
+                        </main>
+                        <SceneTransitionLayer />
+                        <GlobalAudio />
+                        <NPCDetail />
+                    </>
+                </PhaseErrorBoundary>
+            </div>
+        </SceneTransitionProvider>
     )
 }
 

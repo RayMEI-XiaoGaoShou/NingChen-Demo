@@ -2,7 +2,7 @@ import type { EmpressFeedbackContext } from './empressFeedbackContext'
 import type { NationDimensions } from './types'
 
 type EmpressReplySource =
-    | Pick<EmpressFeedbackContext, 'optionContent' | 'reason' | 'weakestDimensionLabel' | 'warWindow' | 'playerDangerStage'>
+    | Pick<EmpressFeedbackContext, 'optionContent' | 'reason' | 'weakestDimensionLabel' | 'warWindow' | 'playerDangerStage' | 'concernOpening' | 'concernClosingHint'>
     | { optionContent: string; reason?: string | null }
     | null
     | undefined
@@ -30,9 +30,15 @@ export function buildSettlementDefaultEmpressReply(policyReportOrContext: Empres
 
     const optionContent = policyReportOrContext.optionContent
     const reason = policyReportOrContext.reason?.trim()
+    const concernOpening = 'concernOpening' in policyReportOrContext
+        ? policyReportOrContext.concernOpening
+        : '展信时，建康夜雨未歇。朕知你在北庭周旋，字字都不能写得太满，便先问你一句：近来可还安稳？'
+    const defaultClosingLine = 'playerDangerStage' in policyReportOrContext && policyReportOrContext.playerDangerStage === 'under_review'
+        ? '你在北朝先护住自己，余下政事，朕会替你把话收稳。'
+        : '朕会先照此方向施行，你在北边先保周全。'
 
     if (!reason) {
-        return `朕已按“${optionContent}”着手施行。`
+        return `${concernOpening}朕已按“${optionContent}”着手施行，只是你未多写附言，朕便先依此大方向落笔。${defaultClosingLine}`
     }
 
     const weakestDimensionLabel = 'weakestDimensionLabel' in policyReportOrContext
@@ -51,12 +57,12 @@ export function buildSettlementDefaultEmpressReply(policyReportOrContext: Empres
             ? `只是眼下更要先稳住${weakestDimensionLabel}这一头，锋芒不可尽露。`
             : '只是此事仍须按轻重徐徐收束，不可一味躁进。'
     const playerLine = playerDangerStage === 'under_review'
-        ? '你在北朝自护为先，其余话不必说满。'
+        ? '密札若落旁人眼里，朕不愿它替你添险，余话只可意会。'
         : playerDangerStage === 'under_watch'
-            ? '你在北朝已渐有人留意，往后行话宜更收三分。'
+            ? '北来书信隔了数重人手，往后行话宜更收三分。'
             : ''
 
-    return `朕已按“${optionContent}”着手施行。${cautionLine}${playerLine}`
+    return `${concernOpening}朕已按“${optionContent}”着手施行。${cautionLine}${playerLine || defaultClosingLine}`
 }
 
 export function formatSouthDimensionLabel(dimension: string): string {

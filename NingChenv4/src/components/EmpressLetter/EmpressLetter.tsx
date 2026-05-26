@@ -4,8 +4,9 @@ import { getPolicyQuestionForRound } from '../../data/policyQuestions'
 import { parsePolicyReasonInput } from '../../game/aiNativeEngine'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
-import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { useSceneTransition } from '../SceneTransition/SceneTransition'
+import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.png'
 import './EmpressLetter.css'
 
 const optionIndexLabels = ['甲', '乙', '丙', '丁']
@@ -21,6 +22,7 @@ export function EmpressLetter() {
         shuCampaign,
         huainanCampaign,
     } = useGameStore()
+    const { runSceneTransition } = useSceneTransition()
     const [selected, setSelected] = useState<number | null>(null)
     const [reason, setReason] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -48,7 +50,10 @@ export function EmpressLetter() {
         }) : null
 
         selectPolicy(selected, trimmedReason, policyParse)
-        nextPhase()
+        await runSceneTransition({
+            variant: 'from-empress-letter',
+            onCovered: nextPhase,
+        })
     }
 
     return (
@@ -61,60 +66,84 @@ export function EmpressLetter() {
                 />
             )}
 
-            <div className="page-utility-row animate-slide-up">
-                <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
-            </div>
+            <div className="empress-letter-stage">
+                <div className="empress-letter-bg-wash" aria-hidden="true" />
 
-            <div className="letter-wrapper animate-slide-up">
-                <div className="letter-header">
-                    <span className="letter-from">南陈女帝 · 陈倩</span>
-                    <span className="letter-label">密札</span>
-                </div>
+                <div className="empress-letter-design-frame">
+                    <div className="page-utility-row empress-letter-utility-row animate-slide-up">
+                        <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
+                    </div>
 
-                <div className="letter-content glass-panel decree-panel animate-slide-up animate-delay-2">
-                    <NpcPortrait
-                        name="陈倩"
-                        alt="陈倩画像"
-                        className="letter-empress-portrait-float"
-                        positionY="14%"
-                        zoom={1}
-                    />
-                    {policyQ ? (
-                        <>
-                            <div className="letter-intro">
-                                <div className="letter-intro-main">
-                                    <p className="question-background question-background-prominent">{policyQ.background}</p>
-                                    <p className="question-text">{policyQ.question}</p>
-                                </div>
-                            </div>
+                    <header className="letter-header">
+                        <h1 className="letter-from">南陈女帝 · 陈倩</h1>
+                        <span className="letter-label">密札</span>
+                    </header>
 
-                            <div className="letter-decision-grid">
-                                <div className="options-container">
-                                    {policyQ.options.map((opt, i) => (
-                                        <button
-                                            key={opt.label}
-                                            className={`gold-panel option-btn ${selected === i ? 'selected' : ''}`}
-                                            onClick={() => setSelected(i)}
-                                        >
-                                            <div className="option-index">{optionIndexLabels[i] ?? opt.label}</div>
-                                            <div className="option-copy">
-                                                <div className="option-text">{opt.content}</div>
-                                                {opt.riskNote && <div className="option-risk">风险：{opt.riskNote}</div>}
-                                            </div>
-                                            {selected === i && <div className="option-stamp">准</div>}
-                                        </button>
-                                    ))}
-                                </div>
+                    <div className="empress-letter-artboard">
+                        {policyQ ? (
+                            <>
+                                <section className="empress-letter-scroll letter-content animate-slide-up animate-delay-2">
+                                    <img
+                                        src="/images/ui/empress-letter/empress-letter-scroll.webp"
+                                        alt=""
+                                        className="empress-letter-scroll-art"
+                                        draggable={false}
+                                    />
+                                    <div className="letter-paper-grain" aria-hidden="true" />
+                                    <img
+                                        src="/images/ui/empress-letter/empress-letter-south-seal.webp"
+                                        alt=""
+                                        className="empress-letter-south-seal"
+                                        draggable={false}
+                                    />
 
-                                <div className="reason-panel">
+                                    <div className="letter-intro">
+                                        <div className="letter-intro-main">
+                                            <p className="question-background question-background-prominent">{policyQ.background}</p>
+                                            <p className="question-text">{policyQ.question}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="letter-decision-grid">
+                                        <div className="options-container">
+                                            {policyQ.options.map((opt, i) => (
+                                                <button
+                                                    key={opt.label}
+                                                    className={`option-btn ${selected === i ? 'selected' : ''}`}
+                                                    onClick={() => setSelected(i)}
+                                                >
+                                                    <div className="option-index">{optionIndexLabels[i] ?? opt.label}</div>
+                                                    <div className="option-copy">
+                                                        <div className="option-text">{opt.content}</div>
+                                                        {opt.riskNote && <div className="option-risk">风险：{opt.riskNote}</div>}
+                                                    </div>
+                                                    {selected === i && (
+                                                        <img
+                                                            src={optionApprovalSeal}
+                                                            alt=""
+                                                            className="option-stamp"
+                                                            draggable={false}
+                                                        />
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <img
+                                    src="/images/ui/empress-letter/chenqian-letter-foreground-v3.webp"
+                                    alt=""
+                                    className="empress-letter-chenqian"
+                                    draggable={false}
+                                />
+
+                                <div className="reason-panel note-panel">
+                                    <div className="note-panel__texture" aria-hidden="true" />
                                     <div className="reason-header">
                                         <span className="reason-label">奏折附言</span>
                                         <span className="char-count">{reason.length}/100</span>
                                     </div>
-                                    <p className="reason-helper">
-                                        用一段短评补清你的判断依据。说清眼下最急的是什么、代价由谁承担、为什么现在就该这么做，
-                                        天道结算会更容易放大这一策的真实效力。
-                                    </p>
                                     <textarea
                                         className="reason-input"
                                         value={reason}
@@ -122,22 +151,24 @@ export function EmpressLetter() {
                                         placeholder="臣以为……"
                                         maxLength={100}
                                     />
-
-                                    <div className="reason-actions">
-                                        <button
-                                            className="btn-primary btn-submit"
-                                            onClick={handleSubmit}
-                                            disabled={selected === null || isSubmitting}
-                                        >
-                                            {isSubmitting ? '落笔成批…' : '呈递女帝'}
-                                        </button>
-                                    </div>
                                 </div>
-                            </div>
-                        </>
-                    ) : (
-                        <p className="question-text">本回合密札暂缺，尚待补录。</p>
-                    )}
+
+                                <div className="empress-letter-submit-wrap">
+                                    <button
+                                        className="empress-letter-submit"
+                                        onClick={handleSubmit}
+                                        disabled={selected === null || isSubmitting}
+                                    >
+                                        <span className="empress-letter-submit-label">
+                                            {isSubmitting ? '落笔成批…' : '呈递女帝'}
+                                        </span>
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+                            <p className="question-text">本回合密札暂缺，尚待补录。</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

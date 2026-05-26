@@ -33,6 +33,7 @@ import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
 import { GameViewport } from '../GameViewport/GameViewport'
 import { GameHudTools, HudStatusChip } from '../GameHud/GameHud'
+import { useSceneTransition } from '../SceneTransition/SceneTransition'
 import { getNpcDetailAvatarPath, getNpcDetailBackgroundPath } from '../../data/mediaAssets'
 import { buildSchemeResultEffectTags, getSchemeNpcActionDisplay } from './schemeResultDisplay'
 import './SchemeFeedback.css'
@@ -355,6 +356,7 @@ export function SchemeFeedback() {
         shuCampaign,
         huainanCampaign,
     } = useGameStore()
+    const { runSceneTransition } = useSceneTransition()
 
     const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, string>>({})
     const [submittingFollowUpId, setSubmittingFollowUpId] = useState<string | null>(null)
@@ -464,11 +466,12 @@ export function SchemeFeedback() {
                     ? '尚有追问未处理'
                     : ''
         : ''
+    const terminalResult = Boolean(lastSettlement && lastSettlement.gameResult !== 'NONE')
     const proceedLabel = getSchemeFeedbackProceedLabel({
         allDone,
         allParsed,
         settlementRevealed,
-        terminalResult: Boolean(lastSettlement && lastSettlement.gameResult !== 'NONE'),
+        terminalResult,
     })
     const shouldShowFeedbackGuide =
         currentRound === 1 &&
@@ -1305,6 +1308,14 @@ export function SchemeFeedback() {
         if (!lastSettlement && canRevealSettlement) {
             settlementRevealIntentRef.current = true
             prepareSchemeSettlementForFeedback()
+            return
+        }
+
+        if (settlementRevealed && !terminalResult) {
+            void runSceneTransition({
+                variant: 'to-empress-letter',
+                onCovered: nextPhase,
+            })
             return
         }
 
