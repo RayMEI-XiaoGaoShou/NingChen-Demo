@@ -55,7 +55,7 @@ describe('empress dev preview routing', () => {
         expect(state.currentPhase).toBe('EMPRESS_REPLY')
         expect(state.currentRound).toBe(20)
         expect(state.roundStartSnapshot?.playerDangerStage).toBe('under_review')
-        expect(state.lastSettlement?.policyReport?.topic).toBe('终局国策')
+        expect(state.lastSettlement?.policyReport?.topic).toBe('北伐总策')
         expect(state.lastSettlement?.policyReport?.optionLabel).toBe('C')
         expect(state.empressReplyRecord?.sourceRound).toBe(20)
         expect(state.empressReplyRecord?.text).toContain('朕')

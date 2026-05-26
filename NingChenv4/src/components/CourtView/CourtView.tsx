@@ -362,7 +362,6 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
     const {
         currentRound,
         difficulty,
-        completeSchemingIfReady,
         northPower,
         schemeCount,
         maxSchemes,
@@ -527,7 +526,6 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         setSchemeDrawerNpcId(null)
 
         if (schemeCountAfterSubmit >= maxSchemes) {
-            completeSchemingIfReady()
             return
         }
 

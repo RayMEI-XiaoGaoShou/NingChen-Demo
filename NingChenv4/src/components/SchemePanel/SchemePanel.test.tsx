@@ -286,6 +286,14 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelSource).toContain('maxSchemes')
     })
 
+    it('plays the empress-letter transition before leaving the final scheme submission', () => {
+        expect(schemePanelSource).toContain("from '../SceneTransition/SceneTransition'")
+        expect(schemePanelSource).toContain('const { runSceneTransition } = useSceneTransition()')
+        expect(schemePanelSource).toContain("variant: 'to-empress-letter'")
+        expect(schemePanelSource).toContain('onCovered: completeSchemingIfReady')
+        expect(schemePanelSource).not.toContain('completeSchemingIfReady()')
+    })
+
     it('keeps court embedded targets free of external-only escalation schemes', () => {
         const html = renderToStaticMarkup(
             <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,

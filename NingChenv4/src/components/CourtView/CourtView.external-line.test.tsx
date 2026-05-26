@@ -152,10 +152,10 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).not.toContain('return renderHebaQiDetail')
     })
 
-    it('returns embedded scheme submissions to the owner faction unless the third scheme opens the empress letter', () => {
+    it('returns embedded scheme submissions to the owner faction and lets the composer transition into empress letter', () => {
         expect(courtViewSource).toContain('handleEmbeddedSchemeAfterSubmit')
         expect(courtViewSource).toContain('schemeCountAfterSubmit >= maxSchemes')
-        expect(courtViewSource).toContain('completeSchemingIfReady()')
+        expect(courtViewSource).not.toContain('completeSchemingIfReady()')
         expect(courtViewSource).toContain("setScope(result.targetPowerBase === 'external' ? 'external' : 'court')")
         expect(courtViewSource).toContain('setSelectedNpcId(null)')
         expect(courtViewSource).toContain('onAfterSubmit={handleEmbeddedSchemeAfterSubmit}')

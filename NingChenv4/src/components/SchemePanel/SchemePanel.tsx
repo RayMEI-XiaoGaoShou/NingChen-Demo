@@ -46,6 +46,7 @@ import { OmenTeachingModal } from './OmenTeachingModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { useSceneTransition } from '../SceneTransition/SceneTransition'
 import { getNpcDetailAvatarPath } from '../../data/mediaAssets'
 import type { FengDaozhiDraftResult, GameDifficulty, NPC, OmenSpeechInput, SchemeType, SchemeAction } from '../../game/types'
 import './SchemePanel.css'
@@ -348,6 +349,7 @@ export function useSchemeComposer({
 export function SchemeComposer(props: SchemeComposerProps = {}) {
     const composer = useSchemeComposer(props)
     const { isEmbedded, lockedNpcId, initialSchemeType, onAfterSubmit } = composer
+    const { runSceneTransition } = useSceneTransition()
     const {
         currentRound,
         difficulty,
@@ -739,7 +741,10 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                 maxSchemes,
             })
             if (schemeCountAfterSubmit >= maxSchemes) {
-                completeSchemingIfReady()
+                void runSceneTransition({
+                    variant: 'to-empress-letter',
+                    onCovered: completeSchemingIfReady,
+                })
             }
         }, 800)
     }
