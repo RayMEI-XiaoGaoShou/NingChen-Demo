@@ -38,7 +38,7 @@ function getThresholds(ambition: HighActionBias, difficulty: GameDifficulty) {
         return {
             trust: 85 + profile.externalThresholdOffset.trust,
             loyalty: 18 + profile.externalThresholdOffset.loyalty,
-            secrets: 3,
+            secrets: 2,
         }
     }
 

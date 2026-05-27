@@ -109,7 +109,7 @@ export function buildSchemeNpcActionPrompt(params: {
             .join('\n')
         : '- 无额外因果义务'
     const specialGuidance = params.action.schemeType === 'frame' || params.action.schemeType === 'omen'
-        ? '设局嫁祸/谶纬特殊要求：不要写成“通过 A 打 B”。必须写目标自己的不合适举措，以及北周朝堂/御前/帘前/御史/军府如何反馈。'
+        ? '嫁祸/谶纬特殊要求：不要写成“通过 A 打 B”。必须写目标自己的不合适举措，以及北周朝堂/御前/帘前/御史/军府如何反馈。'
         : ''
     const kindGuidance = getNpcActionKindGuidance(params.npcActionKind)
     const postResolutionBlock = formatPostResolutionPromptBlock(params.postResolutionEvent)

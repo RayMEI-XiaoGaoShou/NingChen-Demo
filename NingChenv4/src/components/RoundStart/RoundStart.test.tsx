@@ -14,7 +14,9 @@ import { useGameStore } from '../../stores/gameStore'
 import { useMediaStore } from '../../stores/mediaStore'
 import roundStartSource from './RoundStart.tsx?raw'
 
-const roundStartStyles = readFileSync(new URL('./RoundStart.css', import.meta.url), 'utf8')
+const normalizeLineEndings = (value: string) => value.replace(/\r\n/g, '\n')
+
+const roundStartStyles = normalizeLineEndings(readFileSync(new URL('./RoundStart.css', import.meta.url), 'utf8'))
 
 describe('RoundStart compact layout', () => {
     beforeEach(() => {

@@ -296,6 +296,8 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewCss).toContain('.court-hebaqi-peer.is-neutral::before')
         expect(courtViewCss).toContain('.court-hebaqi-peer.is-distant::before')
         expect(courtViewCss).toContain('rgba(235, 82, 72')
+        expect(courtViewCss).toContain('.court-faction-screen-external .court-seat.is-used')
+        expect(courtViewCss).toContain('box-shadow: none;')
     })
 
     it('adds a dedicated liquid-glass warp stack with pointer-driven highlights', () => {

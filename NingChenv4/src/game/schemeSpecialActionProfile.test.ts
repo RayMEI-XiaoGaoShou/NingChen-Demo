@@ -36,7 +36,7 @@ describe('special scheme action profile', () => {
         expect(profile?.targetMisstep).toMatch(/急辩|切割|扣人|压人|封口/u)
         expect(profile?.observerScope).toMatch(/御前|帝党|中枢法司|北周朝堂/u)
         expect(profile?.damageMechanism).toMatch(/案牍|风声|权责|推诿|壅塞/u)
-        expect(profile?.promptLine).toContain('设局嫁祸落地链')
+        expect(profile?.promptLine).toContain('嫁祸落地链')
     })
 
     it('turns external omen into logistics or monitoring pressure', () => {

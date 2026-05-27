@@ -10,7 +10,8 @@ import { buildOmenTargetHint } from '../../game/omenTargetHint'
 
 const nodeFsSpecifier: string = 'node:fs'
 const { readFileSync } = await import(nodeFsSpecifier)
-const schemePanelCss = readFileSync(new URL('./SchemePanel.css', import.meta.url), 'utf8') as string
+const normalizeLineEndings = (value: string) => value.replace(/\r\n/g, '\n')
+const schemePanelCss = normalizeLineEndings(readFileSync(new URL('./SchemePanel.css', import.meta.url), 'utf8') as string)
 
 describe('SchemePanel layout labels', () => {
     beforeEach(() => {
@@ -52,7 +53,7 @@ describe('SchemePanel layout labels', () => {
         expect(SCHEMES.find(scheme => scheme.type === 'slander')?.description).toBe('在 施计对象甲 心中种下对 关联人物乙 的疑心')
     })
 
-    it('shortens the frame scheme display label so the locked stamp remains visible on the art token', () => {
+    it('uses the canonical frame scheme display label from the system rules', () => {
         const frameScheme = SCHEMES.find(scheme => scheme.type === 'frame')
 
         expect(frameScheme?.name).toBe('嫁祸')
@@ -452,6 +453,13 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelSource).toContain("selectedScheme === 'proxy'")
         expect(schemePanelSource).toContain('isCourtDispositionTarget(npc)')
         expect(schemePanelSource).toContain("getCourtStatus(npc) === 'active'")
+    })
+
+    it('keeps locked external escalation cards from colliding with the lock label', () => {
+        expect(schemePanelCss).toContain(".scheme-modal-embedded .scheme-vertical-btn.disabled[data-scheme-type='secession'] .scheme-vertical-name")
+        expect(schemePanelCss).toContain(".scheme-modal-embedded .scheme-vertical-btn.disabled[data-scheme-type='rebellion'] .scheme-vertical-name")
+        expect(schemePanelCss).toContain('top: 44%;')
+        expect(schemePanelCss).toContain('font-size: 1rem;')
     })
 
     it('drops stale related targets when the selected scheme no longer needs one', () => {

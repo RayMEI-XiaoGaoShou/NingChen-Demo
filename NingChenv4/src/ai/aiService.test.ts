@@ -23,6 +23,8 @@ describe('aiService', () => {
     afterEach(() => {
         vi.useRealTimers()
         const globalState = globalThis as any
+        delete globalState.__NINGCHEN_AI_CALL_DEBUG__
+        delete globalState.__NINGCHEN_AI_CALL_DIAGNOSTICS__
 
         if (originalWindow === undefined) {
             delete globalState.window
@@ -213,6 +215,72 @@ describe('aiService', () => {
         expect(typeof result).toBe('string')
         expect(fetchMock).toHaveBeenCalledOnce()
         vi.useRealTimers()
+    })
+
+    it('records request failure diagnostics without leaking configured API keys', async () => {
+        delete (globalThis as any).window
+        ;(globalThis as any).__NINGCHEN_AI_CALL_DEBUG__ = true
+        processEnv.VITE_DEEPSEEK_API_KEY = 'script-runtime-key'
+        processEnv.VITE_DEEPSEEK_BASE_URL = 'https://api.deepseek.com'
+        processEnv.VITE_DEEPSEEK_MODEL = 'deepseek-v4-flash'
+        delete processEnv.VITE_KIMI_API_KEY
+        delete processEnv.VITE_KIMI_BASE_URL
+        delete processEnv.VITE_KIMI_MODEL
+        processEnv.DEV = 'false'
+
+        const fetchMock = vi.fn().mockRejectedValue(new Error('script-runtime-key upstream refused'))
+        ;(globalThis as any).fetch = fetchMock
+
+        const { chatCompletion } = await import('./aiService')
+        const { clearAiCallDiagnosticRecords, getAiCallDiagnosticRecords } = await import('./aiCallDiagnostics')
+        clearAiCallDiagnosticRecords()
+
+        const result = await chatCompletion(
+            [{ role: 'user', content: 'follow-up reply' }],
+            { temperature: 0.2, maxTokens: 50, tag: 'scheme_follow_up_advise' },
+        )
+
+        expect(result).toBeTypeOf('string')
+        expect(getAiCallDiagnosticRecords()).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                tag: 'scheme_follow_up_advise',
+                mode: 'deepseek',
+                status: 'fallback',
+                fallbackReason: 'request_failed',
+                model: 'deepseek-v4-flash',
+            }),
+        ]))
+        expect(JSON.stringify(getAiCallDiagnosticRecords())).not.toContain('script-runtime-key')
+    })
+
+    it('records fallback-mode diagnostics when no remote AI config is available', async () => {
+        delete (globalThis as any).window
+        ;(globalThis as any).__NINGCHEN_AI_CALL_DEBUG__ = true
+        delete processEnv.VITE_DEEPSEEK_API_KEY
+        delete processEnv.VITE_DEEPSEEK_BASE_URL
+        delete processEnv.VITE_DEEPSEEK_MODEL
+        delete processEnv.VITE_KIMI_API_KEY
+        delete processEnv.VITE_KIMI_BASE_URL
+        delete processEnv.VITE_KIMI_MODEL
+        processEnv.DEV = 'false'
+
+        const { chatCompletion } = await import('./aiService')
+        const { clearAiCallDiagnosticRecords, getAiCallDiagnosticRecords } = await import('./aiCallDiagnostics')
+        clearAiCallDiagnosticRecords()
+
+        await chatCompletion(
+            [{ role: 'user', content: 'follow-up reply' }],
+            { temperature: 0.2, maxTokens: 50, tag: 'scheme_follow_up_advise' },
+        )
+
+        expect(getAiCallDiagnosticRecords()).toEqual(expect.arrayContaining([
+            expect.objectContaining({
+                tag: 'scheme_follow_up_advise',
+                mode: 'fallback',
+                status: 'fallback',
+                fallbackReason: 'fallback_mode',
+            }),
+        ]))
     })
 
     it('retries json completion once when the first response is truncated', async () => {

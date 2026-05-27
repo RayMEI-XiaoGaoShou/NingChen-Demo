@@ -12,7 +12,7 @@ export const SCHEME_NAMES: Record<SchemeType, string> = {
     advise: '献策',
     slander: '谗言',
     alienate: '离间',
-    frame: '设局嫁祸',
+    frame: '嫁祸',
     proxy: '借刀',
     appeal: '求援',
     omen: '谶纬',

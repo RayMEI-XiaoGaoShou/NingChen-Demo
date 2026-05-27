@@ -18,7 +18,7 @@ export function buildNorthSchemeParsePrompt(params: {
         advise: '献策',
         slander: '谗言',
         alienate: '离间',
-        frame: '设局嫁祸',
+        frame: '嫁祸',
         proxy: '借刀',
         appeal: '求援',
         omen: '谶纬',
@@ -33,9 +33,9 @@ export function buildNorthSchemeParsePrompt(params: {
 
     const schemeSpecificRubric =
         params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'
-            ? '\n- 若是谗言、离间、设局嫁祸之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
+            ? '\n- 若是谗言、离间、嫁祸之类高压计，必须看到明确的人事链条、权力链条或利益链条，才可给高分。' +
               '\n- 单靠危机感、甩锅感、泛化猜疑，不得判成高 characterFit 或高 structuralPenetration。' +
-              '\n- 若是设局嫁祸，要额外看它是否真能诱使目标自己失言、失态或误判，以及嫌疑是否会落回目标本人。' +
+              '\n- 若是嫁祸，要额外看它是否真能诱使目标自己失言、失态或误判，以及嫌疑是否会落回目标本人。' +
               '\n- 若只是暗示“可能出事”“可能被卖”“可能背锅”，却没有点明谁借谁上位、谁替谁背锅、谁和谁互相牵制，应维持中低分。' +
               '\n- For slander, generic suspicion or mood should not score high; only score suspicionTransmission high when the speech clearly shows why distrust reaches command, logistics, access, or execution.' +
               '\n- For alienate, relationship crack must reach command, logistics, or coordination before fractureTransmission scores high; only score it highly when the speech creates a believable break over authority, precedence, logistics, grain, legal cover, or coordination.'
@@ -66,8 +66,8 @@ export function buildNorthSchemeParsePrompt(params: {
         '\n- advicePolarity 只在 advise 里重点判断：pro_state | pro_target_anti_state | neutral_or_vague。' +
         '\n- legitimacyDirection 看的是谶纬对北周名分、法统、天命叙事的净方向，范围 -1 到 1。' +
         '\n- omenPolarity 只在 omen 里重点判断：legitimizing | destabilizing | vague_or_ceremonial。' +
-        '\n- selfTrapPotential 只在设局嫁祸里重点判断：此话是否真能诱使目标自己失言、失态或误判，范围 0 到 1。' +
-        '\n- scapegoatClarity 只在设局嫁祸里重点判断：嫌疑与责任是否会明确回落到目标本人，范围 0 到 1。' +
+        '\n- selfTrapPotential 只在嫁祸里重点判断：此话是否真能诱使目标自己失言、失态或误判，范围 0 到 1。' +
+        '\n- scapegoatClarity 只在嫁祸里重点判断：嫌疑与责任是否会明确回落到目标本人，范围 0 到 1。' +
         '\n- omenAnchorStrength 只在 omen 里重点判断：谶辞/征兆本身是否像真正的征兆锚点，范围 0 到 1。' +
         '\n- legitimacyCrack 只在 omen 里重点判断：解释是否真的把征兆引向名分、法统、天命裂缝，范围 0 到 1。' +
         '\n- suspicionDirection 只在 omen 里重点判断：解释是否把警惕与怀疑导向某类人、某条关系线或某个权力结构，范围 0 到 1。' +

@@ -17,6 +17,15 @@ const formatReplySouthDimensionLabel = (dimension: string) => {
     return label === '民生秩序' ? '民生' : label
 }
 
+const POLICY_OPTION_LABELS: Record<string, string> = {
+    A: '甲',
+    B: '乙',
+    C: '丙',
+    D: '丁',
+}
+
+const formatPolicyOptionLabel = (label: string) => POLICY_OPTION_LABELS[label] ?? label
+
 export function EmpressReply() {
     const {
         currentRound,
@@ -135,7 +144,7 @@ export function EmpressReply() {
 
                                     <div className="empress-reply-summary-strip">
                                         <p className="empress-reply-summary-copy">
-                                            <span>所取策令：{policyReport.optionLabel}. {policyReport.optionContent}</span>
+                                            <span>所取策令：{formatPolicyOptionLabel(policyReport.optionLabel)}. {policyReport.optionContent}</span>
                                             <span>奏折附言：{authoredReasonText || '未具附言'}</span>
                                         </p>
                                     </div>
@@ -171,13 +180,13 @@ export function EmpressReply() {
                                                         ? '言之有物'
                                                          : '论证偏泛'}
                                              </strong>
-                                             <p>
-                                                 {!policyReasonAuthored
-                                                     ? '本回合未写附言，因此只保留女帝默认短批，不额外调动女帝 Agent。'
-                                                     : policyReport.focusMatched
+                                             {policyReasonAuthored && (
+                                                 <p>
+                                                     {policyReport.focusMatched
                                                         ? '你抓住了问题的关键，此谏言产生的影响会持续至后续卷'
                                                          : '你的附言有方向，但尚未完全扣住题眼，后续余波会被压轻。'}
-                                             </p>
+                                                 </p>
+                                             )}
                                          </div>
 
                                         <div className="empress-reply-change-panel empress-reply-scroll-panel">

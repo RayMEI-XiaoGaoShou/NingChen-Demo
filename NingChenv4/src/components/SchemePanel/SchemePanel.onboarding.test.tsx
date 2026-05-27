@@ -25,7 +25,7 @@ describe('SchemePanel onboarding flows', () => {
 
         expect(markup).toContain('六种计谋，各有用处')
         expect(markup).toContain('献策')
-        expect(markup).toContain('设局嫁祸')
+        expect(markup).toContain('嫁祸')
         expect(markup).toContain('皇帝恩宠和太后眷顾都压到足够低')
         expect(markup).toContain('将嫌疑兑现为罢黜或处决')
     })

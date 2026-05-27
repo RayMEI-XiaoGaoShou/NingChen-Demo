@@ -15,7 +15,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 60,
                 loyaltyToCourt: 22,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -25,7 +25,7 @@ describe('externalLineProgress', () => {
         expect(progress?.trustGap).toBeGreaterThan(0)
     })
 
-    it('recommends probing when rebellion-oriented targets still hide key secrets', () => {
+    it('recommends probing when rebellion-oriented targets still hide one key secret', () => {
         const progress = buildExternalLineProgress({
             round: 12,
             difficulty: 'normal',
@@ -38,14 +38,14 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 87,
                 loyaltyToCourt: 15,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'rebellion',
             },
         })
 
         expect(progress?.phase).toBe('探暗线')
         expect(progress?.nextMove).toBe('probe')
-        expect(progress?.secretsGap).toBe(2)
+        expect(progress?.secretsGap).toBe(1)
     })
 
     it('marks the line as ready to act only when the external window is open', () => {
@@ -61,7 +61,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 80,
                 loyaltyToCourt: 28,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -77,7 +77,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 80,
                 loyaltyToCourt: 28,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })
@@ -100,7 +100,7 @@ describe('externalLineProgress', () => {
                 isAlive: true,
                 trust: 66,
                 loyaltyToCourt: 39,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 highActionBias: 'secession',
             },
         })

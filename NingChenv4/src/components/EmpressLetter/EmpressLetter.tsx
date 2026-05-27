@@ -6,7 +6,7 @@ import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { useSceneTransition } from '../SceneTransition/SceneTransition'
-import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.png'
+import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.webp'
 import './EmpressLetter.css'
 
 const optionIndexLabels = ['甲', '乙', '丙', '丁']

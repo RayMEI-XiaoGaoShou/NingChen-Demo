@@ -5,6 +5,7 @@ import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC, type SchemeType } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
+import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
 import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
@@ -363,6 +364,8 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         currentRound,
         difficulty,
         northPower,
+        playerSuspicionHeat,
+        invasionPressure,
         schemeCount,
         maxSchemes,
         npcs,
@@ -427,7 +430,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
     const usedNpcIds = new Set(currentSchemes.map(scheme => scheme.targetNpcId))
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const selectedNpc = selectedNpcId ? npcs.find(npc => npc.id === selectedNpcId) ?? null : null
-    const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(factions, npcs, currentRound)
+    const { emperorInfluence, empressInfluence } = getCourtBalance(factions, npcs, currentRound)
 
     const externalProgressMap = Object.fromEntries(
         externalNpcs.map(npc => [
@@ -445,27 +448,8 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         ]),
     )
 
-    const invasionRisk =
-        warRatio >= 1.2
-            ? { label: '箭在弦上', className: 'risk-critical' }
-            : warRatio >= 0.8
-                ? { label: '朝议煎沸', className: 'risk-warning' }
-                : { label: '偏安之局', className: 'risk-safe' }
-
-    const dangerNpcs = npcs.filter(
-        npc =>
-            npc.canExecute &&
-            npc.powerBase === 'court' &&
-            npc.trust <= 25 &&
-            (factions.find(faction => faction.id === npc.factionId)?.courtInfluence ?? 0) >= 55,
-    )
-
-    const safetyRisk =
-        dangerNpcs.some(npc => npc.trust <= 15)
-            ? { label: '祸生肘腋', className: 'risk-critical' }
-            : dangerNpcs.length > 0
-                ? { label: '风闻渐起', className: 'risk-warning' }
-                : { label: '尚可斡旋', className: 'risk-safe' }
+    const invasionRisk = getInvasionPressurePresentation(invasionPressure)
+    const safetyRisk = getPlayerDangerPresentation(playerSuspicionHeat)
 
     const courtGroups: CourtFactionGroup[] = [
         {
@@ -1619,6 +1603,8 @@ export function LegacyCourtView() {
         difficulty,
         nextPhase,
         northPower,
+        playerSuspicionHeat,
+        invasionPressure,
         schemeCount,
         maxSchemes,
         npcs,
@@ -1655,29 +1641,10 @@ export function LegacyCourtView() {
             }),
         ]),
     )
-    const { emperorInfluence, empressInfluence, ratio: warRatio } = getCourtBalance(factions, npcs, currentRound)
+    const { emperorInfluence, empressInfluence } = getCourtBalance(factions, npcs, currentRound)
 
-    const invasionRisk =
-        warRatio >= 1.2
-            ? { label: '箭在弦上', className: 'risk-critical' }
-            : warRatio >= 0.8
-                ? { label: '朝议煎沸', className: 'risk-warning' }
-                : { label: '偏安之局', className: 'risk-safe' }
-
-    const dangerNpcs = npcs.filter(
-        npc =>
-            npc.canExecute &&
-            npc.powerBase === 'court' &&
-            npc.trust <= 25 &&
-            (factions.find(faction => faction.id === npc.factionId)?.courtInfluence ?? 0) >= 55,
-    )
-
-    const safetyRisk =
-        dangerNpcs.some(npc => npc.trust <= 15)
-            ? { label: '祸生肘腋', className: 'risk-critical' }
-            : dangerNpcs.length > 0
-                ? { label: '风闻渐起', className: 'risk-warning' }
-                : { label: '尚可斡旋', className: 'risk-safe' }
+    const invasionRisk = getInvasionPressurePresentation(invasionPressure)
+    const safetyRisk = getPlayerDangerPresentation(playerSuspicionHeat)
 
     return (
         <div className="page-container court-view page-enter">

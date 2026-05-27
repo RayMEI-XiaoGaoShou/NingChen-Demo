@@ -86,7 +86,7 @@ export function buildCourtDispositionHint(npc: NPC): CourtDispositionHint | null
         subjectNpcId: npc.id,
         subjectNpcName: npc.name,
         shortText: `${npc.name}两边根基尚稳，暂不宜急着收网。`,
-        promptText: `${npc.name}皇帝恩宠与太后眷顾仍未真正松动；此时强行借刀，容易落空，宜先以谗言、离间、设局嫁祸或谶纬削薄两边庇护。`,
+        promptText: `${npc.name}皇帝恩宠与太后眷顾仍未真正松动；此时强行借刀，容易落空，宜先以谗言、离间、嫁祸或谶纬削薄两边庇护。`,
     }
 }
 

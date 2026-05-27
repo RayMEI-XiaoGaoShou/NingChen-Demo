@@ -4,6 +4,10 @@ export function isExternalTerminalStatus(status: ExternalStatus): boolean {
     return status === 'secession' || status === 'rebellion'
 }
 
+export function normalizeExternalStatus(status: unknown): ExternalStatus {
+    return status === 'secession' || status === 'rebellion' ? status : 'loyal'
+}
+
 export function isExternalEscalationOpen(status: ExternalStatus): boolean {
     return !isExternalTerminalStatus(status)
 }

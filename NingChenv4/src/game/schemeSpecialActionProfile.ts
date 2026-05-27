@@ -40,7 +40,7 @@ function deriveFrameProfile(targetNpc: NPC, parse: NorthSchemeParseResult): Spec
         targetMisstep,
         observerScope,
         damageMechanism,
-        promptLine: `设局嫁祸落地链：目标先${targetMisstep}；${observerScope}随后借此追看；损失机制是${damageMechanism}。`,
+        promptLine: `嫁祸落地链：目标先${targetMisstep}；${observerScope}随后借此追看；损失机制是${damageMechanism}。`,
     }
 }
 

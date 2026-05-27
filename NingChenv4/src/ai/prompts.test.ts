@@ -181,7 +181,7 @@ describe('buildSchemeNpcActionPrompt', () => {
             fallbackText: '宗艾急于切割自身嫌疑。',
         }).map(message => message.content).join('\n')
 
-        expect(prompt).toContain('设局嫁祸/谶纬特殊要求')
+        expect(prompt).toContain('嫁祸/谶纬特殊要求')
         expect(prompt).toContain('不要写成“通过 A 打 B”')
         expect(prompt).toContain('目标自己的不合适举措')
     })
@@ -839,7 +839,7 @@ describe('buildNorthSchemeParsePrompt', () => {
             eventBriefing: '朝中开始借灾异与名分之说相互攻讦。',
         })[1].content
 
-        expect(framePrompt).toContain('本次计谋类型：设局嫁祸')
+        expect(framePrompt).toContain('本次计谋类型：嫁祸')
         expect(framePrompt).toContain('selfTrapPotential')
         expect(framePrompt).toContain('scapegoatClarity')
         expect(framePrompt).toContain('诱使目标自己失言、失态或误判')

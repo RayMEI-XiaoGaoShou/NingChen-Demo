@@ -1855,6 +1855,11 @@
     filter: none;
 }
 
+.court-faction-screen-court .court-seat.is-used,
+.court-faction-screen-external .court-seat.is-used {
+    box-shadow: none;
+}
+
 .court-faction-screen-external .court-seat::before {
     content: '';
     position: absolute;

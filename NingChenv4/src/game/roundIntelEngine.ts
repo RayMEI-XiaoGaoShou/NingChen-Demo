@@ -102,7 +102,7 @@ export function getNpcRoundReaction(
         return publicStatement
     }
 
-    if (intelDepth >= 3) {
+    if (intelDepth >= 2) {
         return buildDeepStatement(publicStatement, intel?.reactions[npc.id], npc, intelDepth)
     }
 

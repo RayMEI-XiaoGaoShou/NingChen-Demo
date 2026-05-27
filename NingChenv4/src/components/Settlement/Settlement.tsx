@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { ROUND_EVENTS } from '../../data/rounds'
 import { SCHEMES } from '../../data/schemes'
 import { chatCompletion } from '../../ai/aiService'
 import { buildJudgePrompt } from '../../ai/prompts'
@@ -13,6 +12,9 @@ import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import { buildSettlementDefaultEmpressReply, getSettlementPolicyFollowupText, hasPolicyReason } from '../../game/empressReplyPresentation'
 import { buildSettlementSchemeCausalEvents, selectSettlementChronicleQuoteCandidate } from '../../game/settlementCausalNarrative'
+import { selectWorldEventMemoriesForPrompt, summarizeWorldEventMemories } from '../../game/worldEventMemory'
+import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
+import { getChronicleTimeLabels, sanitizeChronicleNarration } from '../../game/chronicleTime'
 import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
 import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
 import './Settlement.css'
@@ -42,10 +44,10 @@ export function getBacklashExplanation(backlash: DelayedBacklash): string {
     return backlash.summary
 }
 
-function getSettlementSafetyRisk(stage: PlayerDangerStage | null | undefined) {
-    if (stage === 'under_review') return { label: '祸生肘腋', className: 'risk-critical' }
-    if (stage === 'under_watch') return { label: '风闻渐起', className: 'risk-warning' }
-    return { label: '尚可斡旋', className: 'risk-safe' }
+export function getSettlementSafetyRisk(stage: PlayerDangerStage | null | undefined) {
+    if (stage === 'under_review') return { label: '祸在帷幄', className: 'risk-critical' }
+    if (stage === 'under_watch') return { label: '暗流渐浓', className: 'risk-warning' }
+    return { label: '朝中尚可周旋', className: 'risk-safe' }
 }
 
 export function getSafeSettlementJudgeFacts(
@@ -60,7 +62,7 @@ export function getSafeSettlementJudgeFacts(
         externalSummary: judgeFacts?.externalSummary ?? '边镇与外部势力仍在观望。',
         northSummary: judgeFacts?.northSummary ?? '北周国势暂无明显变化。',
         southSummary: judgeFacts?.southSummary ?? '南陈新政的后效仍在缓缓显形。',
-        invasionSummary: judgeFacts?.invasionSummary ?? '风信未彰',
+        invasionSummary: judgeFacts?.invasionSummary ?? '南征风向仍待观察',
         survivalSummary: judgeFacts?.survivalSummary ?? '风声暂稳。',
         aiNativeSummary: {
             schemeHints: judgeFacts?.aiNativeSummary?.schemeHints ?? [],
@@ -71,10 +73,10 @@ export function getSafeSettlementJudgeFacts(
 }
 
 export function getSettlementInvasionWindowLabel(ratio: number | null | undefined): string {
-    if (!isFiniteNumber(ratio)) return '风信未彰'
-    if (ratio >= 1.2) return '箭在弦上'
-    if (ratio >= 0.8) return '朝议煎沸'
-    return '偏安之局'
+    if (!isFiniteNumber(ratio)) return '南征风向仍待观察'
+    if (ratio >= 1.2) return '南征箭在弦上'
+    if (ratio >= 0.8) return '南征议势升温'
+    return '朝廷仍偏安内'
 }
 
 function isFiniteNumber(value: unknown): value is number {
@@ -204,6 +206,7 @@ export function Settlement() {
         shuMomentum,
         huainanMomentum,
         empressReplyRecord,
+        worldMemoryLedger,
     } = useGameStore()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
@@ -213,8 +216,8 @@ export function Settlement() {
 
     const schemeName = (type: string) => SCHEMES.find(s => s.type === type)?.name ?? type
     const backlashHints = judgeFacts.aiNativeSummary.backlashHints
-    const invasionWindowLabel = getSettlementInvasionWindowLabel(lastSettlement?.invasionPoliticalRatio)
-    const safetyRisk = getSettlementSafetyRisk(lastSettlement?.playerDangerStage)
+    const invasionRisk = getInvasionPressurePresentation(lastSettlement?.invasionPressure ?? 0)
+    const safetyRisk = getPlayerDangerPresentation(lastSettlement?.playerSuspicionHeat ?? 0, lastSettlement?.playerDangerStage)
     const policyReasonAuthored = hasPolicyReason(lastSettlement?.policyReport ?? null)
     const settlementPolicyFollowup =
         policyReasonAuthored && lastSettlement?.policyAftereffect && lastSettlement.policyReport
@@ -268,7 +271,14 @@ export function Settlement() {
                 npcFeedbacks,
             })
             const northQuoteCandidate = selectSettlementChronicleQuoteCandidate(schemeCausalEvents)
-            const chronicleTimeLabel = ROUND_EVENTS[currentRound - 1]?.timeLabel ?? `第${currentRound}回合`
+            const worldMemorySummary = summarizeWorldEventMemories(selectWorldEventMemoriesForPrompt({
+                ledger: worldMemoryLedger,
+                scopes: ['chronicle_fact'],
+                currentRound,
+                includeCurrentRound: true,
+                limit: 3,
+            }))
+            const chronicleTimeLabels = getChronicleTimeLabels(currentRound)
             const southEmpressReply = empressReplyRecord?.sourceRound === currentRound
                 ? empressReplyRecord.text
                 : buildSettlementDefaultEmpressReply(lastSettlement.policyReport)
@@ -276,7 +286,8 @@ export function Settlement() {
             const messages = buildJudgePrompt({
                 round: currentRound,
                 eventName: event.eventName,
-                chronicleTimeLabel,
+                northChronicleTimeLabel: chronicleTimeLabels.north,
+                southChronicleTimeLabel: chronicleTimeLabels.south,
                 eventImpactSummary: judgeFacts.eventImpactSummary,
                 schemeResults: lastSettlement.schemeResults.map((r, i) => ({
                     schemeName: schemeName(processedSchemes[i]?.schemeType ?? ''),
@@ -286,6 +297,7 @@ export function Settlement() {
                     playerSpeech: processedSchemes[i]?.playerSpeech ?? '',
                 })),
                 schemeCausalEvents: schemeCausalEvents.map(event => event.promptLine),
+                worldMemorySummary,
                 northQuoteCandidate,
                 trustChangeSummary: trustSummary,
                 northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
@@ -295,17 +307,17 @@ export function Settlement() {
                 northSummary: judgeFacts.northSummary,
                 southSummary: judgeFacts.southSummary,
                 southEmpressReply,
-                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '风信未彰',
+                invasionSummary: lastSettlement.judgeFacts.invasionSummary ?? '南征风向仍待观察',
             })
 
             try {
                 const narration = await chatCompletion(messages, {
                     temperature: 0.9,
-                    maxTokens: 480,
+                    maxTokens: 320,
                     tag: 'judge',
                 })
                 if (cancelled) return
-                setJudgeNarration(narration)
+                setJudgeNarration(sanitizeChronicleNarration(narration, chronicleTimeLabels))
             } catch {
                 if (cancelled) return
                 setJudgeNarration(lastSettlement.summaryText || '本回合局势已有变化，可先看下方结算。')
@@ -324,7 +336,7 @@ export function Settlement() {
         return () => {
             cancelled = true
         }
-    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign])
+    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign, worldMemoryLedger])
 
     return (
         <div className="page-container settlement page-enter">
@@ -403,7 +415,7 @@ export function Settlement() {
                                     ?
                                 </span>
                             </span>
-                            <span className="summary-value status-value">{invasionWindowLabel}</span>
+                            <span className={`summary-value status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
                         </div>
                     </div>
 

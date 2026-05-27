@@ -1255,6 +1255,13 @@
     text-shadow: none;
 }
 
+.scheme-modal-embedded .scheme-vertical-btn.disabled[data-scheme-type='secession'] .scheme-vertical-name,
+.scheme-modal-embedded .scheme-vertical-btn.disabled[data-scheme-type='rebellion'] .scheme-vertical-name {
+    top: 44%;
+    font-size: 1rem;
+    letter-spacing: 0.02em;
+}
+
 .scheme-modal-embedded .scheme-vertical-btn .scheme-lock {
     top: auto;
     left: var(--scheme-token-text-left);

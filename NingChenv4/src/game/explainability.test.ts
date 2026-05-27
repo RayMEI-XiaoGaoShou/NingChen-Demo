@@ -131,7 +131,7 @@ describe('explainability helpers', () => {
             powerBase: 'external',
             alignmentBias: 'swing',
             loyaltyToCourt: 58,
-            externalStatus: 'watchful',
+            externalStatus: 'loyal',
         })).toBe('持衡待价')
 
         expect(getExternalPostureLabel({

@@ -73,6 +73,32 @@ export function deriveNpcMemoryEntriesForRound(params: {
             })
         }
 
+        if (result.success && result.causalEvent?.eventKind === 'trust_only' && trustDelta > 0) {
+            entries.push({
+                npcId: after.id,
+                category: 'favor',
+                sourceRound: params.round,
+                importance: trustDelta >= 8 ? 2 : 1,
+                summary: `第${params.round}回合，你曾让${after.name}在私下多信了你一分，这份态度变化还没有变成公开动作。`,
+                schemeType: action.schemeType,
+                tags: ['trust', 'soft'],
+            })
+        }
+
+        if (result.success && result.causalEvent?.eventKind === 'intel_progress' && result.personEffects.intelDelta > 0) {
+            entries.push({
+                npcId: after.id,
+                category: 'warning',
+                sourceRound: params.round,
+                importance: result.personEffects.intelDelta >= 2 ? 2 : 1,
+                summary: result.causalEvent.motionText
+                    ? `第${params.round}回合，${stripTailPunctuation(result.causalEvent.motionText)}。`
+                    : `第${params.round}回合，${after.name}曾在问答间露出口风，你由此摸到一条可追的暗线。`,
+                schemeType: action.schemeType,
+                tags: ['trust', 'soft'],
+            })
+        }
+
         if (result.success && benefitSignal >= 0.4) {
             entries.push({
                 npcId: after.id,
@@ -86,14 +112,17 @@ export function deriveNpcMemoryEntriesForRound(params: {
         }
 
         if (hardScheme && trustDelta <= -6) {
+            const causalSummary = result.causalEvent?.motionText
+                ? `第${params.round}回合，${stripTailPunctuation(result.causalEvent.motionText)}。`
+                : null
             entries.push({
                 npcId: after.id,
                 category: result.success ? 'warning' : 'betrayal',
                 sourceRound: params.round,
                 importance: trustDelta <= -10 ? 3 : 2,
-                summary: result.success
+                summary: causalSummary ?? (result.success
                     ? `第${params.round}回合，你曾逼${after.name}接招表态，他记得你下手从不算轻。`
-                    : `第${params.round}回合，你曾在${after.name}身上露过锋芒，失手后的痕迹他还记着。`,
+                    : `第${params.round}回合，你曾在${after.name}身上露过锋芒，失手后的痕迹他还记着。`),
                 schemeType: action.schemeType,
                 tags: ['pressure', 'hard'],
             })
@@ -260,4 +289,8 @@ function getCategoryBonus(
 function getTagBonus(entry: NpcMemoryEntry, tags: Set<NpcMemoryTag>, bonus: number): number {
     const entryTags = entry.tags ?? []
     return entryTags.some(tag => tags.has(tag)) ? bonus : 0
+}
+
+function stripTailPunctuation(text: string): string {
+    return text.replace(/[。！？；，、\s]+$/u, '')
 }

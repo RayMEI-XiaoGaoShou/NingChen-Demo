@@ -77,7 +77,7 @@ export function getSchemeSpeechFields(selectedScheme: SchemeType | null): Scheme
 
 function getExternalTiltLabel(alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalTiltLabel(alignmentBias) }
 
-function getExternalPostureLabel(externalStatus: 'loyal' | 'watchful' | 'secession' | 'rebellion', loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalPostureLabel({ powerBase: 'external', externalStatus, loyaltyToCourt, alignmentBias }) }
+function getExternalPostureLabel(externalStatus: NPC['externalStatus'], loyaltyToCourt: number, alignmentBias: 'emperor' | 'empress' | 'swing' | 'self'): string { return getSharedExternalPostureLabel({ powerBase: 'external', externalStatus, loyaltyToCourt, alignmentBias }) }
 
 type CourtStatus = 'active' | 'dismissed' | 'executed'
 type CourtDispositionNpc = NPC & { courtStatus?: CourtStatus }
@@ -196,7 +196,7 @@ function buildSchemeRoleHint(params: {
         }
 
         if (schemeType === 'frame') {
-            return '此时若设局嫁祸，最重的嫌疑更容易落回他自己头上——不需要你出面指证。'
+            return '此时若嫁祸，最重的嫌疑更容易落回他自己头上——不需要你出面指证。'
         }
 
         if (schemeType === 'proxy' && relatedNpc && isCourtDispositionTarget(relatedNpc)) {
@@ -370,6 +370,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
         roundHistory,
         npcMemoryLedger,
         relationMemoryLedger,
+        worldMemoryLedger,
         firstRoundGuideSeen,
         schemeOnboardingSeen,
         markFirstRoundGuideSeen,
@@ -379,6 +380,8 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
         openGameplayGuide,
         fengDaozhiAssistsRemaining,
         playerDangerStage,
+        playerSuspicionHeat,
+        invasionPressure,
         requestFengDaozhiDraft,
         shuCampaign,
         huainanCampaign,
@@ -524,7 +527,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
         advise: '献策',
         slander: '谗言',
         alienate: '离间',
-        frame: '设局嫁祸',
+        frame: '嫁祸',
         proxy: '借刀',
         appeal: '求援',
         omen: '谶纬',
@@ -546,6 +549,8 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                 targetNpcId: selectedNpcId,
                 schemeType: selectedScheme,
                 playerDangerStage,
+                playerSuspicionHeat,
+                invasionPressure,
                 relatedNpcId: effectiveRelatedNpcId ?? undefined,
                 omenSpeechInput: selectedScheme === 'omen'
                     ? { omenText, interpretationText }
@@ -620,6 +625,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
             recentBacklash,
             npcMemoryLedger,
             relationMemoryLedger,
+            worldMemoryLedger,
             relatedNpcId: relatedNpcSnapshot?.id,
             currentRound,
             schemeType: action.schemeType,
@@ -660,6 +666,7 @@ export function SchemeComposer(props: SchemeComposerProps = {}) {
                         factionPressure: dynamicContext.factionPressure,
                         longTermMemorySummary: dynamicContext.longTermMemorySummary,
                         relationMemorySummary: dynamicContext.relationMemorySummary,
+                        worldMemorySummary: dynamicContext.worldMemorySummary,
                     }),
                     {
                         temperature: 0.75,

@@ -9,7 +9,7 @@ export const INITIAL_FACTIONS: Faction[] = [
     {
         id: 'emperor',
         name: '帝党',
-        description: '以少帝宇文棣为核心，力图亲政、南征，恢复皇权',
+        description: '以燕王宇文棣及宗室主战派为核心，挟小皇帝亲政名义，力图南征、恢复皇权',
         militaryPower: 64,
         courtInfluence: 60,
         internalStability: 68,

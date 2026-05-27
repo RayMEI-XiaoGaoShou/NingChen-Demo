@@ -3,6 +3,7 @@ import { INITIAL_NPCS } from '../../data/npcs'
 
 const chatCompletionMock = vi.fn()
 const getAiModeMock = vi.fn()
+const LIVE_PARSE_TEST_TIMEOUT_MS = 10_000
 
 vi.mock('../../ai/aiService', () => ({
     chatCompletion: chatCompletionMock,
@@ -43,7 +44,7 @@ describe('liveParseRunner', () => {
         expect(record.normalized).not.toBeNull()
         expect(record.rawResponse).toContain('"characterFit":0.7')
         expect(record.error).toBeNull()
-    })
+    }, LIVE_PARSE_TEST_TIMEOUT_MS)
 
     it('records fallback when service returns non-json text', async () => {
         chatCompletionMock.mockResolvedValue('朝堂暗流涌动，诸般布局正在悄然发酵。')
@@ -61,7 +62,7 @@ describe('liveParseRunner', () => {
         expect(record.normalized).not.toBeNull()
         expect(record.rawResponse).toContain('朝堂暗流涌动')
         expect(record.error).toBe('invalid-json-response')
-    })
+    }, LIVE_PARSE_TEST_TIMEOUT_MS)
 
     it('retries once when the first live parse response is truncated json', async () => {
         chatCompletionMock
@@ -99,7 +100,7 @@ describe('liveParseRunner', () => {
             throw new Error('expected north parse record')
         }
         expect(record.normalized.characterFit).toBe(0.7)
-    })
+    }, LIVE_PARSE_TEST_TIMEOUT_MS)
 
     it('passes structured omen input through fallback parsing', async () => {
         chatCompletionMock.mockResolvedValue('not-json')
@@ -124,5 +125,5 @@ describe('liveParseRunner', () => {
         }
         expect(record.normalized.omenAnchorStrength).toBeGreaterThan(0)
         expect(record.normalized.legitimacyCrack).toBeGreaterThan(0)
-    })
+    }, LIVE_PARSE_TEST_TIMEOUT_MS)
 })

@@ -89,7 +89,7 @@ describe('EmpressLetter southern letter UI contract', () => {
         expect(empressLetterSource).toContain('optionIndexLabels')
         expect(empressLetterSource).toContain('option-text')
         expect(empressLetterSource).toContain('呈递女帝')
-        expect(empressLetterSource).toContain("import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.png'")
+        expect(empressLetterSource).toContain("import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.webp'")
         expect(empressLetterSource).toContain('src={optionApprovalSeal}')
         expect(empressLetterSource).not.toContain('<div className="option-stamp">准</div>')
         expect(empressLetterStyles).toContain('/images/ui/empress-letter/empress-letter-option.webp')

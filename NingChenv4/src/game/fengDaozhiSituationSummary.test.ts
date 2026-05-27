@@ -111,7 +111,7 @@ describe('fengDaozhiSituationSummary', () => {
             huainanCampaign: makeCampaignState(),
         })
 
-        expect(summary.previousDealings).toContain('上一回合你曾以“设局嫁祸”试他')
+        expect(summary.previousDealings).toContain('上一回合你曾以“嫁祸”试他')
         expect(summary.relationshipTemperature).toContain('时而拉拢、时而敲打')
         expect(summary.relationshipSummary).toContain('上回往来：')
         expect(summary.relationshipSummary).toContain('近两回合关系温度：')

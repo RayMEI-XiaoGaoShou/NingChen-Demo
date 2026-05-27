@@ -19,7 +19,7 @@ describe('roundIntelEngine', () => {
                 name: '贺拔伯圭',
                 trust: 61,
                 loyaltyToCourt: 26,
-                externalStatus: 'watchful',
+                externalStatus: 'loyal',
                 isAlive: true,
                 powerBase: 'external',
                 highActionBias: 'secession',
@@ -79,7 +79,7 @@ describe('roundIntelEngine', () => {
     it('reveals sharper motive-facing reactions as intel depth increases', () => {
         const yuwendi = INITIAL_NPCS.find(npc => npc.id === 'yuwendi')!
         const shallow = getNpcRoundReaction(14, yuwendi, 0)
-        const deep = getNpcRoundReaction(14, yuwendi, 3)
+        const deep = getNpcRoundReaction(14, yuwendi, 2)
 
         expect(shallow).not.toEqual(deep)
         expect(deep).toContain('归政')
@@ -143,7 +143,7 @@ describe('roundIntelEngine', () => {
                     name: '尔朱烈',
                     trust: 68,
                     loyaltyToCourt: 29,
-                    externalStatus: 'watchful',
+                    externalStatus: 'loyal',
                     isAlive: true,
                     powerBase: 'external',
                     highActionBias: 'rebellion',

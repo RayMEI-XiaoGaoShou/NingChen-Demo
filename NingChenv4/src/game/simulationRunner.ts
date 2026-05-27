@@ -4,7 +4,7 @@ import { INITIAL_RELATIONSHIP_EDGES } from '../data/npcRelationships'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { getPolicyQuestionForRound } from '../data/policyQuestions'
 import { ROUND_EVENTS } from '../data/rounds'
-import { applyDelayedBacklashToState } from './aiNativeEngine'
+import { applyDelayedBacklashToState } from './aiNativeBacklash'
 import { getRoundStartCampaignDisplay } from './campaignDisplayEngine'
 import { applyDimensionChanges } from './nationEngine'
 import { settleRound } from './roundSettlement'
@@ -14,6 +14,8 @@ export interface SimulationState {
     currentRound: number
     difficulty: GameDifficulty
     playerDangerStage: PlayerDangerStage
+    playerSuspicionHeat: number
+    invasionPressure: number
     northStats: NationDimensions
     southStats: NationDimensions
     northPower: number
@@ -62,6 +64,8 @@ export interface SimulationSettlementTrace {
     huainanCampaignResolvedState: CampaignState['resolvedState']
     campaignReports: string[]
     externalActions: string[]
+    playerSuspicionHeat: number
+    invasionPressure: number
     northPower: number
     southPower: number
 }
@@ -122,6 +126,8 @@ export function simulateGame(options: SimulateGameOptions): SimulationResult {
             relationships: cloneRelationships(state.relationships),
             intelProgress: { ...state.intelProgress },
             playerDangerStage: state.playerDangerStage,
+            playerSuspicionHeat: state.playerSuspicionHeat,
+            invasionPressure: state.invasionPressure,
             policyOptionIndex: selectedPolicy.optionIndex,
             policyReason: selectedPolicy.reason,
             policyParse: decision.policyParse ?? null,
@@ -145,6 +151,8 @@ export function simulateGame(options: SimulateGameOptions): SimulationResult {
                 huainanCampaignResolvedState: result.huainanCampaign.resolvedState ?? result.huainanCampaign.state,
                 campaignReports: [...result.campaignReports],
                 externalActions: result.externalActionReports.map(item => item.outcome),
+                playerSuspicionHeat: result.playerSuspicionHeat,
+                invasionPressure: result.invasionPressure,
                 northPower: result.northPowerAfter,
                 southPower: result.southPowerAfter,
             },
@@ -170,6 +178,8 @@ function createSimulationState(overrides: Partial<SimulationState> = {}): Simula
         currentRound: overrides.currentRound ?? 1,
         difficulty: overrides.difficulty ?? 'normal',
         playerDangerStage: overrides.playerDangerStage ?? 'safe',
+        playerSuspicionHeat: overrides.playerSuspicionHeat ?? 0,
+        invasionPressure: overrides.invasionPressure ?? 0,
         northStats,
         southStats,
         northPower: overrides.northPower ?? calculateCompositePower(northStats),
@@ -272,6 +282,8 @@ function advanceSimulationState(
             currentRound: state.currentRound,
             difficulty: state.difficulty,
             playerDangerStage: result.playerDangerStage,
+            playerSuspicionHeat: result.playerSuspicionHeat,
+            invasionPressure: result.invasionPressure,
             northStats: { ...result.northStatsAfter },
             southStats: { ...result.southStatsAfter },
             northPower: result.northPowerAfter,
@@ -312,6 +324,8 @@ function advanceSimulationState(
         currentRound: nextRound,
         difficulty: state.difficulty,
         playerDangerStage: result.playerDangerStage,
+        playerSuspicionHeat: result.playerSuspicionHeat,
+        invasionPressure: result.invasionPressure,
         northStats: { ...backlashResult.northStats },
         southStats: nextSouthStats,
         northPower: calculateCompositePower(backlashResult.northStats),
