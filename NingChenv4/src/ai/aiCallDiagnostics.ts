@@ -1,4 +1,4 @@
-export type AiCallMode = 'mujian' | 'deepseek' | 'fallback'
+export type AiCallMode = 'deepseek' | 'fallback'
 export type AiCallStatus = 'success' | 'fallback'
 export type AiCallFallbackReason =
     | 'fallback_mode'

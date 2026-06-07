@@ -83,6 +83,8 @@ export interface RoundSettlementResult {
     updatedNpcs: NPC[]
     factionsAfter: Faction[]
     relationshipsAfter: RelationshipEdge[]
+    northStatsBefore?: NationDimensions
+    southStatsBefore?: NationDimensions
     northStatsAfter: NationDimensions
     southStatsAfter: NationDimensions
     northPowerAfter: number
@@ -147,6 +149,8 @@ export function settleRound(params: {
     const trimmedPolicyReason = policyReason.trim()
     const hasPolicyReason = hasPolicyReasonText(trimmedPolicyReason)
 
+    const northStatsBefore = { ...params.northStats }
+    const southStatsBefore = { ...params.southStats }
     let northStats = { ...params.northStats }
     let southStats = { ...params.southStats }
     let shuCampaign = cloneCampaign(params.shuCampaign)
@@ -570,6 +574,8 @@ export function settleRound(params: {
         updatedNpcs,
         factionsAfter,
         relationshipsAfter,
+        northStatsBefore,
+        southStatsBefore,
         northStatsAfter: northStats,
         southStatsAfter: southStats,
         northPowerAfter,

@@ -8,7 +8,6 @@ import { INITIAL_FACTIONS } from './data/factions'
 import { NORTH_INITIAL, SOUTH_INITIAL } from './data/nationStats'
 import { INITIAL_RELATIONSHIP_EDGES } from './data/npcRelationships'
 import { INITIAL_NPCS } from './data/npcs'
-import { applyEmpressPreviewFromSearch, isEmpressPreviewSearch, shouldSkipAutosaveForEmpressPreview } from './dev/empressPreview'
 import { buildPersistedSnapshot, saveGameSnapshot } from './game/saveEngine'
 import { settleRound } from './game/roundSettlement'
 import type { NorthSchemeParseResult, SchemeAction, SchemeType } from './game/types'
@@ -87,6 +86,10 @@ export function getSchemePreviewRequest(search = typeof window !== 'undefined' ?
 
 export function isSchemeFeedbackPreviewRequest(search = typeof window !== 'undefined' ? window.location.search : ''): boolean {
     return new URLSearchParams(search).get('preview') === 'scheme-feedback'
+}
+
+export function isSettlementPreviewRequest(search = typeof window !== 'undefined' ? window.location.search : ''): boolean {
+    return new URLSearchParams(search).get('preview') === 'settlement'
 }
 
 const PREVIEW_NORTH_PARSE: NorthSchemeParseResult = {
@@ -275,20 +278,15 @@ function App() {
     const { isMuted, audioReady, setMuted, requestPlayback } = useMediaStore()
     const schemePreview = getSchemePreviewRequest()
     const schemeFeedbackPreview = isSchemeFeedbackPreviewRequest()
-    const empressPreview = isEmpressPreviewSearch(window.location.search)
-    const isPreviewRoute = Boolean(schemePreview) || schemeFeedbackPreview || empressPreview
+    const settlementPreview = isSettlementPreviewRequest()
+    const isPreviewRoute = Boolean(schemePreview) || schemeFeedbackPreview || settlementPreview
     const schemePreviewKey = schemePreview ? `${schemePreview.schemeType}:${schemePreview.targetNpcId}` : ''
     const schemeFeedbackPreviewKey = schemeFeedbackPreview ? 'scheme-feedback' : ''
-    const empressPreviewKey = empressPreview ? 'empress-preview' : ''
+    const settlementPreviewKey = settlementPreview ? 'settlement' : ''
     const isCoverStep = !isPreviewRoute && prologueStep === 'COVER'
     const isRoundStartFullscreenStep = !isPreviewRoute && shouldUseRoundStartFullscreenShell(prologueStep, currentPhase, currentRound)
-    const isCourtStageStep = Boolean(schemePreview) || (!schemeFeedbackPreview && prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
+    const isCourtStageStep = Boolean(schemePreview) || (!schemeFeedbackPreview && !settlementPreview && prologueStep === 'INGAME' && currentPhase === 'COURT_OBSERVE')
     const hideGlobalHeader = isPreviewRoute || shouldHideGlobalHeader(prologueStep, currentPhase)
-
-    useEffect(() => {
-        if (!import.meta.env.DEV) return
-        applyEmpressPreviewFromSearch(window.location.search)
-    }, [empressPreviewKey])
 
     useEffect(() => {
         if (!schemePreview) return
@@ -404,7 +402,77 @@ function App() {
     }, [schemeFeedbackPreviewKey])
 
     useEffect(() => {
-        if (isPreviewRoute || shouldSkipAutosaveForEmpressPreview(window.location.search, import.meta.env.DEV)) return
+        if (!settlementPreview) return
+
+        const preview = buildSchemeFeedbackPreviewState()
+        const updatedNpcs = preview.settlement.updatedNpcs
+        const updatedIntelProgress = { ...preview.intelProgress }
+        for (const [npcId, count] of Object.entries(preview.settlement.intelUnlocks)) {
+            updatedIntelProgress[npcId] = Math.min(
+                (updatedIntelProgress[npcId] ?? 0) + count,
+                updatedNpcs.find(npc => npc.id === npcId)?.secretThreads.length ?? count,
+            )
+        }
+
+        useGameStore.setState({
+            currentRound: preview.currentRound,
+            currentPhase: 'SETTLEMENT',
+            prologueStep: 'INGAME',
+            schemeCount: preview.actions.length,
+            currentSchemes: preview.actions,
+            npcFeedbacks: preview.feedbacks,
+            pendingStructuredSchemeIds: [],
+            lastSettlement: preview.settlement,
+            lastPolicyReport: preview.settlement.policyReport,
+            lastPolicyAftereffect: preview.settlement.policyAftereffect,
+            empressReplyRecord: null,
+            northStats: preview.settlement.northStatsAfter,
+            southStats: preview.settlement.southStatsAfter,
+            northPower: preview.settlement.northPowerAfter,
+            southPower: preview.settlement.southPowerAfter,
+            playerDangerStage: preview.settlement.playerDangerStage,
+            playerSuspicionHeat: preview.settlement.playerSuspicionHeat,
+            invasionPressure: preview.settlement.invasionPressure,
+            isGameOver: preview.settlement.gameResult !== 'NONE',
+            gameResult: preview.settlement.gameResult,
+            npcs: updatedNpcs,
+            factions: preview.settlement.factionsAfter,
+            relationships: preview.settlement.relationshipsAfter,
+            intelProgress: updatedIntelProgress,
+            pendingBacklash: preview.settlement.delayedBacklash,
+            recentBacklash: [],
+            roundHistory: [],
+            npcMemoryLedger: {},
+            relationMemoryLedger: {},
+            worldMemoryLedger: [],
+            endingReport: null,
+            battleReport: null,
+            shuCampaign: preview.settlement.shuCampaign,
+            huainanCampaign: preview.settlement.huainanCampaign,
+            shuMomentum: preview.settlement.shuMomentum,
+            huainanMomentum: preview.settlement.huainanMomentum,
+            firstRoundGuideSeen: {
+                round_start: true,
+                court_observe: true,
+                scheme_phase: true,
+                empress_letter: true,
+                scheme_feedback: true,
+                settlement: true,
+            },
+            schemeOnboardingSeen: {
+                scheme_master_guide: true,
+                first_omen_teaching: true,
+                first_external_line_teaching: true,
+                first_follow_up_teaching: true,
+            },
+            omenGuideSeen: {
+                first_omen_modal: true,
+            },
+        })
+    }, [settlementPreviewKey])
+
+    useEffect(() => {
+        if (isPreviewRoute) return
 
         const unsubscribe = useGameStore.subscribe(state => {
             const snapshot = buildPersistedSnapshot(state)
@@ -497,7 +565,7 @@ function App() {
                         </button>
                     </header>
                 )}
-                <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}:${schemePreviewKey}:${schemeFeedbackPreviewKey}:${empressPreviewKey}`} phaseName={currentPhase} fallback={errorFallback}>
+                <PhaseErrorBoundary resetKey={`${prologueStep}:${currentPhase}:${schemePreviewKey}:${schemeFeedbackPreviewKey}`} phaseName={currentPhase} fallback={errorFallback}>
                     <>
                         <main className={`app-content${isCoverStep ? ' app-content-cover' : ''}${isCourtStageStep ? ' app-content-court' : ''}`}>
                             <Suspense fallback={<PhaseLoadingFallback />}>

@@ -3252,21 +3252,55 @@
     }
 
     .court-top-bar {
+        position: fixed;
+        top: max(8px, env(safe-area-inset-top));
+        left: clamp(12px, 2.4vw, 22px);
+        right: clamp(12px, 2.4vw, 22px);
+        z-index: 40;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "back breadcrumb tools"
+            "action action action"
+            "state state state";
         align-items: center;
-        flex-wrap: wrap;
+        flex-wrap: initial;
         min-height: auto;
-        padding: 12px 22px;
-        gap: 8px;
+        padding: 12px 18px 14px;
+        gap: 8px 10px;
+        background:
+            linear-gradient(180deg, rgba(6, 5, 4, 0.68), rgba(6, 5, 4, 0.34) 76%, transparent);
+        backdrop-filter: blur(5px);
+    }
+
+    .court-back-button {
+        grid-area: back;
+        justify-self: start;
+    }
+
+    .court-hud-breadcrumb {
+        grid-area: breadcrumb;
+        justify-self: start;
+        max-width: 100%;
+        flex-wrap: wrap;
+        row-gap: 4px;
+    }
+
+    .court-hud-link {
+        grid-area: action;
+        justify-self: start;
     }
 
     .court-top-actions {
+        grid-area: tools;
         margin-left: 0;
         flex-wrap: wrap;
+        justify-content: flex-end;
     }
 
     .court-screen-hud-state {
+        grid-area: state;
         position: static;
-        order: 3;
         transform: none;
         width: 100%;
         max-width: none;
@@ -3628,7 +3662,51 @@
 
 @media (max-width: 640px) {
     .court-game-screen {
-        padding-top: 210px;
+        padding-top: 226px;
+    }
+
+    .court-top-bar {
+        left: 10px;
+        right: 10px;
+        padding: 10px 10px 12px;
+        gap: 7px 8px;
+    }
+
+    .court-back-button,
+    .court-hud-breadcrumb-action {
+        min-height: 34px;
+        padding-inline: 10px;
+    }
+
+    .court-hud-breadcrumb {
+        gap: 6px;
+    }
+
+    .court-screen-hud-title {
+        min-height: 34px;
+        font-size: 0.72rem;
+        letter-spacing: 1.5px;
+    }
+
+    .court-screen-hud-state {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 3px 0;
+    }
+
+    .court-top-bar .game-hud-status-chip {
+        justify-content: center;
+        padding: 0 6px;
+    }
+
+    .court-top-bar .game-hud-status-label {
+        font-size: 0.72rem;
+        letter-spacing: 1px;
+    }
+
+    .court-top-bar .game-hud-status-value {
+        font-size: 0.78rem;
+        letter-spacing: 1px;
     }
 
     .court-gate-grid,

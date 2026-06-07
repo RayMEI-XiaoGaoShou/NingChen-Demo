@@ -456,6 +456,17 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewCss).toContain('top: clamp(-76px, -4.4vw, -58px)')
     })
 
+    it('stacks the narrow court HUD into readable rows instead of letting status chips overlap the action cluster', () => {
+        expect(courtViewCss).toContain('grid-template-areas:\n            "back breadcrumb tools"\n            "action action action"\n            "state state state";')
+        expect(courtViewCss).toContain('.court-top-bar {\n        position: fixed;')
+        expect(courtViewCss).toContain('.court-back-button {\n        grid-area: back;')
+        expect(courtViewCss).toContain('.court-hud-breadcrumb {\n        grid-area: breadcrumb;')
+        expect(courtViewCss).toContain('.court-hud-link {\n        grid-area: action;')
+        expect(courtViewCss).toContain('.court-top-actions {\n        grid-area: tools;')
+        expect(courtViewCss).toContain('.court-screen-hud-state {\n        grid-area: state;')
+        expect(courtViewCss).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
+    })
+
     it('plays detail-entry attitude voices only from user detail-entry clicks', () => {
         expect(courtViewSource).toContain('getNpcDetailVoicePath')
         expect(courtViewSource).toContain('detailVoiceAudioRef')

@@ -6,7 +6,7 @@ import {
     type AiCallFallbackReason,
 } from './aiCallDiagnostics'
 
-export type AiMode = 'mujian' | 'deepseek' | 'fallback'
+export type AiMode = 'deepseek' | 'fallback'
 type AiTextSource = 'ai' | 'fallback'
 
 type ChatCompletionOptions = {
@@ -34,11 +34,6 @@ export interface ChatCompletionJsonDetailedResult<T> {
     attempts: number
 }
 
-type MujianOpenApiConfig = {
-    baseURL: string
-    apiKey: string
-}
-
 type EnvKey =
     | 'VITE_DEEPSEEK_API_KEY'
     | 'VITE_DEEPSEEK_MODEL'
@@ -51,7 +46,6 @@ type EnvKey =
 
 const DEFAULT_AI_REQUEST_TIMEOUT_MS = 20000
 let currentMode: AiMode = 'fallback'
-let mujianSdk: any = null
 let initPromise: Promise<AiMode> | null = null
 const runtimeEnv = ((globalThis as any).process?.env ?? {}) as Record<string, string | undefined>
 
@@ -78,35 +72,6 @@ function isDevRuntime(): boolean {
 function hasDeepSeekConfig(): boolean {
     const apiKey = getEnvValueWithLegacy('VITE_DEEPSEEK_API_KEY', 'VITE_KIMI_API_KEY')
     return Boolean(apiKey && apiKey !== 'your-deepseek-api-key-here' && apiKey !== 'your-kimi-api-key-here')
-}
-
-function isLikelyMujianRuntime(): boolean {
-    if (typeof window === 'undefined') return false
-    if (!window.$mujian_lite) return false
-
-    try {
-        return window.self !== window.top
-    } catch {
-        return true
-    }
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-    return new Promise((resolve, reject) => {
-        const timer = globalThis.setTimeout(() => {
-            reject(new Error(`timeout after ${ms}ms`))
-        }, ms)
-
-        promise
-            .then(value => {
-                globalThis.clearTimeout(timer)
-                resolve(value)
-            })
-            .catch(error => {
-                globalThis.clearTimeout(timer)
-                reject(error)
-            })
-    })
 }
 
 function getAiRequestTimeoutMs(): number {
@@ -138,16 +103,6 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
         if (timer) {
             globalThis.clearTimeout(timer)
         }
-    }
-}
-
-function getMujianOpenApiConfig(): MujianOpenApiConfig | null {
-    const openapi = mujianSdk?.openapi ?? (typeof window !== 'undefined' ? window.$mujian_lite?.openapi : null)
-    if (!openapi?.baseURL || !openapi?.apiKey) return null
-
-    return {
-        baseURL: openapi.baseURL,
-        apiKey: openapi.apiKey,
     }
 }
 
@@ -238,18 +193,6 @@ export async function initAiService(): Promise<AiMode> {
     if (initPromise) return initPromise
 
     initPromise = (async () => {
-        if (isLikelyMujianRuntime()) {
-            try {
-                await withTimeout(window.$mujian_lite.init(), 1500)
-                mujianSdk = window.$mujian_lite
-                currentMode = 'mujian'
-                console.log('[AI] Mujian runtime active')
-                return currentMode
-            } catch (error) {
-                console.warn('[AI] Mujian SDK init failed, falling back to DeepSeek API', error)
-            }
-        }
-
         if (hasDeepSeekConfig()) {
             currentMode = 'deepseek'
             console.log('[AI] DeepSeek API mode active')
@@ -270,8 +213,6 @@ export function getAiMode(): AiMode {
 
 export function getAiModeLabel(mode: AiMode = currentMode): string {
     switch (mode) {
-        case 'mujian':
-            return '幕间 SDK'
         case 'deepseek':
             return 'DeepSeek API'
         case 'fallback':
@@ -391,8 +332,6 @@ export async function chatCompletionDetailed(
     const mode = await initAiService()
 
     switch (mode) {
-        case 'mujian':
-            return mujianCompletionDetailed(messages, temperature, maxTokens, tag)
         case 'deepseek':
             return deepSeekCompletionDetailed(messages, temperature, maxTokens, tag)
         case 'fallback':
@@ -526,103 +465,6 @@ export async function chatCompletionJsonDetailed<T>(
             parseFallbackReason: 'parse_exception',
             attempts: 0,
         }
-    }
-}
-
-async function mujianCompletionDetailed(
-    messages: ChatMessage[],
-    temperature: number,
-    maxTokens: number,
-    tag: string,
-): Promise<ChatCompletionDetailedResult> {
-    const mode: AiMode = 'mujian'
-    const model = 'deepseek-v3.2'
-
-    try {
-        if (mujianSdk?.ai?.openai?.chat?.completions?.create) {
-            const response = await mujianSdk.ai.openai.chat.completions.create({
-                model,
-                messages: messages.map(message => ({ role: message.role, content: message.content })),
-                temperature,
-                max_tokens: maxTokens,
-            })
-            const text = response?.choices?.[0]?.message?.content?.trim() || ''
-
-            if (!text) {
-                return buildFallbackResult({
-                    tag,
-                    mode,
-                    reason: 'empty_response',
-                    model,
-                    provider: 'mujian_sdk',
-                    messageCount: messages.length,
-                    maxTokens,
-                    temperature,
-                })
-            }
-
-            recordCompletionSuccess({
-                tag,
-                mode,
-                model,
-                provider: 'mujian_sdk',
-                messageCount: messages.length,
-                maxTokens,
-                temperature,
-            })
-            return buildSuccessResult({ text, tag, mode, model })
-        }
-
-        const openapi = getMujianOpenApiConfig()
-        if (!openapi) {
-            throw new Error('Mujian openapi config unavailable')
-        }
-
-        const text = await openAiCompatibleCompletionRaw(
-            openapi.baseURL,
-            openapi.apiKey,
-            model,
-            messages,
-            temperature,
-            maxTokens,
-        )
-        if (!text) {
-            return buildFallbackResult({
-                tag,
-                mode,
-                reason: 'empty_response',
-                model,
-                provider: 'mujian_openapi',
-                messageCount: messages.length,
-                maxTokens,
-                temperature,
-                secrets: [openapi.apiKey],
-            })
-        }
-
-        recordCompletionSuccess({
-            tag,
-            mode,
-            model,
-            provider: 'mujian_openapi',
-            messageCount: messages.length,
-            maxTokens,
-            temperature,
-        })
-        return buildSuccessResult({ text, tag, mode, model })
-    } catch (error) {
-        console.error('[AI] Mujian completion failed:', getErrorName(error), getErrorMessage(error))
-        return buildFallbackResult({
-            tag,
-            mode,
-            reason: 'request_failed',
-            model,
-            provider: 'mujian',
-            messageCount: messages.length,
-            maxTokens,
-            temperature,
-            error,
-        })
     }
 }
 

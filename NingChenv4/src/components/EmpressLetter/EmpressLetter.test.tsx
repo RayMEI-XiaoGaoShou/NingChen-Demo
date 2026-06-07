@@ -111,6 +111,12 @@ describe('EmpressLetter southern letter UI contract', () => {
         expect(empressLetterSource).toContain('empress-letter-utility-row')
         expect(empressLetterStyles).toContain('.empress-letter .game-hud-icon-button')
         expect(empressLetterStyles).toContain('background-image: none')
+        expect(empressLetterStyles).toContain('--empress-utility-button-size: clamp(30px, 3.75cqw, 48px);')
+        expect(empressLetterStyles).toContain('width: var(--empress-utility-button-size)')
+        expect(empressLetterStyles).toContain('height: var(--empress-utility-button-size)')
+        expect(empressLetterStyles).toContain('flex-basis: var(--empress-utility-button-size)')
+        expect(empressLetterStyles).not.toContain('transform: scale(0.82)')
+        expect(empressLetterStyles).not.toContain('transform: scale(0.68)')
     })
 
     it('uses one fixed-ratio desktop design frame for stable proportions', () => {

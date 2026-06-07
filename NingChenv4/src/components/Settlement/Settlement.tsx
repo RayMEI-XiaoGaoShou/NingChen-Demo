@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { useGameStore } from '../../stores/gameStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { SCHEMES } from '../../data/schemes'
@@ -7,6 +7,7 @@ import { buildJudgePrompt } from '../../ai/prompts'
 import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
+import { GameViewport } from '../GameViewport/GameViewport'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
@@ -15,14 +16,366 @@ import { buildSettlementSchemeCausalEvents, selectSettlementChronicleQuoteCandid
 import { selectWorldEventMemoriesForPrompt, summarizeWorldEventMemories } from '../../game/worldEventMemory'
 import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
 import { getChronicleTimeLabels, sanitizeChronicleNarration } from '../../game/chronicleTime'
-import type { JudgeFacts, RoundSettlementResult } from '../../game/roundSettlement'
-import type { DelayedBacklash, PlayerDangerStage } from '../../game/types'
+import type { ExternalActionReport, JudgeFacts, RoundSettlementResult, SettlementKeyChangeHighlight } from '../../game/roundSettlement'
+import type { BorrowedBladeReport, DelayedBacklash, FactionCollapseReport, NationDimensions, PlayerDangerStage, RelationshipReport } from '../../game/types'
 import './Settlement.css'
 
-const COURT_BACKLASH_TOOLTIP = '朝局反噬，是你每一手计谋在暗中留下的余毒。它未必当回合便发作，却会在下一回合悄然显形：或是某位权臣多了一层防你的心思，或是某条关系链继续朝坏处走，或是某一派的调度与秩序再失一寸。'
-const POLICY_AFTEREFFECT_TOOLTIP = '问政余波，来自你在女帝问政页写下的附言。附言若真切中当回合议题，当回合得利自不必说，还会在下一回合继续带来好处。'
-const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
-const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
+const SETTLEMENT_ASSETS = {
+    background: new URL('../../assets/ui/settlement/settlement-bg-shiguan-andu-gpt.webp', import.meta.url).href,
+    chronicleScrollLeft: new URL('../../assets/ui/settlement/chronicle-scroll-left.webp', import.meta.url).href,
+    chronicleScrollCenter: new URL('../../assets/ui/settlement/chronicle-scroll-center.webp', import.meta.url).href,
+    chronicleScrollRight: new URL('../../assets/ui/settlement/chronicle-scroll-right.webp', import.meta.url).href,
+    volumeSeal: new URL('../../assets/ui/round-start/roundstart-volume-seal.webp', import.meta.url).href,
+    finance: new URL('../../assets/ui/round-start/stat-finance-coin.webp', import.meta.url).href,
+    governance: new URL('../../assets/ui/round-start/stat-governance.webp', import.meta.url).href,
+    socialOrder: new URL('../../assets/ui/round-start/stat-social-order.webp', import.meta.url).href,
+    grain: new URL('../../assets/ui/round-start/stat-grain.webp', import.meta.url).href,
+    military: new URL('../../assets/ui/round-start/stat-military.webp', import.meta.url).href,
+}
+
+const SETTLEMENT_STAT_ICONS: Record<keyof NationDimensions, string> = {
+    finance: SETTLEMENT_ASSETS.finance,
+    governance: SETTLEMENT_ASSETS.governance,
+    socialOrder: SETTLEMENT_ASSETS.socialOrder,
+    grain: SETTLEMENT_ASSETS.grain,
+    military: SETTLEMENT_ASSETS.military,
+}
+
+const SETTLEMENT_POWER_DIMENSIONS: Array<{ key: keyof NationDimensions; label: string }> = [
+    { key: 'finance', label: '财政' },
+    { key: 'grain', label: '粮草' },
+    { key: 'military', label: '军事' },
+    { key: 'socialOrder', label: '民生' },
+    { key: 'governance', label: '统治' },
+]
+
+type SettlementStyle = CSSProperties & {
+    '--settlement-bg'?: string
+    '--chronicle-scroll-left'?: string
+    '--chronicle-scroll-center'?: string
+    '--chronicle-scroll-right'?: string
+}
+
+const SETTLEMENT_ART_STYLE = {
+    '--settlement-bg': `url(${SETTLEMENT_ASSETS.background})`,
+    '--chronicle-scroll-left': `url(${SETTLEMENT_ASSETS.chronicleScrollLeft})`,
+    '--chronicle-scroll-center': `url(${SETTLEMENT_ASSETS.chronicleScrollCenter})`,
+    '--chronicle-scroll-right': `url(${SETTLEMENT_ASSETS.chronicleScrollRight})`,
+} as SettlementStyle
+
+const SETTLEMENT_ANOMALY_EMPTY_TEXT = '本卷朝局未见剧变，可谁又知晓一片祥和之下有多少暗流涌动？'
+
+export function splitSettlementChronicleDateLead(paragraph: string): { lead: string; rest: string } | null {
+    const trimmed = paragraph.trimStart()
+    const match = trimmed.match(/^((?:北周|南陈)[^，。！？；;：:\n]{1,36}年[^，。！？；;：:\n]{0,16})([，。！？；;：:\s]*)(.*)$/u)
+
+    if (!match) return null
+
+    return {
+        lead: match[1],
+        rest: `${match[2] ?? ''}${match[3] ?? ''}`,
+    }
+}
+
+function renderSettlementChronicleText(text: string | null) {
+    const paragraphs = (text ?? '')
+        .split(/\n+/u)
+        .map(paragraph => paragraph.trim())
+        .filter(Boolean)
+    const visibleParagraphs = paragraphs.length > 0 ? paragraphs : ['']
+
+    return visibleParagraphs.map((paragraph, index) => {
+        const dateLead = splitSettlementChronicleDateLead(paragraph)
+
+        return (
+            <p key={`${paragraph}-${index}`} className="narration-text">
+                {dateLead ? (
+                    <>
+                        <span className="settlement-chronicle-date">{dateLead.lead}</span>
+                        {dateLead.rest}
+                    </>
+                ) : paragraph}
+            </p>
+        )
+    })
+}
+
+export interface SettlementPowerRow {
+    key: keyof NationDimensions
+    label: string
+    iconSrc: string
+    currentValue: number
+    previousValue?: number
+    changed: boolean
+    direction: 'up' | 'down' | 'steady'
+}
+
+export type SettlementAnomalyLabel =
+    | '人物命运'
+    | '军镇异动'
+    | '战役记录'
+    | '朝局动荡'
+    | '朝局反噬'
+    | '问政余波'
+    | '关键变化'
+
+export interface SettlementAnomalyEntry {
+    id: string
+    label: SettlementAnomalyLabel
+    subLabel?: string
+    secondaryLabel?: SettlementAnomalyLabel
+    title: string
+    text: string
+    tone: 'positive' | 'negative' | 'neutral'
+    priority: number
+    order: number
+}
+
+interface SettlementCampaignRecordSummary {
+    visible: boolean
+    title: string
+    phase: string
+    recapText: string
+    statusText: string
+    resultText?: string | null
+}
+
+interface SettlementAnomalyStreamParams {
+    delayedBacklash?: DelayedBacklash[]
+    backlashTexts?: string[]
+    policyAftereffectTexts?: string[]
+    externalActionReports?: ExternalActionReport[]
+    relationshipReports?: RelationshipReport[]
+    factionCollapseReports?: FactionCollapseReport[]
+    borrowedBladeReports?: BorrowedBladeReport[]
+    keyChangeHighlights?: SettlementKeyChangeHighlight[]
+    campaignRecord?: SettlementCampaignRecordSummary | null
+}
+
+export function buildSettlementPowerRows(
+    before: NationDimensions,
+    after: NationDimensions,
+): SettlementPowerRow[] {
+    return SETTLEMENT_POWER_DIMENSIONS.map(({ key, label }) => {
+        const previous = roundDisplayNumber(before[key])
+        const current = roundDisplayNumber(after[key])
+        const changed = previous !== current
+
+        return {
+            key,
+            label,
+            iconSrc: SETTLEMENT_STAT_ICONS[key],
+            previousValue: changed ? previous : undefined,
+            currentValue: current,
+            changed,
+            direction: changed ? (current > previous ? 'up' : 'down') : 'steady',
+        }
+    })
+}
+
+export function buildSettlementAnomalyStream(params: SettlementAnomalyStreamParams): SettlementAnomalyEntry[] {
+    const entries: SettlementAnomalyEntry[] = []
+    let order = 0
+
+    const pushEntry = (entry: Omit<SettlementAnomalyEntry, 'order'>) => {
+        entries.push({ ...entry, order })
+        order += 1
+    }
+
+    for (const report of params.borrowedBladeReports ?? []) {
+        if (report.outcome === 'failed') continue
+        const isDeath = report.outcome === 'executed'
+        pushEntry({
+            id: `fate-${report.targetNpcId}-${report.outcome}`,
+            label: '人物命运',
+            subLabel: isDeath ? '身死' : '处置',
+            title: isDeath ? `${report.targetNpcName}身死` : `${report.targetNpcName}遭处置`,
+            text: report.summary,
+            tone: 'negative',
+            priority: 10,
+        })
+    }
+
+    for (const report of params.externalActionReports ?? []) {
+        if (isExternalActionHesitation(report)) continue
+
+        if (isExternalActionCrushed(report)) {
+            pushEntry({
+                id: `external-fate-${report.npcId}-${report.action}`,
+                label: '人物命运',
+                subLabel: '身死',
+                secondaryLabel: '军镇异动',
+                title: `${report.npcName}兵败身死`,
+                text: report.outcome,
+                tone: 'negative',
+                priority: 10,
+            })
+            continue
+        }
+
+        pushEntry({
+            id: `external-${report.npcId}-${report.action}`,
+            label: '军镇异动',
+            title: report.action === 'rebellion' ? `${report.npcName}举兵` : `${report.npcName}割据`,
+            text: report.outcome,
+            tone: 'negative',
+            priority: 20,
+        })
+    }
+
+    if (params.campaignRecord?.visible) {
+        pushEntry({
+            id: 'campaign-record',
+            label: '战役记录',
+            title: params.campaignRecord.title,
+            text: [
+                params.campaignRecord.phase,
+                params.campaignRecord.recapText,
+                params.campaignRecord.statusText,
+                params.campaignRecord.resultText,
+            ].filter(Boolean).join(' '),
+            tone: 'neutral',
+            priority: 24,
+        })
+    }
+
+    for (const report of params.relationshipReports ?? []) {
+        pushEntry({
+            id: `relationship-${report.structureId}-${report.edgeId}`,
+            label: '朝局动荡',
+            subLabel: '关系失衡',
+            title: report.structureName,
+            text: report.summary,
+            tone: 'negative',
+            priority: 30,
+        })
+    }
+
+    for (const report of params.factionCollapseReports ?? []) {
+        pushEntry({
+            id: `faction-collapse-${report.factionId}-${report.severity}`,
+            label: '朝局动荡',
+            subLabel: '党内争端',
+            title: report.factionName,
+            text: report.summary,
+            tone: report.severity === 'collapse' ? 'negative' : 'neutral',
+            priority: 31,
+        })
+    }
+
+    for (const backlash of params.delayedBacklash ?? []) {
+        pushEntry({
+            id: `backlash-${backlash.npcId}-${backlash.type}-${backlash.sourceRound}`,
+            label: '朝局反噬',
+            title: backlash.npcName,
+            text: getSettlementBacklashText(backlash),
+            tone: 'negative',
+            priority: 40,
+        })
+    }
+
+    ;(params.backlashTexts ?? []).filter(Boolean).forEach((text, index) => {
+        pushEntry({
+            id: `backlash-text-${index}`,
+            label: '朝局反噬',
+            title: '朝中余波',
+            text,
+            tone: 'negative',
+            priority: 40,
+        })
+    })
+
+    ;(params.policyAftereffectTexts ?? []).filter(Boolean).forEach((text, index) => {
+        pushEntry({
+            id: `policy-aftereffect-${index}`,
+            label: '问政余波',
+            title: '南陈问政后效',
+            text,
+            tone: 'positive',
+            priority: 50,
+        })
+    })
+
+    const highImpactCount = entries.length
+    const keyLimit = highImpactCount >= 4 ? 0 : highImpactCount > 0 ? 2 : 3
+    const coveredKeyNames = buildCoveredKeyChangeNames(params)
+    const admittedKeyChanges = (params.keyChangeHighlights ?? [])
+        .filter(highlight => shouldAdmitKeyChange(highlight, coveredKeyNames))
+        .slice(0, keyLimit)
+
+    for (const highlight of admittedKeyChanges) {
+        pushEntry({
+            id: `key-${highlight.id}`,
+            label: '关键变化',
+            title: highlight.title,
+            text: highlight.text,
+            tone: highlight.tone,
+            priority: 70,
+        })
+    }
+
+    return entries.sort((a, b) => a.priority - b.priority || a.order - b.order)
+}
+
+function roundDisplayNumber(value: number): number {
+    return Math.round(value * 10) / 10
+}
+
+function formatPowerValue(value: number, forceDecimal = false): string {
+    if (forceDecimal) return value.toFixed(1)
+    return Number.isInteger(value) ? String(value) : value.toFixed(1)
+}
+
+function isExternalActionHesitation(report: ExternalActionReport): boolean {
+    return report.outcomeCode === 'secession_hesitation'
+}
+
+function isExternalActionCrushed(report: ExternalActionReport): boolean {
+    return report.outcomeCode === 'rebellion_crushed' || /所剿|平叛|身死|阵亡/.test(report.outcome)
+}
+
+function buildCoveredKeyChangeNames(params: SettlementAnomalyStreamParams): Set<string> {
+    const names = new Set<string>()
+
+    for (const report of params.externalActionReports ?? []) {
+        if (!isExternalActionHesitation(report)) names.add(report.npcName)
+    }
+
+    for (const report of params.borrowedBladeReports ?? []) {
+        if (report.outcome !== 'failed') names.add(report.targetNpcName)
+    }
+
+    for (const report of params.factionCollapseReports ?? []) {
+        names.add(report.factionName)
+    }
+
+    return names
+}
+
+function shouldAdmitKeyChange(
+    highlight: SettlementKeyChangeHighlight,
+    coveredNames: Set<string>,
+): boolean {
+    for (const name of coveredNames) {
+        if (highlight.title.includes(name) || highlight.text.includes(name)) return false
+    }
+
+    if (highlight.category === 'external') {
+        const hasMeaningfulMilitaryChange = /军力|兵势|忠诚|离心|状态|割据|造反|举兵/.test(highlight.text)
+        const isTrustOnly = /信任/.test(highlight.text) && !hasMeaningfulMilitaryChange
+        return hasMeaningfulMilitaryChange && !isTrustOnly
+    }
+
+    if (highlight.category === 'court') {
+        return /状态|皇帝|太后|恩宠|眷顾|庇护/.test(highlight.text)
+    }
+
+    if (highlight.category === 'faction') {
+        return /朝堂影响|军事实力|内部稳定|军权|稳定度/.test(highlight.text)
+    }
+
+    return false
+}
 
 export function getBacklashExplanation(backlash: DelayedBacklash): string {
     if (backlash.type === 'guarded') {
@@ -94,14 +447,6 @@ export function formatChronicleVolumeNumber(round: number): string {
 
 export function getChronicleVolumeTitle(round: number): string {
     return `《南北朝通鉴-卷${formatChronicleVolumeNumber(round)}》`
-}
-
-function sanitizeDeltaRecord(record: Record<string, unknown> | null | undefined): Record<string, number> {
-    if (!record) return {}
-
-    return Object.fromEntries(
-        Object.entries(record).map(([key, value]) => [key, isFiniteNumber(value) ? value : 0]),
-    )
 }
 
 function normalizeSettlementSummary(text: string): string {
@@ -186,6 +531,59 @@ export function selectSettlementPolicyAftereffectText(
         : [primary]
 }
 
+function SettlementPowerPanel({
+    title,
+    tone,
+    stats,
+    rows,
+}: {
+    title: string
+    tone: 'north' | 'south'
+    stats: NationDimensions
+    rows: SettlementPowerRow[]
+}) {
+    return (
+        <article className={`settlement-power-panel settlement-power-panel-${tone}`}>
+            <header className="settlement-section-header settlement-power-header">
+                <h3>{title}</h3>
+            </header>
+            <div className="settlement-power-body">
+                <div className="settlement-power-radar">
+                    <RadarChart
+                        data={stats}
+                        size={210}
+                        variant="warBoard"
+                        tone={tone}
+                        dimensionIcons={SETTLEMENT_STAT_ICONS}
+                    />
+                </div>
+                <div className="settlement-power-rows" aria-label={`${title}具体数值变化`}>
+                    {rows.map(row => (
+                        <div
+                            key={row.key}
+                            className={`settlement-power-row ${row.changed ? 'is-changed' : 'is-steady'} direction-${row.direction}`}
+                        >
+                            <img className="settlement-power-row-icon" src={row.iconSrc} alt="" draggable={false} />
+                            <span className="settlement-power-row-label">{row.label}</span>
+                            <span className="settlement-power-row-values">
+                                {row.changed && row.previousValue !== undefined ? (
+                                    <>
+                                        <span className="settlement-power-value previous">{formatPowerValue(row.previousValue, false)}</span>
+                                        <span className="settlement-power-arrow" aria-hidden="true">→</span>
+                                        <span className="settlement-power-value current">{formatPowerValue(row.currentValue, true)}</span>
+                                    </>
+                                ) : (
+                                    <span className="settlement-power-value current steady">{formatPowerValue(row.currentValue, true)}</span>
+                                )}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </article>
+    )
+}
+
 export function Settlement() {
     const {
         nextPhase,
@@ -211,6 +609,8 @@ export function Settlement() {
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
     const [isLoading, setIsLoading] = useState(Boolean(lastSettlement))
+    const [activeSettlementDeck, setActiveSettlementDeck] = useState<'power' | 'anomaly'>('power')
+    const [viewedAnomaly, setViewedAnomaly] = useState(false)
     const settlementGuide = FIRST_ROUND_GUIDE_CONTENT.settlement ?? { title: '', body: [] }
     const judgeFacts = getSafeSettlementJudgeFacts(lastSettlement)
 
@@ -223,9 +623,6 @@ export function Settlement() {
         policyReasonAuthored && lastSettlement?.policyAftereffect && lastSettlement.policyReport
             ? getSettlementPolicyFollowupText(lastSettlement.policyReport.focusMatched)
             : null
-    const courtBacklashTexts = lastSettlement?.delayedBacklash?.length
-        ? lastSettlement.delayedBacklash.map(getSettlementBacklashText)
-        : backlashHints
     const campaignRecord = buildCampaignRecordPanel({
         round: currentRound,
         surface: 'settlement',
@@ -235,6 +632,47 @@ export function Settlement() {
         huainanMomentum,
         campaignReports: lastSettlement?.campaignReports ?? [],
     })
+    const settledNorthPower = lastSettlement?.northPowerAfter ?? northPower
+    const settledSouthPower = lastSettlement?.southPowerAfter ?? southPower
+    const settledNorthStats = lastSettlement?.northStatsAfter ?? northStats
+    const settledSouthStats = lastSettlement?.southStatsAfter ?? southStats
+    const northPowerRows = buildSettlementPowerRows(lastSettlement?.northStatsBefore ?? settledNorthStats, settledNorthStats)
+    const southPowerRows = buildSettlementPowerRows(lastSettlement?.southStatsBefore ?? settledSouthStats, settledSouthStats)
+    const policyAftereffectTexts = lastSettlement?.policyAftereffect
+        ? selectSettlementPolicyAftereffectText(settlementPolicyFollowup, lastSettlement.policyAftereffect.summary)
+        : []
+    const anomalyEntries = buildSettlementAnomalyStream({
+        delayedBacklash: lastSettlement?.delayedBacklash ?? [],
+        backlashTexts: lastSettlement?.delayedBacklash?.length ? [] : backlashHints,
+        policyAftereffectTexts,
+        externalActionReports: lastSettlement?.externalActionReports ?? [],
+        relationshipReports: lastSettlement?.relationshipReports ?? [],
+        factionCollapseReports: lastSettlement?.factionCollapseReports ?? [],
+        borrowedBladeReports: lastSettlement?.borrowedBladeReports ?? [],
+        keyChangeHighlights: lastSettlement?.keyChangeHighlights ?? [],
+        campaignRecord: campaignRecord.visible ? campaignRecord : null,
+    })
+
+    useEffect(() => {
+        setActiveSettlementDeck('power')
+        setViewedAnomaly(false)
+    }, [currentRound])
+
+    const showPowerDeck = () => {
+        setActiveSettlementDeck('power')
+    }
+
+    const showAnomalyDeck = () => {
+        setActiveSettlementDeck('anomaly')
+        setViewedAnomaly(true)
+    }
+
+    const canProceedToNextVolume = viewedAnomaly
+    const handleNextVolume = () => {
+        if (!canProceedToNextVolume) return
+        nextPhase()
+    }
+
     useEffect(() => {
         let cancelled = false
 
@@ -300,7 +738,7 @@ export function Settlement() {
                 worldMemorySummary,
                 northQuoteCandidate,
                 trustChangeSummary: trustSummary,
-                northPowerChange: `综合国力 ${northPower.toFixed(1)}`,
+                northPowerChange: `综合国力 ${settledNorthPower.toFixed(1)}`,
                 factionSummary: judgeFacts.factionSummary,
                 relationshipSummary: judgeFacts.relationshipSummary,
                 externalSummary: judgeFacts.externalSummary,
@@ -336,10 +774,20 @@ export function Settlement() {
         return () => {
             cancelled = true
         }
-    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, northPower, npcFeedbacks, npcs, shuCampaign, worldMemoryLedger])
+    }, [currentRound, currentSchemes, empressReplyRecord, huainanCampaign, lastSettlement, settledNorthPower, npcFeedbacks, npcs, shuCampaign, worldMemoryLedger])
+
+    const settlementBleed = (
+        <div className="settlement-bleed" style={SETTLEMENT_ART_STYLE}>
+        </div>
+    )
 
     return (
-        <div className="page-container settlement page-enter">
+        <GameViewport
+            className="settlement-viewport animate-fade-in"
+            canvasClassName="settlement-design-canvas"
+            bleed={settlementBleed}
+        >
+        <div className="settlement-canvas-content settlement page-enter" style={SETTLEMENT_ART_STYLE}>
             {currentRound === 1 && !firstRoundGuideSeen.settlement && (
                 <FirstRoundGuideModal
                     title={settlementGuide.title}
@@ -348,18 +796,44 @@ export function Settlement() {
                 />
             )}
 
-            <div className="page-utility-row animate-slide-up">
+            <header className="settlement-volume-hud animate-slide-up">
+                <div className="settlement-volume-title-plaque">
+                    <img
+                        className="settlement-volume-seal"
+                        src={SETTLEMENT_ASSETS.volumeSeal}
+                        alt=""
+                        aria-hidden="true"
+                        draggable={false}
+                    />
+                    <h1 className="settlement-title-line">本卷结算</h1>
+                </div>
+                <div className="settlement-hud-status" aria-label="本卷结算后的当前状态">
+                    <div className="settlement-hud-status-chip">
+                        <span className="settlement-hud-status-label">南陈相对北周</span>
+                        <span className={`settlement-hud-status-value relative-badge level-${getRelativePowerLevel(settledNorthPower, settledSouthPower)}`}>
+                            {getRelativePowerLabel(settledNorthPower, settledSouthPower)}
+                        </span>
+                    </div>
+                    <div className="settlement-hud-status-chip">
+                        <span className="settlement-hud-status-label">南征风向</span>
+                        <span className={`settlement-hud-status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
+                    </div>
+                    <div className="settlement-hud-status-chip">
+                        <span className="settlement-hud-status-label">自身安危</span>
+                        <span className={`settlement-hud-status-value ${safetyRisk.className}`}>{safetyRisk.label}</span>
+                    </div>
+                </div>
                 <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
-            </div>
-
-            <div className="settlement-header animate-slide-up">
-                <h2 className="page-title">本回合结算</h2>
-            </div>
+            </header>
 
             <div className="settlement-content">
-                <div className="scroll-container animate-slide-up animate-delay-1">
-                    <div className="judge-narration gold-panel decree-panel">
-                        <div className="scroll-decorator top"></div>
+                <div className="scroll-container settlement-chronicle-shell animate-slide-up animate-delay-1">
+                    <div className="chronicle-scroll-art" aria-hidden="true">
+                        <span className="chronicle-scroll-side chronicle-scroll-left"></span>
+                        <span className="chronicle-scroll-paper"></span>
+                        <span className="chronicle-scroll-side chronicle-scroll-right"></span>
+                    </div>
+                    <div className="judge-narration chronicle-narration">
                         <h3 className="judge-title">{getChronicleVolumeTitle(currentRound)}</h3>
                         <div className="narration-content">
                             {isLoading ? (
@@ -368,213 +842,95 @@ export function Settlement() {
                                     <p className="narration-loading">天道正在结算本回合的得失</p>
                                 </div>
                             ) : (
-                                <p className="narration-text typewriter">{judgeNarration}</p>
+                                renderSettlementChronicleText(judgeNarration)
                             )}
                         </div>
-                        <div className="scroll-decorator bottom"></div>
                     </div>
                 </div>
 
-                <div className="changes-summary animate-slide-up animate-delay-4">
-                    <h3 className="section-title">大局推演</h3>
-                    {campaignRecord.visible && (
-                        <div className="glass-panel subtle-hints">
-                            <p className="result-text">
-                                <span className="result-scheme">{campaignRecord.title}</span>
-                                {' · '}
-                                {campaignRecord.phase}
-                            </p>
-                            <p className="result-text">{campaignRecord.recapText}</p>
-                            <p className="result-text">{campaignRecord.statusText}</p>
-                            {campaignRecord.resultText && <p className="result-text">{campaignRecord.resultText}</p>}
-                        </div>
-                    )}
-
-                    <div className="summary-grid glass-panel settlement-status-bar">
-                        <div className="summary-item status-item">
-                            <span className="summary-label">南陈相对北周</span>
-                            <span className={`relative-badge level-${getRelativePowerLevel(northPower, southPower)}`}>
-                                {getRelativePowerLabel(northPower, southPower)}
-                            </span>
-                        </div>
-                        <div className="summary-item status-item">
-                            <span className="summary-label status-label">
-                                自身安危
-                                <span className="status-help status-help-seal" title={SAFETY_RISK_TOOLTIP} aria-label={SAFETY_RISK_TOOLTIP}>
-                                    ?
-                                </span>
-                            </span>
-                            <span className={`summary-value status-value ${safetyRisk.className}`}>
-                                {safetyRisk.label}
-                            </span>
-                        </div>
-                        <div className="summary-item status-item">
-                            <span className="summary-label status-label">
-                                南征风向
-                                <span className="status-help status-help-seal" title={WAR_TREND_TOOLTIP} aria-label={WAR_TREND_TOOLTIP}>
-                                    ?
-                                </span>
-                            </span>
-                            <span className={`summary-value status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
-                        </div>
-                    </div>
-
-                    <div className="power-dashboard">
-                        <div className="radar-section">
-                            <RadarChart data={lastSettlement?.northStatsAfter ?? northStats} size={220} label="北周综合国力" />
-                        </div>
-                        <div className="radar-section">
-                            <RadarChart data={lastSettlement?.southStatsAfter ?? southStats} size={220} label="南陈综合国力" />
-                        </div>
-                    </div>
-                </div>
-
-                {lastSettlement?.keyChangeHighlights && lastSettlement.keyChangeHighlights.length > 0 && (
-                    <div className="results-section animate-slide-up animate-delay-4">
-                        <h3 className="section-title">关键变化</h3>
-                        <div className="results-list single-column">
-                            {lastSettlement.keyChangeHighlights.map(highlight => (
-                                <div
-                                    key={highlight.id}
-                                    className={`result-card glass-panel ${highlight.tone === 'negative' ? 'failure' : 'success'}`}
-                                >
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-scheme">{highlight.title}</span>
-                                            <span className="result-index">
-                                                {highlight.category === 'external' ? '地方军头' : highlight.category === 'faction' ? '朝堂势力' : '朝臣处境'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{highlight.text}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {(courtBacklashTexts.length > 0 || lastSettlement?.policyAftereffect) && (
-                    <div className="settlement-aftereffect-grid animate-slide-up animate-delay-4">
-                        {courtBacklashTexts.length > 0 && (
-                            <section className="results-section">
-                                <h3 className="section-title section-title-with-help">
-                                    朝局反噬
-                                    <span className="status-help status-help-seal" title={COURT_BACKLASH_TOOLTIP} aria-label={COURT_BACKLASH_TOOLTIP}>
-                                        ?
-                                    </span>
-                                </h3>
-                                <div className="results-list single-column">
-                                    {courtBacklashTexts.map(hint => (
-                                        <div key={hint} className="result-card glass-panel failure">
-                                            <p className="result-text">{hint}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {lastSettlement?.policyAftereffect && (
-                            <section className="results-section">
-                                <h3 className="section-title section-title-with-help">
-                                    问政余波
-                                    <span className="status-help status-help-seal" title={POLICY_AFTEREFFECT_TOOLTIP} aria-label={POLICY_AFTEREFFECT_TOOLTIP}>
-                                        ?
-                                    </span>
-                                </h3>
-                                <div className="result-card glass-panel success policy-aftereffect-card">
-                                    {selectSettlementPolicyAftereffectText(
-                                        settlementPolicyFollowup,
-                                        lastSettlement.policyAftereffect.summary,
-                                    ).map(text => (
-                                        <p key={text} className="result-text">{text}</p>
-                                    ))}
-                                    <div className="result-effects">
-                                        {Object.entries(sanitizeDeltaRecord(lastSettlement.policyAftereffect.effects)).map(([dim, val]) => {
-                                            if (!val) return null
-                                            const dimNames: Record<string, string> = {
-                                                finance: '财政',
-                                                grain: '粮赋',
-                                                military: '军事',
-                                                socialOrder: '民生秩序',
-                                                governance: '治理穿透力',
-                                            }
-                                            return (
-                                                <span key={`south-after-${dim}`} className={`effect-tag ${val > 0 ? 'positive' : 'negative'}`}>
-                                                    下回合：南陈{dimNames[dim]} {val > 0 ? '+' : ''}{val.toFixed(1)}
-                                                </span>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-                    </div>
-                )}
-
-                {lastSettlement?.externalActionReports && lastSettlement.externalActionReports.length > 0 && (
-                    <div className="results-section animate-slide-up animate-delay-4">
-                        <h3 className="section-title">外部势力明牌</h3>
-                        <div className="results-list">
-                            {lastSettlement.externalActionReports.map(report => (
-                                <div key={`${report.npcId}-${report.action}`} className="result-card glass-panel success">
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-scheme">{report.action === 'rebellion' ? '煽动造反' : '煽动割据'}</span>
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{report.outcome}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {lastSettlement?.relationshipReports && lastSettlement.relationshipReports.length > 0 && (
-                    <div className="results-section animate-slide-up animate-delay-4">
-                        <h3 className="section-title">关系链失衡</h3>
-                        <div className="results-list">
-                            {lastSettlement.relationshipReports.map(report => (
-                                <div key={`${report.structureId}-${report.edgeId}`} className="result-card glass-panel failure">
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-scheme">{report.structureName}</span>
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{report.summary}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {lastSettlement?.factionCollapseReports && lastSettlement.factionCollapseReports.length > 0 && (
-                    <div className="results-section animate-slide-up animate-delay-4">
-                        <h3 className="section-title">朝堂势力裂口</h3>
-                        <div className="results-list">
-                            {lastSettlement.factionCollapseReports.map(report => (
-                                <div
-                                    key={`${report.factionId}-${report.severity}`}
-                                    className={`result-card glass-panel ${report.severity === 'collapse' ? 'failure' : 'success'}`}
-                                >
-                                    <div className="result-header">
-                                        <div className="result-info">
-                                            <span className="result-scheme">{report.factionName}</span>
-                                            <span className="result-index">{report.severity === 'collapse' ? '崩盘' : '裂口'}</span>
-                                        </div>
-                                    </div>
-                                    <p className="result-text">{report.summary}</p>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="action-footer animate-slide-up animate-delay-4">
-                    <button className="btn-primary btn-next" onClick={nextPhase}>
-                        继续
+                <section className={`settlement-lower-deck is-${activeSettlementDeck} animate-slide-up animate-delay-2`} aria-label="本卷结算明细">
+                    <button
+                        type="button"
+                        className={`settlement-deck-tab settlement-deck-tab-power ${activeSettlementDeck === 'power' ? 'is-active' : ''}`}
+                        aria-pressed={activeSettlementDeck === 'power'}
+                        onClick={showPowerDeck}
+                    >
+                        <span className="settlement-deck-tab-label">两朝国力对比</span>
                     </button>
+
+                    <button
+                        type="button"
+                        className={`settlement-deck-tab settlement-deck-tab-anomaly ${activeSettlementDeck === 'anomaly' ? 'is-active' : ''}`}
+                        aria-pressed={activeSettlementDeck === 'anomaly'}
+                        onClick={showAnomalyDeck}
+                    >
+                        <span className="settlement-deck-tab-label">本卷异动</span>
+                        <span className={`settlement-deck-tab-state ${viewedAnomaly ? 'is-read' : 'is-unread'}`}>
+                            {viewedAnomaly ? '已阅' : '未阅'}
+                        </span>
+                    </button>
+
+                    <div className="settlement-deck-main">
+                        <div className="settlement-deck-view settlement-power-deck" aria-hidden={activeSettlementDeck !== 'power'}>
+                            <div className="settlement-power-grid">
+                                <SettlementPowerPanel
+                                    title="北周国力"
+                                    tone="north"
+                                    stats={settledNorthStats}
+                                    rows={northPowerRows}
+                                />
+                                <SettlementPowerPanel
+                                    title="南陈国力"
+                                    tone="south"
+                                    stats={settledSouthStats}
+                                    rows={southPowerRows}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="settlement-deck-view settlement-anomaly-panel settlement-anomaly-deck" aria-hidden={activeSettlementDeck !== 'anomaly'}>
+                            <div className="settlement-anomaly-stream" aria-label="本卷异动事件流">
+                                {anomalyEntries.length > 0 ? (
+                                    anomalyEntries.map(entry => (
+                                        <article
+                                            key={entry.id}
+                                            className={`settlement-anomaly-entry tone-${entry.tone} priority-${entry.priority}`}
+                                        >
+                                            <div className="settlement-anomaly-labels">
+                                                <span className="settlement-anomaly-label">{entry.label}</span>
+                                                {entry.subLabel && <span className="settlement-anomaly-sub-label">{entry.subLabel}</span>}
+                                                {entry.secondaryLabel && <span className="settlement-anomaly-sub-label">{entry.secondaryLabel}</span>}
+                                            </div>
+                                            <div className="settlement-anomaly-copy">
+                                                <h4>{entry.title}</h4>
+                                                <p>{entry.text}</p>
+                                            </div>
+                                        </article>
+                                    ))
+                                ) : (
+                                    <p className="settlement-anomaly-empty">{SETTLEMENT_ANOMALY_EMPTY_TEXT}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <div className={`action-footer animate-slide-up animate-delay-4 ${canProceedToNextVolume ? 'is-ready' : 'is-locked'}`}>
+                    <button
+                        className="btn-primary btn-next"
+                        onClick={handleNextVolume}
+                        aria-disabled={!canProceedToNextVolume}
+                    >
+                        下一卷
+                    </button>
+                    {!canProceedToNextVolume && (
+                        <span className="settlement-next-tooltip" role="tooltip">
+                            查看本卷异动后继续
+                        </span>
+                    )}
                 </div>
             </div>
         </div>
+        </GameViewport>
     )
 }

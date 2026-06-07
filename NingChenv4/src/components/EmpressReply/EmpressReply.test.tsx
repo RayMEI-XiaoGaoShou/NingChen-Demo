@@ -214,6 +214,16 @@ describe('EmpressReply source contract', () => {
         expect(existsSync(submitAsset)).toBe(true)
     })
 
+    it('keeps the light-page HUD icon targets readable on narrow preview widths', () => {
+        expect(empressReplySource).toContain('empress-reply-utility-row')
+        expect(empressReplyStyles).toContain('--empress-utility-button-size: clamp(30px, 3.75cqw, 48px);')
+        expect(empressReplyStyles).toContain('width: var(--empress-utility-button-size)')
+        expect(empressReplyStyles).toContain('height: var(--empress-utility-button-size)')
+        expect(empressReplyStyles).toContain('flex-basis: var(--empress-utility-button-size)')
+        expect(empressReplyStyles).not.toContain('transform: scale(0.82)')
+        expect(empressReplyStyles).not.toContain('transform: scale(0.68)')
+    })
+
     it('uses an unboxed image-backed continue button instead of the global primary button', () => {
         const submitWrapRule = cssRule('.empress-reply-submit-wrap')
         const submitRule = cssRule('.empress-reply-submit')

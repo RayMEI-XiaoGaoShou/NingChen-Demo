@@ -1,6 +1,5 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import '@mujian/js-sdk/lite'
 import App from './App'
 import { initAiService } from './ai/aiService'
 import './styles/variables.css'

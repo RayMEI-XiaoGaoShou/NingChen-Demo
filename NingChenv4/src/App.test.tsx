@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import appSource from './App.tsx?raw'
 import coverSource from './components/Cover/Cover.tsx?raw'
 import viteConfigSource from '../vite.config.ts?raw'
-import { getSchemePreviewRequest, isSchemeFeedbackPreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
+import { getSchemePreviewRequest, isSchemeFeedbackPreviewRequest, isSettlementPreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
 
 describe('App phase loading contract', () => {
     it('lazy-loads the narrative entry and main round pages', () => {
@@ -50,6 +50,14 @@ describe('App phase loading contract', () => {
         expect(appSource).toContain("currentPhase: 'SCHEME_FEEDBACK'")
         expect(appSource).toContain('settleRound({')
         expect(appSource).toContain('npcFeedbacks: preview.feedbacks')
+    })
+
+    it('supports a direct settlement preview URL', () => {
+        expect(isSettlementPreviewRequest('?preview=settlement')).toBe(true)
+        expect(isSettlementPreviewRequest('?preview=scheme-feedback')).toBe(false)
+        expect(appSource).toContain('settlementPreview')
+        expect(appSource).toContain("currentPhase: 'SETTLEMENT'")
+        expect(appSource).toContain('lastSettlement: preview.settlement')
     })
 
     it('defines stable manual chunk groups for React and the main phase clusters', () => {

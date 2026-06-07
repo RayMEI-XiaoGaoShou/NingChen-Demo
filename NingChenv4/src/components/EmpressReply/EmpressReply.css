@@ -16,6 +16,8 @@ body:has(.empress-reply) {
     --empress-kaiti-font: var(--font-calligraphy);
     --empress-reply-content-left: 36.4cqw;
     --empress-reply-content-width: 52.6cqw;
+    --empress-utility-button-size: clamp(30px, 3.75cqw, 48px);
+    --empress-utility-button-gap: clamp(6px, 0.78cqw, 10px);
     --reply-ink: #2d3429;
     --reply-ink-soft: rgba(45, 52, 41, 0.72);
     --reply-green: #3e6d52;
@@ -109,13 +111,13 @@ body:has(.empress-reply) {
 }
 
 .empress-reply .page-utility-actions {
-    gap: 0.78cqw;
+    gap: var(--empress-utility-button-gap);
 }
 
 .empress-reply .game-hud-icon-button {
-    width: 3.75cqw;
-    height: 3.75cqw;
-    flex-basis: 3.75cqw;
+    width: var(--empress-utility-button-size);
+    height: var(--empress-utility-button-size);
+    flex-basis: var(--empress-utility-button-size);
     background-image: none;
     background-color: transparent;
     filter:
@@ -583,8 +585,6 @@ body:has(.empress-reply) {
     .empress-reply-utility-row {
         top: 10px;
         right: 10px;
-        transform: scale(0.82);
-        transform-origin: top right;
     }
 
     .empress-reply-header {
@@ -694,7 +694,6 @@ body:has(.empress-reply) {
 
     .empress-reply-utility-row {
         right: 4px;
-        transform: scale(0.68);
     }
 
     .empress-reply-header {

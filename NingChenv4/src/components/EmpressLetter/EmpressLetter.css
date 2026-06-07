@@ -17,6 +17,8 @@ body:has(.empress-letter) {
     --empress-ink: #324032;
     --empress-ink-soft: rgba(50, 64, 50, 0.72);
     --empress-gold: #b89153;
+    --empress-utility-button-size: clamp(30px, 3.75cqw, 48px);
+    --empress-utility-button-gap: clamp(6px, 0.78cqw, 10px);
     position: fixed;
     inset: 0;
     width: 100dvw;
@@ -41,13 +43,13 @@ body:has(.empress-letter) {
 }
 
 .empress-letter .page-utility-actions {
-    gap: 0.78cqw;
+    gap: var(--empress-utility-button-gap);
 }
 
 .empress-letter .game-hud-icon-button {
-    width: 3.75cqw;
-    height: 3.75cqw;
-    flex-basis: 3.75cqw;
+    width: var(--empress-utility-button-size);
+    height: var(--empress-utility-button-size);
+    flex-basis: var(--empress-utility-button-size);
     background-image: none;
     background-color: transparent;
     filter:
@@ -649,8 +651,6 @@ body:has(.empress-letter) {
     .empress-letter-utility-row {
         top: 10px;
         right: 10px;
-        transform: scale(0.82);
-        transform-origin: top right;
     }
 
     .letter-header {
@@ -769,7 +769,6 @@ body:has(.empress-letter) {
 
     .empress-letter-utility-row {
         right: 4px;
-        transform: scale(0.68);
     }
 
     .letter-header {
