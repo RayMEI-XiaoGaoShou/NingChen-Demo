@@ -49,11 +49,11 @@ describe('schemeResultDisplay', () => {
         })
 
         expect(tags.map(tag => tag.label)).toEqual([
-            '北周财政 -0.2',
-            '北周治理穿透力 -1',
-            '后党 朝堂影响 -2',
-            '后党 内部稳定 -1',
-            '后党 军事实力 +1',
+            '北周 财政 -0.2',
+            '北周 统治 -1',
+            '后党 朝堂影响力 -2',
+            '后党 内部稳定度 -1',
+            '后党 军力 +1',
         ])
         expect(tags.map(tag => tag.label).join('|')).not.toContain('当前')
     })
@@ -81,10 +81,10 @@ describe('schemeResultDisplay', () => {
         })
 
         expect(tags.map(tag => tag.label)).toEqual([
-            '独孤文约 信任 +4',
-            '令狐律光 信任 -2',
-            '忠诚度 -3',
-            '军力 +2',
+            '独孤文约 信任度 +4',
+            '令狐律光 信任度 -2',
+            '独孤文约 忠诚度 -3',
+            '独孤文约 军力 +2',
             '令狐律光 忠诚度 -2',
             '令狐律光 军力 -1',
         ])
@@ -147,8 +147,8 @@ describe('schemeResultDisplay', () => {
         })
 
         expect(tags.map(tag => tag.label)).toEqual([
-            '祖廷 信任 +3',
-            '暗线 +1',
+            '祖廷 信任度 +3',
+            '祖廷 已知情报 +1',
         ])
         expect(getSchemeNpcActionDisplay({
             npcName: '祖廷',

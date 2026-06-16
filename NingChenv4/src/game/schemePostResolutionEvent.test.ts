@@ -41,7 +41,7 @@ function makeResult(patch: Partial<SchemeResult> = {}): SchemeResult {
             motionSource: 'fallback',
             primaryDimensions: ['finance'],
             secondaryDimensions: [],
-            effectSummary: ['北周财政-1'],
+            effectSummary: ['北周 财政-1'],
         },
         ...patch,
     }
@@ -120,7 +120,7 @@ describe('scheme post resolution events', () => {
                 relatedNpcName: undefined,
                 schemeType: 'rebellion',
                 primaryDimensions: ['military', 'grain'],
-                effectSummary: ['北周军事-3', '北周粮赋-2'],
+                effectSummary: ['北周 军事-3', '北周 粮草-2'],
             },
         })
         const patched = attachExternalActionPostResolution(baseResult, {

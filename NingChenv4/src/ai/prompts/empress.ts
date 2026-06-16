@@ -24,10 +24,10 @@ export function buildEmpressPrompt(params: {
     const weakest = Object.entries(params.southStats).sort(([, a], [, b]) => (a as number) - (b as number))[0]
     const dimNames: Record<string, string> = {
         finance: '财政',
-        grain: '粮赋',
+        grain: '粮草',
         military: '军事',
         socialOrder: '民生',
-        governance: '治理',
+        governance: '统治',
     }
 
     return [
@@ -96,7 +96,7 @@ export function buildEmpressFeedbackPrompt(context: EmpressFeedbackContext): Cha
 本回合牵挂模板【${context.concernTitle}】：${context.concernOpening}
 牵挂叠加：${context.playerConcernOverlay}
 收束提示：${context.concernClosingHint}
-${context.recentAftereffectSummary ? `上一轮问政余波：${context.recentAftereffectSummary}` : '上一轮问政余波：暂无额外余波'}
+${context.recentAftereffectSummary ? `上一轮政务影响：${context.recentAftereffectSummary}` : '上一轮政务影响：暂无额外影响'}
 
 ${voiceProfile}
 

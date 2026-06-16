@@ -67,7 +67,7 @@ function makeEmpressFeedbackContext(): EmpressFeedbackContext {
         warWindowSummary: '眼下已是战焦临身之时，节奏、后勤与代价都比空泛气魄更重要。',
         playerDangerStage: 'under_watch',
         playerPositionSummary: '密札安全口径：北来书信终究不稳妥，回批宜更收束，不宜把话说得太满。',
-        recentAftereffectSummary: '上一回合的问政余波仍在发酵。',
+        recentAftereffectSummary: '上一回合的政务影响仍在发酵。',
         concernTitle: '淮南军书',
         concernOpening: '淮南军书压到案前，朕读你的字，倒更想起你也在另一处战场。',
         concernClosingHint: '结尾宜强调战役可进，后勤与性命不可轻掷。',
@@ -131,7 +131,7 @@ describe('buildSchemeNpcActionPrompt', () => {
                 schemeType: 'advise',
                 playerSpeech: '借京畿三仓旧账压祖廷。',
             },
-            effectSummary: '北周粮赋-0.2；北周财政-0.1；北周治理穿透力-0.1',
+            effectSummary: '北周 粮草-0.2；北周 财政-0.1；北周 统治-0.1',
             fallbackText: '祖廷调取账册。',
             narrativeObligations: [
                 { dimension: 'grain', subjectLabel: '粮道/仓廪', direction: 'damage', reasonCode: 'missing_damage_mechanism_grain' },
@@ -154,7 +154,7 @@ describe('buildSchemeNpcActionPrompt', () => {
                 schemeType: 'advise',
                 playerSpeech: '先补军需，再续粮道。此策虽利燕王，也会让北周军粮更顺。',
             },
-            effectSummary: '北周粮赋+0.1；北周军事+0.1',
+            effectSummary: '北周 粮草+0.1；北周 军事+0.1',
             fallbackText: '宇文棣重排军需与粮道。',
             narrativeObligations: [
                 { dimension: 'grain', subjectLabel: '粮道/仓廪', direction: 'benefit', reasonCode: 'missing_benefit_mechanism_grain' },
@@ -177,7 +177,7 @@ describe('buildSchemeNpcActionPrompt', () => {
                 schemeType: 'frame',
                 playerSpeech: '让他急着自辩，自己乱了案牍口径。',
             },
-            effectSummary: '北周治理穿透力-0.4',
+            effectSummary: '北周 统治-0.4',
             fallbackText: '宗艾急于切割自身嫌疑。',
         }).map(message => message.content).join('\n')
 
@@ -196,7 +196,7 @@ describe('buildSchemeNpcActionPrompt', () => {
                 schemeType: 'proxy',
                 playerSpeech: '借宗艾之手收祖廷旧案。',
             },
-            effectSummary: '北周财政-3.1；后党朝堂影响-5',
+            effectSummary: '北周 财政-3.1；后党 朝堂影响力-5',
             fallbackText: '宗艾借势落下最后一手，祖廷已被朝廷处决。',
             postResolutionEvent: {
                 kind: 'borrowed_blade',
@@ -225,8 +225,8 @@ describe('buildSchemeNpcActionPrompt', () => {
         expect(context).toContain('皇帝恩宠')
         expect(context).toContain('太后眷顾')
         expect(context).toContain('所属派系：后党')
-        expect(context).toContain('朝堂影响')
-        expect(context).toContain('内部稳定')
+        expect(context).toContain('朝堂影响力')
+        expect(context).toContain('内部稳定度')
     })
 
     it('adds revealed secret thread guidance to intel npc action prompts', () => {
@@ -903,9 +903,9 @@ describe('buildNorthSchemeParsePrompt', () => {
         })[1].content
 
         expect(omenPrompt).toContain('目标类型：外部军头')
-        expect(omenPrompt).toContain('军事力量 55')
-        expect(omenPrompt).toContain('朝廷忠诚 34')
-        expect(omenPrompt).toContain('信任 15')
+        expect(omenPrompt).toContain('军力 55')
+        expect(omenPrompt).toContain('忠诚度 34')
+        expect(omenPrompt).toContain('信任度 15')
         expect(omenPrompt).toContain('阵营偏向 自立算盘')
         expect(omenPrompt).toContain('外部状态 仍受节制')
         expect(omenPrompt).toContain('"omenAccusationClarity"')

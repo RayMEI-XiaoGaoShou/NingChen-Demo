@@ -2,17 +2,17 @@ import { describe, expect, it } from 'vitest'
 import appSource from './App.tsx?raw'
 import coverSource from './components/Cover/Cover.tsx?raw'
 import viteConfigSource from '../vite.config.ts?raw'
-import { getSchemePreviewRequest, isSchemeFeedbackPreviewRequest, isSettlementPreviewRequest, shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
+import { shouldHideGlobalHeader, shouldUseRoundStartFullscreenShell } from './App'
 
 describe('App phase loading contract', () => {
     it('lazy-loads the narrative entry and main round pages', () => {
         expect(appSource).toContain("lazy(() => import('./components/Cover/Cover')")
         expect(appSource).toContain("lazy(() => import('./components/Prologue/Prologue')")
         expect(appSource).toContain("lazy(() => import('./components/CourtView/CourtView')")
-        expect(appSource).toContain("lazy(() => import('./components/SchemePanel/SchemePanel')")
         expect(appSource).toContain("lazy(() => import('./components/EmpressReply/EmpressReply')")
         expect(appSource).toContain("lazy(() => import('./components/Settlement/Settlement')")
         expect(appSource).toContain("lazy(() => import('./components/Ending/Ending')")
+        expect(appSource).not.toContain("lazy(() => import('./components/SchemePanel/SchemePanel')")
     })
 
     it('wraps page rendering in Suspense with a dedicated loading shell', () => {
@@ -28,36 +28,13 @@ describe('App phase loading contract', () => {
         expect(coverSource).toContain('cover-subtitle')
     })
 
-    it('supports a dedicated embedded omen scheme preview URL', () => {
-        expect(getSchemePreviewRequest('?preview=scheme-omen&target=hebaqi')).toEqual({
-            targetNpcId: 'hebaqí',
-            schemeType: 'omen',
-        })
-        expect(getSchemePreviewRequest('?preview=scheme-omen&target=zongai')).toEqual({
-            targetNpcId: 'zongai',
-            schemeType: 'omen',
-        })
-        expect(getSchemePreviewRequest('?preview=other')).toBeNull()
-        expect(appSource).toContain('previewScheme={schemePreview}')
-        expect(appSource).toContain('currentRound: 13')
-        expect(appSource).toContain('first_omen_modal: true')
-    })
-
-    it('supports a direct scheme feedback preview URL', () => {
-        expect(isSchemeFeedbackPreviewRequest('?preview=scheme-feedback')).toBe(true)
-        expect(isSchemeFeedbackPreviewRequest('?preview=scheme-omen')).toBe(false)
-        expect(appSource).toContain('buildSchemeFeedbackPreviewState')
-        expect(appSource).toContain("currentPhase: 'SCHEME_FEEDBACK'")
-        expect(appSource).toContain('settleRound({')
-        expect(appSource).toContain('npcFeedbacks: preview.feedbacks')
-    })
-
-    it('supports a direct settlement preview URL', () => {
-        expect(isSettlementPreviewRequest('?preview=settlement')).toBe(true)
-        expect(isSettlementPreviewRequest('?preview=scheme-feedback')).toBe(false)
-        expect(appSource).toContain('settlementPreview')
-        expect(appSource).toContain("currentPhase: 'SETTLEMENT'")
-        expect(appSource).toContain('lastSettlement: preview.settlement')
+    it('does not expose App-level preview routes for hidden flows', () => {
+        expect(appSource).not.toContain(['getScheme', 'PreviewRequest'].join(''))
+        expect(appSource).not.toContain(['isSchemeFeedback', 'PreviewRequest'].join(''))
+        expect(appSource).not.toContain(['isSettlement', 'PreviewRequest'].join(''))
+        expect(appSource).not.toContain(['previewScheme={scheme', 'Preview}'].join(''))
+        expect(appSource).not.toContain('buildSchemeFeedbackPreviewState')
+        expect(appSource).not.toContain('settlementPreview')
     })
 
     it('defines stable manual chunk groups for React and the main phase clusters', () => {
@@ -66,6 +43,16 @@ describe('App phase loading contract', () => {
         expect(viteConfigSource).toContain('phase-entry')
         expect(viteConfigSource).toContain('phase-core-loop')
         expect(viteConfigSource).toContain('phase-resolution')
+    })
+
+    it('keeps the local DeepSeek key server-side in the Vite dev proxy', () => {
+        expect(viteConfigSource).toContain("import { defineConfig, loadEnv } from 'vite'")
+        expect(viteConfigSource).toContain("const env = loadEnv(mode, process.cwd(), '')")
+        expect(viteConfigSource).toContain('const deepSeekProxyApiKey = env.DEEPSEEK_API_KEY')
+        expect(viteConfigSource).toContain("target: deepSeekProxyBaseUrl")
+        expect(viteConfigSource).toContain("headers: deepSeekProxyApiKey")
+        expect(viteConfigSource).toContain("Authorization: `Bearer ${deepSeekProxyApiKey}`")
+        expect(viteConfigSource).toContain("VITE_DEEPSEEK_API_KEY=local-dev-proxy")
     })
 })
 
@@ -87,12 +74,10 @@ describe('App shell helpers', () => {
         expect(shouldHideGlobalHeader('INGAME', 'ROUND_START')).toBe(true)
         expect(shouldHideGlobalHeader('PROLOGUE', 'ROUND_START')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'COURT_OBSERVE')).toBe(true)
-        expect(shouldHideGlobalHeader('INGAME', 'SCHEME_PHASE')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'EMPRESS_LETTER')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'SCHEME_FEEDBACK')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'EMPRESS_REPLY')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'SETTLEMENT')).toBe(true)
-        expect(shouldHideGlobalHeader('INGAME', 'ROUND_END')).toBe(true)
         expect(shouldHideGlobalHeader('INGAME', 'ROUND_START_LEGACY')).toBe(true)
         expect(shouldHideGlobalHeader('UNKNOWN_STEP', 'ROUND_START_LEGACY')).toBe(true)
         expect(shouldHideGlobalHeader('PROLOGUE', 'PROLOGUE')).toBe(true)

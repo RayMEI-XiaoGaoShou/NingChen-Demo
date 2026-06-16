@@ -1,47 +1,65 @@
 import { useCallback, useEffect, useRef } from 'react'
+import { stopAllGameSfx } from '../../audio/gameSfx'
 import { useGameStore } from '../../stores/gameStore'
-import { useMediaStore } from '../../stores/mediaStore'
+import { useMediaStore, type BgmSceneContext } from '../../stores/mediaStore'
 import { getBgmTrackPath, type BgmTrackKey } from '../../data/mediaAssets'
 
 export const BGM_BASE_VOLUME = 0.34
 export const BGM_DUCKED_VOLUME = 0.16
 export const BGM_DUCK_FADE_MS = 160
 export const BGM_RESTORE_FADE_MS = 320
+export const BGM_TRACK_FADE_MS = 600
 
 function getTargetBgmVolume(isVoiceDuckingActive: boolean) {
     return isVoiceDuckingActive ? BGM_DUCKED_VOLUME : BGM_BASE_VOLUME
 }
 
-function resolveTrack(
-    prologueStep: string,
-    helpOverlayOpen: boolean,
-    currentPhase: string,
-): BgmTrackKey {
+interface ResolveTrackInput {
+    prologueStep: string
+    helpOverlayOpen: boolean
+    currentPhase: string
+    bgmSceneContext: BgmSceneContext | null
+}
+
+export function resolveTrack({
+    prologueStep,
+    helpOverlayOpen,
+    currentPhase,
+    bgmSceneContext,
+}: ResolveTrackInput): BgmTrackKey | null {
     if (
         helpOverlayOpen ||
         prologueStep === 'COVER' ||
-        prologueStep === 'PROLOGUE' ||
         prologueStep === 'GAMEPLAY_GUIDE' ||
         prologueStep === 'CHARACTER_BIOS'
     ) {
-        return 'bgm4'
+        return 'coverEnding'
     }
 
     switch (currentPhase) {
+        case 'PROLOGUE':
+            return prologueStep === 'INGAME' ? 'roundCourtOverview' : 'coverEnding'
         case 'ROUND_START':
+            return 'roundCourtOverview'
         case 'COURT_OBSERVE':
-            return 'bgm1'
-        case 'SCHEME_PHASE':
+            if (bgmSceneContext === 'court-focus' || bgmSceneContext === 'court-scheme') {
+                return 'courtDetailScheme'
+            }
+            if (bgmSceneContext === 'external-focus' || bgmSceneContext === 'external-scheme') {
+                return 'externalDetailScheme'
+            }
+            return 'roundCourtOverview'
         case 'SCHEME_FEEDBACK':
-            return 'bgm2'
+            return 'schemeFeedback'
         case 'EMPRESS_LETTER':
+            return 'empressQuestion'
         case 'EMPRESS_REPLY':
-            return 'bgm3'
+            return 'empressReply'
         case 'SETTLEMENT':
-        case 'ROUND_END':
+            return 'settlement'
         case 'ENDING':
         default:
-            return 'bgm4'
+            return 'coverEnding'
     }
 }
 
@@ -52,8 +70,10 @@ export function GlobalAudio() {
     const {
         isMuted,
         currentTrack,
+        bgmSceneContext,
         playbackRequestToken,
         voiceDuckingCount,
+        sfxPlaybackLockCount,
         setCurrentTrack,
         setAudioReady,
     } = useMediaStore()
@@ -61,9 +81,11 @@ export function GlobalAudio() {
     const audioRef = useRef<HTMLAudioElement | null>(null)
     const readyRef = useRef(false)
     const mutedRef = useRef(isMuted)
+    const audioBlockedRef = useRef(sfxPlaybackLockCount > 0)
     const trackRef = useRef<BgmTrackKey | null>(currentTrack)
     const voiceDuckingActiveRef = useRef(voiceDuckingCount > 0)
     const volumeAnimationRef = useRef<number | null>(null)
+    const trackTransitionActiveRef = useRef(false)
 
     const cancelVolumeAnimation = useCallback(() => {
         if (volumeAnimationRef.current === null) return
@@ -71,7 +93,7 @@ export function GlobalAudio() {
         volumeAnimationRef.current = null
     }, [])
 
-    const applyBgmVolume = useCallback((targetVolume: number, durationMs: number) => {
+    const applyBgmVolume = useCallback((targetVolume: number, durationMs: number, onComplete?: () => void) => {
         const audio = audioRef.current
         if (!audio) return
 
@@ -81,6 +103,7 @@ export function GlobalAudio() {
         const startVolume = audio.volume
         if (durationMs <= 0 || Math.abs(startVolume - clampedTarget) < 0.001) {
             audio.volume = clampedTarget
+            onComplete?.()
             return
         }
 
@@ -94,6 +117,7 @@ export function GlobalAudio() {
                 volumeAnimationRef.current = window.requestAnimationFrame(tick)
             } else {
                 volumeAnimationRef.current = null
+                onComplete?.()
             }
         }
 
@@ -102,6 +126,7 @@ export function GlobalAudio() {
 
     useEffect(() => {
         mutedRef.current = isMuted
+        if (isMuted) stopAllGameSfx()
     }, [isMuted])
 
     useEffect(() => {
@@ -120,7 +145,7 @@ export function GlobalAudio() {
     const attemptPlayback = () => {
         const audio = audioRef.current
         const track = trackRef.current
-        if (!audio || !track || mutedRef.current) return
+        if (!audio || !track || mutedRef.current || audioBlockedRef.current || trackTransitionActiveRef.current) return
 
         const nextSrc = getBgmTrackPath(track)
         const resolvedSrc = new URL(nextSrc, window.location.origin).toString()
@@ -140,6 +165,26 @@ export function GlobalAudio() {
     }
 
     useEffect(() => {
+        const isAudioBlocked = sfxPlaybackLockCount > 0
+        audioBlockedRef.current = isAudioBlocked
+
+        const audio = audioRef.current
+        if (!audio) return
+
+        if (isAudioBlocked) {
+            cancelVolumeAnimation()
+            audio.pause()
+            readyRef.current = false
+            setAudioReady(false)
+            return
+        }
+
+        if (!isMuted && currentTrack) {
+            attemptPlayback()
+        }
+    }, [cancelVolumeAnimation, currentTrack, isMuted, setAudioReady, sfxPlaybackLockCount])
+
+    useEffect(() => {
         const audio = audioRef.current
         if (!audio) return
 
@@ -150,7 +195,7 @@ export function GlobalAudio() {
         audio.setAttribute('playsinline', 'true')
 
         const handleCanPlay = () => {
-            if (!mutedRef.current && !readyRef.current) {
+            if (!mutedRef.current && !audioBlockedRef.current && !readyRef.current) {
                 attemptPlayback()
             }
         }
@@ -167,18 +212,26 @@ export function GlobalAudio() {
     }, [cancelVolumeAnimation])
 
     useEffect(() => {
-        setCurrentTrack(resolveTrack(prologueStep, helpOverlayOpen, currentPhase))
-    }, [currentPhase, helpOverlayOpen, prologueStep, setCurrentTrack])
+        const resolvedTrack = resolveTrack({
+            prologueStep,
+            helpOverlayOpen,
+            currentPhase,
+            bgmSceneContext,
+        })
+        if (resolvedTrack) {
+            setCurrentTrack(resolvedTrack)
+        }
+    }, [bgmSceneContext, currentPhase, helpOverlayOpen, prologueStep, setCurrentTrack])
 
     useEffect(() => {
         const handlePointerDown = () => {
-            if (!mutedRef.current && !readyRef.current) {
+            if (!mutedRef.current && !audioBlockedRef.current && !readyRef.current) {
                 attemptPlayback()
             }
         }
 
         const handleVisibilityResume = () => {
-            if (document.visibilityState === 'visible' && !mutedRef.current && !readyRef.current) {
+            if (document.visibilityState === 'visible' && !mutedRef.current && !audioBlockedRef.current && !readyRef.current) {
                 attemptPlayback()
             }
         }
@@ -201,7 +254,7 @@ export function GlobalAudio() {
         const audio = audioRef.current
         if (!audio || !currentTrack) return
 
-        if (isMuted) {
+        if (isMuted || sfxPlaybackLockCount > 0) {
             cancelVolumeAnimation()
             audio.pause()
             readyRef.current = false
@@ -212,13 +265,34 @@ export function GlobalAudio() {
         const nextSrc = getBgmTrackPath(currentTrack)
         const resolvedSrc = new URL(nextSrc, window.location.origin).toString()
         if (audio.src !== resolvedSrc) {
-            audio.src = nextSrc
-            audio.load()
+            const switchTrack = () => {
+                const activeAudio = audioRef.current
+                if (!activeAudio || trackRef.current !== currentTrack || mutedRef.current || audioBlockedRef.current) {
+                    trackTransitionActiveRef.current = false
+                    return
+                }
+
+                activeAudio.src = nextSrc
+                activeAudio.load()
+                activeAudio.volume = 0
+                trackTransitionActiveRef.current = false
+                attemptPlayback()
+                applyBgmVolume(getTargetBgmVolume(voiceDuckingActiveRef.current), BGM_TRACK_FADE_MS)
+            }
+
+            if (readyRef.current && !audio.paused && audio.volume > 0.001) {
+                trackTransitionActiveRef.current = true
+                applyBgmVolume(0, BGM_TRACK_FADE_MS, switchTrack)
+            } else {
+                trackTransitionActiveRef.current = true
+                switchTrack()
+            }
+            return
         }
 
         applyBgmVolume(getTargetBgmVolume(voiceDuckingActiveRef.current), 0)
         attemptPlayback()
-    }, [applyBgmVolume, cancelVolumeAnimation, currentTrack, isMuted, playbackRequestToken, setAudioReady])
+    }, [applyBgmVolume, cancelVolumeAnimation, currentTrack, isMuted, playbackRequestToken, setAudioReady, sfxPlaybackLockCount])
 
     return <audio ref={audioRef} style={{ display: 'none' }} />
 }

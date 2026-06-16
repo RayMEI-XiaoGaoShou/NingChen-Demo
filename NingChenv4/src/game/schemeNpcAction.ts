@@ -3,11 +3,11 @@ import { deriveSpecialSchemeActionProfile } from './schemeSpecialActionProfile'
 import type { NationDimensions, NPC, NorthSchemeParseResult, SchemeAction } from './types'
 
 const DIMENSION_LABELS: Record<keyof NationDimensions, string> = {
-    finance: '度支账册与库藏',
-    grain: '粮道、仓廪与转运',
-    military: '军令、军需与兵械调度',
-    socialOrder: '民间风声与地方秩序',
-    governance: '诏令、案牍与中枢督责',
+    finance: '财政',
+    grain: '粮草',
+    military: '军事',
+    socialOrder: '民生',
+    governance: '统治',
 }
 
 const DIMENSION_KEYWORDS: Record<keyof NationDimensions | 'loyalty', RegExp> = {
@@ -168,17 +168,17 @@ export function describeSchemeNpcActionEffects(input: {
 
     for (const [dimension, value] of Object.entries(input.result.nationEffects) as Array<[keyof NationDimensions, number | undefined]>) {
         if (!isNonZero(value)) continue
-        pieces.push(`北周${DIMENSION_LABELS[dimension]}${formatSigned(value)}`)
+        pieces.push(`北周 ${DIMENSION_LABELS[dimension]}${formatSigned(value)}`)
     }
 
     if (isNonZero(input.result.personEffects.loyaltyDelta) && input.targetNpc.powerBase === 'external') {
-        pieces.push(`${input.targetNpc.name}忠诚${formatSigned(input.result.personEffects.loyaltyDelta)}`)
+        pieces.push(`${input.targetNpc.name}忠诚度${formatSigned(input.result.personEffects.loyaltyDelta)}`)
     }
     if (isNonZero(input.result.personEffects.militaryPowerDelta) && input.targetNpc.powerBase === 'external') {
         pieces.push(`${input.targetNpc.name}军力${formatSigned(input.result.personEffects.militaryPowerDelta)}`)
     }
     if (input.relatedNpc && isNonZero(input.result.personEffects.relatedLoyaltyDelta) && input.relatedNpc.powerBase === 'external') {
-        pieces.push(`${input.relatedNpc.name}忠诚${formatSigned(input.result.personEffects.relatedLoyaltyDelta)}`)
+        pieces.push(`${input.relatedNpc.name}忠诚度${formatSigned(input.result.personEffects.relatedLoyaltyDelta)}`)
     }
     if (input.relatedNpc && isNonZero(input.result.personEffects.relatedMilitaryPowerDelta) && input.relatedNpc.powerBase === 'external') {
         pieces.push(`${input.relatedNpc.name}军力${formatSigned(input.result.personEffects.relatedMilitaryPowerDelta)}`)
@@ -187,13 +187,13 @@ export function describeSchemeNpcActionEffects(input: {
         pieces.push(input.result.relatedImpactSummary)
     }
     if (isNonZero(input.result.personEffects.trustDelta)) {
-        pieces.push(`${input.targetNpc.name}信任${formatSigned(input.result.personEffects.trustDelta)}`)
+        pieces.push(`${input.targetNpc.name}信任度${formatSigned(input.result.personEffects.trustDelta)}`)
     }
     if (input.relatedNpc && isNonZero(input.result.personEffects.relatedTrustDelta)) {
-        pieces.push(`${input.relatedNpc.name}信任${formatSigned(input.result.personEffects.relatedTrustDelta)}`)
+        pieces.push(`${input.relatedNpc.name}信任度${formatSigned(input.result.personEffects.relatedTrustDelta)}`)
     }
     if (isNonZero(input.result.personEffects.intelDelta)) {
-        pieces.push(`暗线${formatSigned(input.result.personEffects.intelDelta)}`)
+        pieces.push(`${input.targetNpc.name}已知情报${formatSigned(input.result.personEffects.intelDelta)}`)
     }
     if (input.result.specialAction === 'secession') pieces.push(`${input.targetNpc.name}转入割据`)
     if (input.result.specialAction === 'rebellion') pieces.push(`${input.targetNpc.name}转入造反`)

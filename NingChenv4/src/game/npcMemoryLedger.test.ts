@@ -185,7 +185,7 @@ describe('npcMemoryLedger', () => {
                         motionSource: 'fallback',
                         primaryDimensions: ['governance'],
                         secondaryDimensions: [],
-                        effectSummary: ['北周治理穿透力-0.4'],
+                        effectSummary: ['北周 统治-0.4'],
                         relatedImpactSummary: null,
                     },
                 }),

@@ -201,7 +201,7 @@ describe('gameStore addScheme', () => {
         expect(state.worldMemoryLedger.map(memory => memory.summary).join('；')).not.toContain('南陈内应')
     })
 
-    it('keeps existing schemes when leaving scheme page and entering it again in the same round', () => {
+    it('keeps existing schemes while court observe waits for the remaining embedded schemes', () => {
         const targetNpcId = INITIAL_NPCS[0]!.id
 
         useGameStore.getState().addScheme({
@@ -212,14 +212,12 @@ describe('gameStore addScheme', () => {
             resolutionRoll: 0.1,
         })
 
-        useGameStore.setState({ currentPhase: 'SCHEME_PHASE' })
-        useGameStore.getState().prevPhase()
-        expect(useGameStore.getState().currentPhase).toBe('COURT_OBSERVE')
+        useGameStore.setState({ currentPhase: 'COURT_OBSERVE' })
 
         useGameStore.getState().nextPhase()
 
         const state = useGameStore.getState()
-        expect(state.currentPhase).toBe('SCHEME_PHASE')
+        expect(state.currentPhase).toBe('COURT_OBSERVE')
         expect(state.schemeCount).toBe(1)
         expect(state.currentSchemes).toHaveLength(1)
         expect(state.currentSchemes[0]?.targetNpcId).toBe(targetNpcId)
@@ -230,7 +228,7 @@ describe('gameStore addScheme', () => {
         const targetNpcId = INITIAL_NPCS[0]!.id
 
         useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
         })
         useGameStore.getState().addScheme({
             id: actionId,
@@ -359,7 +357,7 @@ describe('gameStore addScheme', () => {
                         motionSource: 'fallback',
                         primaryDimensions: ['grain', 'military'],
                         secondaryDimensions: [],
-                        effectSummary: ['令狐律光军力-1', '北周粮赋-0.4'],
+                        effectSummary: ['令狐律光军力-1', '北周 粮草-0.4'],
                         relatedImpactSummary: '令狐律光的粮道与军需军令受牵动',
                     },
                 }],
@@ -419,7 +417,7 @@ describe('gameStore addScheme', () => {
 
     it('keeps only one unhandled scheme follow-up available in a round', () => {
         useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
         })
 
         for (const [index, npc] of INITIAL_NPCS.slice(0, 3).entries()) {
@@ -486,7 +484,7 @@ describe('gameStore addScheme', () => {
         const actionId = 'scheme-1'
 
         useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
         })
         useGameStore.getState().addScheme({
             id: actionId,
@@ -683,7 +681,7 @@ describe('gameStore addScheme', () => {
     it('applies delayed policy fallout when entering the next round', () => {
         useGameStore.setState({
             currentRound: 2,
-            currentPhase: 'ROUND_END',
+            currentPhase: 'SETTLEMENT',
             southStats: { ...SOUTH_INITIAL },
             southPower: calculateCompositePower(SOUTH_INITIAL),
             lastPolicyAftereffect: {
@@ -773,7 +771,7 @@ describe('gameStore guide and prologue state', () => {
         const targetNpcId = INITIAL_NPCS[0]!.id
 
         useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
         })
         useGameStore.getState().addScheme({
             id: 'scheme-1',
@@ -802,7 +800,7 @@ describe('gameStore guide and prologue state', () => {
 
     it('returns a new game to the prologue and clears guide state on reset', () => {
         useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
             prologueStep: 'INGAME',
             helpOverlayOpen: true,
             helpOverlaySource: 'gameplay',
@@ -848,7 +846,7 @@ describe('gameStore guide and prologue state', () => {
 
         useGameStore.setState({
             currentRound: 2,
-            currentPhase: 'ROUND_END',
+            currentPhase: 'SETTLEMENT',
             fengDaozhiAssistsRemaining: 0,
         })
 

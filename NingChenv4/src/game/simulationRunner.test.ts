@@ -30,8 +30,8 @@ describe('simulationRunner', () => {
 
         expect(round11?.roundStart.campaignSummary).toContain('胜机')
         expect(round11?.roundStart.campaignSummary).not.toContain('得手')
-        expect(round12?.roundStart.mapSrc).toContain('map_2_bashu.webp')
-        expect(round13?.roundStart.mapSrc).toContain('map_2_bashu.webp')
+        expect(round12?.roundStart.mapSrc).toContain('roundstart-world-map-aiart-bashu-v1.webp')
+        expect(round13?.roundStart.mapSrc).toContain('roundstart-world-map-aiart-bashu-v1.webp')
         expect(result.finalState.shuCampaign.resolvedState).toBe('gained')
     })
 
@@ -92,8 +92,8 @@ describe('simulationRunner', () => {
         const round19 = result.rounds.find(item => item.round === 19)
 
         expect(round17?.roundStart.campaignSummary).toContain('缺口')
-        expect(round17?.roundStart.mapSrc).toContain('map_3_bashu_huainan.webp')
-        expect(round19?.roundStart.mapSrc).toContain('map_3_bashu_huainan.webp')
+        expect(round17?.roundStart.mapSrc).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
+        expect(round19?.roundStart.mapSrc).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
         expect(result.finalState.huainanCampaign.resolvedState).toBe('gained')
     })
 

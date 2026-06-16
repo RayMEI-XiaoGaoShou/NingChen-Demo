@@ -17,10 +17,10 @@ const SCHEME_NAMES: Record<SchemeType, string> = {
 
 const DIMENSION_NAMES: Record<keyof NationDimensions, string> = {
     finance: '财政',
-    grain: '粮赋',
+    grain: '粮草',
     military: '军事',
-    socialOrder: '社会秩序',
-    governance: '治理穿透力',
+    socialOrder: '民生',
+    governance: '统治',
 }
 
 export interface SettlementNpcFeedbackContext {
@@ -241,16 +241,16 @@ function buildCausalMotion(
 function buildEffectLine(result: SchemeResult, target: NPC | null, related: NPC | null): string {
     const pieces: string[] = []
     if (result.trustChange !== 0 && target) {
-        pieces.push(`${target.name}信任${formatSigned(result.trustChange)}`)
+        pieces.push(`${target.name}信任度${formatSigned(result.trustChange)}`)
     }
     if (result.relatedTrustChange !== 0 && related) {
-        pieces.push(`${related.name}信任${formatSigned(result.relatedTrustChange)}`)
+        pieces.push(`${related.name}信任度${formatSigned(result.relatedTrustChange)}`)
     }
     if (result.personEffects.loyaltyDelta !== 0 && target?.powerBase === 'external') {
-        pieces.push(`${target.name}忠诚${formatSigned(result.personEffects.loyaltyDelta)}`)
+        pieces.push(`${target.name}忠诚度${formatSigned(result.personEffects.loyaltyDelta)}`)
     }
     if ((result.personEffects.relatedLoyaltyDelta ?? 0) !== 0 && related?.powerBase === 'external') {
-        pieces.push(`${related.name}忠诚${formatSigned(result.personEffects.relatedLoyaltyDelta)}`)
+        pieces.push(`${related.name}忠诚度${formatSigned(result.personEffects.relatedLoyaltyDelta)}`)
     }
     if (result.personEffects.militaryPowerDelta !== 0 && target?.powerBase === 'external') {
         pieces.push(`${target.name}军力${formatSigned(result.personEffects.militaryPowerDelta)}`)
@@ -261,7 +261,7 @@ function buildEffectLine(result: SchemeResult, target: NPC | null, related: NPC 
 
     const nationParts = Object.entries(result.nationEffects)
         .filter(([, value]) => Boolean(value))
-        .map(([key, value]) => `北周${DIMENSION_NAMES[key as keyof NationDimensions]}${formatSigned(value ?? 0)}`)
+        .map(([key, value]) => `北周 ${DIMENSION_NAMES[key as keyof NationDimensions]}${formatSigned(value ?? 0)}`)
     pieces.push(...nationParts)
 
     if (result.specialAction === 'secession') {

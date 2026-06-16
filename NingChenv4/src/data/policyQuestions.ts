@@ -34,7 +34,7 @@ export const POLICY_QUESTIONS: PolicyQuestion[] = [
             { label: 'D', content: '军民一体', effects: { military: 2, socialOrder: 1, grain: -1 }, riskNote: '寺院势力可能借机扩张' },
         ],
         aiScoringFocus: '是否认识到流民是资源，不只是秩序问题',
-        nextRoundFeedback: '流民政策会在灾年和粮赋恢复中体现后果',
+        nextRoundFeedback: '流民政策会在灾年和粮草恢复中体现后果',
     },
     {
         id: 'Q03',

@@ -14,16 +14,16 @@ export interface SchemeNpcActionDisplay {
 
 const NORTH_DIMENSION_LABELS: Record<keyof NationDimensions, string> = {
     finance: '财政',
-    grain: '粮赋',
+    grain: '粮草',
     military: '军事',
-    socialOrder: '社会秩序',
-    governance: '治理穿透力',
+    socialOrder: '民生',
+    governance: '统治',
 }
 
 const FACTION_EFFECT_LABELS = {
-    courtInfluence: '朝堂影响',
-    internalStability: '内部稳定',
-    militaryPower: '军事实力',
+    courtInfluence: '朝堂影响力',
+    internalStability: '内部稳定度',
+    militaryPower: '军力',
 } as const
 
 type DisplaySchemeResult = Pick<SchemeResult, 'trustChange' | 'relatedTrustChange' | 'northDimensionChanges'> & {
@@ -41,19 +41,19 @@ export function buildSchemeResultEffectTags(params: {
     const tags: SchemeResultEffectTag[] = []
     const { result, targetNpc, relatedNpc } = params
 
-    pushTag(tags, targetNpc && result.trustChange !== 0 ? `${targetNpc.name} 信任 ${formatDelta(result.trustChange)}` : null, result.trustChange)
-    pushTag(tags, relatedNpc && result.relatedTrustChange !== 0 ? `${relatedNpc.name} 信任 ${formatDelta(result.relatedTrustChange)}` : null, result.relatedTrustChange)
+    pushTag(tags, targetNpc && result.trustChange !== 0 ? `${targetNpc.name} 信任度 ${formatDelta(result.trustChange)}` : null, result.trustChange)
+    pushTag(tags, relatedNpc && result.relatedTrustChange !== 0 ? `${relatedNpc.name} 信任度 ${formatDelta(result.relatedTrustChange)}` : null, result.relatedTrustChange)
 
     for (const [dimension, value] of Object.entries(result.northDimensionChanges ?? {}) as Array<[keyof NationDimensions, number]>) {
         const formatted = formatDelta(value)
         if (!formatted) continue
-        pushTag(tags, `北周${NORTH_DIMENSION_LABELS[dimension] ?? dimension} ${formatted}`, value)
+        pushTag(tags, `北周 ${NORTH_DIMENSION_LABELS[dimension] ?? dimension} ${formatted}`, value)
     }
 
     const personEffects = result.personEffects
     if (targetNpc?.powerBase === 'external' && personEffects) {
-        pushTag(tags, buildDeltaLabel('忠诚度', personEffects.loyaltyDelta), personEffects.loyaltyDelta)
-        pushTag(tags, buildDeltaLabel('军力', personEffects.militaryPowerDelta), personEffects.militaryPowerDelta)
+        pushTag(tags, buildDeltaLabel(`${targetNpc.name} 忠诚度`, personEffects.loyaltyDelta), personEffects.loyaltyDelta)
+        pushTag(tags, buildDeltaLabel(`${targetNpc.name} 军力`, personEffects.militaryPowerDelta), personEffects.militaryPowerDelta)
     }
 
     if (relatedNpc?.powerBase === 'external' && personEffects) {
@@ -61,7 +61,7 @@ export function buildSchemeResultEffectTags(params: {
         pushTag(tags, buildDeltaLabel(`${relatedNpc.name} 军力`, personEffects.relatedMilitaryPowerDelta ?? 0), personEffects.relatedMilitaryPowerDelta ?? 0)
     }
     if (personEffects) {
-        pushTag(tags, buildDeltaLabel('暗线', personEffects.intelDelta), personEffects.intelDelta)
+        pushTag(tags, buildDeltaLabel(targetNpc ? `${targetNpc.name} 已知情报` : '已知情报', personEffects.intelDelta), personEffects.intelDelta)
     }
 
     for (const [factionId, vector] of Object.entries(result.factionEffects ?? {})) {

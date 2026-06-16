@@ -61,6 +61,7 @@ export function NPCDetail() {
 
     const trustLevel = getTrustLevel(npc.trust)
     const trustLabel = getTrustLabel(npc.trust)
+    const portraitVariant = npc.powerBase === 'external' ? 'externalFullbody' : 'courtFullbody'
     const isTerminalExternal = isTerminalExternalNpc(npc)
     const courtStatus = getCourtStatus(npc)
     const isTerminalCourt = isCourtDispositionTarget(npc) && courtStatus !== 'active'
@@ -105,7 +106,7 @@ export function NPCDetail() {
                 </div>
 
                 <div className="npc-detail-portrait-wrap">
-                    <NpcPortrait name={npc.name} className="npc-detail-portrait" />
+                    <NpcPortrait name={npc.name} className="npc-detail-portrait" variant={portraitVariant} />
                 </div>
 
                 <div className={`trust-badge trust-${trustLevel}`}>
@@ -160,7 +161,7 @@ export function NPCDetail() {
                         <h4>外部筹码</h4>
                         <div className="detail-metrics">
                             <span className="metric-chip">军力 {npc.militaryPower}</span>
-                            <span className="metric-chip">忠诚 {npc.loyaltyToCourt}</span>
+                            <span className="metric-chip">忠诚度 {npc.loyaltyToCourt}</span>
                             <span className="metric-chip">倾向：{getExternalTiltLabel(npc)}</span>
                             <span className="metric-chip">态势：{getExternalPostureLabel(npc)}</span>
                         </div>

@@ -2,12 +2,10 @@ export type RoundPhase =
     | 'PROLOGUE'
     | 'ROUND_START'
     | 'COURT_OBSERVE'
-    | 'SCHEME_PHASE'
     | 'EMPRESS_LETTER'
     | 'SCHEME_FEEDBACK'
     | 'EMPRESS_REPLY'
     | 'SETTLEMENT'
-    | 'ROUND_END'
     | 'ENDING'
 
 export type PrologueStep = 'COVER' | 'PROLOGUE' | 'GAMEPLAY_GUIDE' | 'CHARACTER_BIOS' | 'INGAME'

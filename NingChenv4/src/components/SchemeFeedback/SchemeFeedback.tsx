@@ -34,6 +34,7 @@ import { SchemeOnboardingModal } from '../SchemePanel/SchemeOnboardingModal'
 import { GameViewport } from '../GameViewport/GameViewport'
 import { GameHudTools, HudStatusChip } from '../GameHud/GameHud'
 import { useSceneTransition } from '../SceneTransition/SceneTransition'
+import { useGameSfx } from '../../audio/gameSfx'
 import { getNpcDetailAvatarPath, getNpcDetailBackgroundPath } from '../../data/mediaAssets'
 import { buildSchemeResultEffectTags, getSchemeNpcActionDisplay } from './schemeResultDisplay'
 import './SchemeFeedback.css'
@@ -264,11 +265,6 @@ export function canProceedFromSchemeFeedback(params: {
     return params.allDone && params.allParsed && !params.followUpBlocked
 }
 
-export function shouldAutoRevealSchemeFeedbackPreview(search = typeof window !== 'undefined' ? window.location.search : ''): boolean {
-    const params = new URLSearchParams(search)
-    return params.get('preview') === 'scheme-feedback' && params.get('settlement') !== 'hidden'
-}
-
 function getBorrowedBladeOutcomeLabel(outcome: BorrowedBladeReport['outcome']): string {
     switch (outcome) {
         case 'executed':
@@ -357,6 +353,7 @@ export function SchemeFeedback() {
         huainanCampaign,
     } = useGameStore()
     const { runSceneTransition } = useSceneTransition()
+    const { playSfx } = useGameSfx()
 
     const [followUpDrafts, setFollowUpDrafts] = useState<Record<string, string>>({})
     const [submittingFollowUpId, setSubmittingFollowUpId] = useState<string | null>(null)
@@ -368,7 +365,6 @@ export function SchemeFeedback() {
     const [orchestratingFeedbacks, setOrchestratingFeedbacks] = useState(false)
     const [, setNpcActionEnhancing] = useState(false)
     const [revealedNpcActionFallbackIds, setRevealedNpcActionFallbackIds] = useState<Set<string>>(() => new Set())
-    const autoRevealSettlement = shouldAutoRevealSchemeFeedbackPreview()
     const schemeBatchKey = currentSchemes
         .map(action => action.id ?? `${action.targetNpcId}:${action.schemeType}`)
         .join('|')
@@ -538,7 +534,7 @@ export function SchemeFeedback() {
         npcActionEnhancementKeyRef.current = null
         npcActionFallbackTimersRef.current.forEach(timer => globalThis.clearTimeout(timer))
         npcActionFallbackTimersRef.current.clear()
-        setSettlementVisible(autoRevealSettlement)
+        setSettlementVisible(false)
         setActiveFeedbackId(null)
         setViewedFeedbackIds(new Set())
         setViewedSettlementIds(new Set())
@@ -546,7 +542,7 @@ export function SchemeFeedback() {
         setFeedbackBatchSettledKey(null)
         setOrchestratingFeedbacks(false)
         setNpcActionEnhancing(false)
-    }, [autoRevealSettlement, currentRound, schemeBatchKey])
+    }, [currentRound, schemeBatchKey])
 
     useEffect(() => {
         if (!feedbackEntries.length) return
@@ -556,11 +552,6 @@ export function SchemeFeedback() {
                 : feedbackEntries[0].id
         ))
     }, [feedbackEntryKey])
-
-    useEffect(() => {
-        if (!autoRevealSettlement || !feedbackEntries.length) return
-        setViewedFeedbackIds(new Set(feedbackEntries.map(item => item.id)))
-    }, [autoRevealSettlement, feedbackEntryKey])
 
     useEffect(() => {
         if (!resolvedActiveFeedbackId) return
@@ -587,11 +578,11 @@ export function SchemeFeedback() {
     }, [resolvedActiveFeedbackId, settlementRevealed])
 
     useEffect(() => {
-        if (lastSettlement && (settlementRevealIntentRef.current || autoRevealSettlement)) {
+        if (lastSettlement && settlementRevealIntentRef.current) {
             settlementRevealIntentRef.current = false
             setSettlementVisible(true)
         }
-    }, [autoRevealSettlement, lastSettlement])
+    }, [lastSettlement])
 
     useEffect(() => {
         if (!canProceed || lastSettlement) return
@@ -1122,6 +1113,7 @@ export function SchemeFeedback() {
     }
 
     const handleSkipFollowUp = (actionId: string) => {
+        playSfx('north-inline-action')
         skipSchemeFollowUp(actionId)
         setFollowUpDrafts(current => {
             const next = { ...current }
@@ -1142,6 +1134,7 @@ export function SchemeFeedback() {
         if (!actionId || !action || !targetNpc || !action.northParse || !followUp || followUp.status !== 'available') return
         if (!playerReply || submittingFollowUpId) return
 
+        playSfx('north-inline-action')
         setSubmittingFollowUpId(actionId)
 
         try {

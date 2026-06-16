@@ -10,11 +10,11 @@ import {
 import { useGameStore } from '../../stores/gameStore'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { useSceneTransition } from '../SceneTransition/SceneTransition'
+import { useGameSfx } from '../../audio/gameSfx'
 import './EmpressReply.css'
 
 const formatReplySouthDimensionLabel = (dimension: string) => {
-    const label = formatSouthDimensionLabel(dimension)
-    return label === '民生秩序' ? '民生' : label
+    return formatSouthDimensionLabel(dimension)
 }
 
 const POLICY_OPTION_LABELS: Record<string, string> = {
@@ -41,6 +41,7 @@ export function EmpressReply() {
     } = useGameStore()
     const [isGenerating, setIsGenerating] = useState(false)
     const { runSceneTransition } = useSceneTransition()
+    const { playSfx } = useGameSfx()
 
     const policyReport = lastSettlement?.policyReport ?? null
     const policyReasonAuthored = hasPolicyReason(policyReport)
@@ -103,11 +104,12 @@ export function EmpressReply() {
     const authoredReasonText = policyReport?.reason.trim()
     const handleContinue = useCallback(() => {
         if (!canContinue) return
+        playSfx('empress-next-page')
         void runSceneTransition({
             variant: 'to-settlement',
             onCovered: nextPhase,
         })
-    }, [canContinue, nextPhase, runSceneTransition])
+    }, [canContinue, nextPhase, playSfx, runSceneTransition])
 
     return (
         <div className="page-container empress-reply page-enter">
@@ -201,7 +203,7 @@ export function EmpressReply() {
                                                         key={dimension}
                                                         className={`empress-reply-effect ${rawValue > 0 ? 'positive' : 'negative'}`}
                                                     >
-                                                        {formatReplySouthDimensionLabel(dimension)} {formatSignedDelta(rawValue)}
+                                                        南陈 {formatReplySouthDimensionLabel(dimension)} {formatSignedDelta(rawValue)}
                                                     </span>
                                                 )) : (
                                                      <span className="empress-reply-effect muted">无显著波动</span>

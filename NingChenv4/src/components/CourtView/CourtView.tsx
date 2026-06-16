@@ -1,25 +1,21 @@
-﻿import { useGameStore } from '../../stores/gameStore'
+import { useGameStore } from '../../stores/gameStore'
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react'
-import { useMediaStore } from '../../stores/mediaStore'
+import { useMediaStore, type BgmSceneContext } from '../../stores/mediaStore'
 import { useUiStore } from '../../stores/uiStore'
 import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
-import { getPowerLabel, getTrustLabel, getTrustLevel, type NPC, type SchemeType } from '../../game/types'
+import { getPowerLabel, getTrustLevel, type NPC } from '../../game/types'
 import { getCourtBalance } from '../../game/nationEngine'
 import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '../../game/pressureEngine'
-import { getExternalTerminalLabel, isTerminalExternalNpc } from '../../game/externalStatus'
+import { isTerminalExternalNpc } from '../../game/externalStatus'
 import { getHighlightedNpcIds, getNpcRoundReaction } from '../../game/roundIntelEngine'
 import { buildExternalLineProgress } from '../../game/externalLineProgress'
 import {
     explainExternalActionUnlock,
-    getExternalPostureLabel,
     getExternalTiltLabel,
     getExternalMilitaryPostureLabel,
-    getFactionConditionLabel,
     getFavorPressureLabel,
 } from '../../game/explainability'
 import {
-    getCourtDispositionOpportunity as getCoreCourtDispositionOpportunity,
-    getCourtStatusLabel as getCoreCourtStatusLabel,
     isCourtDispositionTarget as isCourtDispositionTargetId,
     normalizeCourtDispositionNpc,
 } from '../../game/courtDisposition'
@@ -38,12 +34,13 @@ import {
 import { getFengDaozhiAdvisorNote } from '../../data/fengDaozhiAdvisorNotes'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
-import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { SchemeComposer, type SchemeSubmitResult } from '../SchemePanel/SchemePanel'
 import { GameHudTools, HudStatusChip } from '../GameHud/GameHud'
 import { renderMixedTextWithNumberSpans } from '../../utils/renderMixedText'
 import { formatRoundVolumeLabel } from '../../utils/roundLabels'
 import { GameViewport } from '../GameViewport/GameViewport'
+import { useSceneTransition } from '../SceneTransition/SceneTransition'
+import { useGameSfx } from '../../audio/gameSfx'
 import './CourtView.css'
 
 function getFactionDoctrine(factionId: 'emperor' | 'empress') {
@@ -92,7 +89,6 @@ function getDisplayedNpcTitle(npc: NPC): string {
 
 const LOYALTY_TOOLTIP = '忠诚度——此人还甘不甘心替北周朝廷卖命。越低，他越容易离心、割据，甚至在你推波助澜之下公然举起反旗。'
 const TRUST_TOOLTIP = '信任度——此人是否真把你当成能替他谋后路的人。越高，他越甘愿听你的话，你也越容易推动他走出下一步。'
-const MILITARY_TOOLTIP = '军力——此人手里还能调动多少兵马与武备。兵势越重，他若割据或造反便闹得越大；兵势越轻，中枢便越不拿他当回事。你既可以替他壮大兵势，也可以借朝廷之手消磨他的实力。'
 const WAR_TREND_TOOLTIP = '南征风向，是北周朝堂在“挥师南下”与“先安内政”之间的天平。帝党势盛则主战声起，后党稳固则南征搁浅。你要做的，是让这面天平始终不往最坏的方向倒。'
 const SAFETY_RISK_TOOLTIP = '自身安危，是你在北周朝堂上的处境有多危险。戒备你的权臣越多、发酵中的关系链越多，你离被盯上甚至被审查的深渊就越近。'
 
@@ -111,20 +107,12 @@ function getCourtStatus(npc: NPC): CourtStatus {
     return (npc as CourtDispositionNpc).courtStatus ?? 'active'
 }
 
-function getCourtStatusLabel(status: CourtStatus): string {
-    return getCoreCourtStatusLabel(status)
-}
-
 function getCourtFavor(npc: NPC) {
     const courtNpc = normalizeCourtDispositionNpc(npc) as CourtDispositionNpc
     return {
         emperorFavor: courtNpc.emperorFavor,
         empressDowagerFavor: courtNpc.empressDowagerFavor,
     }
-}
-
-function getCourtDispositionOpportunity(npc: NPC): 'safe' | 'dismissible' | 'executable' {
-    return getCoreCourtDispositionOpportunity(normalizeCourtDispositionNpc(npc))
 }
 
 function buildExternalWhisper(
@@ -172,7 +160,17 @@ function buildFallbackFengDaozhiAdvisorNote(
     ].filter(Boolean).join('。')
 }
 
-type CourtScope = 'overview' | 'court' | 'external'
+export type CourtScope = 'overview' | 'court' | 'external'
+
+export function resolveCourtBgmSceneContext(
+    scope: CourtScope,
+    selectedNpcPowerBase: NPC['powerBase'] | null,
+): BgmSceneContext {
+    if (selectedNpcPowerBase === 'court' || scope === 'court') return 'court-focus'
+    if (selectedNpcPowerBase === 'external' || scope === 'external') return 'external-focus'
+    return 'court-overview'
+}
+
 type CourtStrengthPart = {
     label: string
     value: number
@@ -257,8 +255,6 @@ function getNpcTitlePlaque(npc: NPC): string | null {
 }
 
 function getCourtStrengthPartLabel(label: string): string {
-    if (label === '内稳') return '内部稳定度'
-    if (label === '朝堂影响') return '朝堂影响力'
     return label
 }
 
@@ -306,15 +302,6 @@ interface CourtTopBarProps {
     onOpenGuide: () => void
 }
 
-export type CourtPreviewScheme = {
-    targetNpcId: string
-    schemeType: SchemeType
-}
-
-interface CourtViewProps {
-    previewScheme?: CourtPreviewScheme | null
-}
-
 function CourtTopBar({
     backLabel,
     location,
@@ -359,7 +346,7 @@ function CourtTopBar({
     )
 }
 
-export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
+export function CourtView() {
     const {
         currentRound,
         difficulty,
@@ -380,21 +367,22 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         huainanCampaign,
     } = useGameStore()
     const { openNpcDetail } = useUiStore()
-    const { isMuted, beginVoiceDucking, endVoiceDucking, resetVoiceDucking } = useMediaStore()
-    const previewNpc = previewScheme ? npcs.find(npc => npc.id === previewScheme.targetNpcId) ?? null : null
-    const [scope, setScope] = useState<CourtScope>(() => (
-        previewNpc
-            ? previewNpc.powerBase === 'external' ? 'external' : 'court'
-            : 'overview'
-    ))
-    const [selectedNpcId, setSelectedNpcId] = useState<string | null>(previewScheme?.targetNpcId ?? null)
-    const [schemeDrawerNpcId, setSchemeDrawerNpcId] = useState<string | null>(previewScheme?.targetNpcId ?? null)
+    const { isMuted, beginVoiceDucking, endVoiceDucking, resetVoiceDucking, setBgmSceneContext } = useMediaStore()
+    const { runSceneTransition } = useSceneTransition()
+    const { playSfx, stopSfx } = useGameSfx()
+    const [scope, setScope] = useState<CourtScope>('overview')
+    const [selectedNpcId, setSelectedNpcId] = useState<string | null>(null)
+    const [schemeDrawerNpcId, setSchemeDrawerNpcId] = useState<string | null>(null)
     const statementAudioCacheRef = useRef<Map<string, HTMLAudioElement>>(new Map())
     const activeStatementAudioRef = useRef<HTMLAudioElement | null>(null)
     const activeStatementAudioSourceRef = useRef<string | null>(null)
     const detailVoiceAudioRef = useRef<HTMLAudioElement | null>(null)
     const publicStatementDuckingActiveRef = useRef(false)
     const detailVoiceDuckingActiveRef = useRef(false)
+    const gateSfxPrimedRef = useRef<Record<Exclude<CourtScope, 'overview'>, boolean>>({
+        court: false,
+        external: false,
+    })
     const hebaQiGlassBaseStyle = {
         '--hebaqi-glass-x': '22%',
         '--hebaqi-glass-y': '14%',
@@ -402,15 +390,6 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         '--hebaqi-glass-pull-x': '0px',
         '--hebaqi-glass-pull-y': '0px',
     } as CSSProperties
-
-    useEffect(() => {
-        if (!previewScheme) return
-
-        const nextPreviewNpc = npcs.find(npc => npc.id === previewScheme.targetNpcId) ?? null
-        setSelectedNpcId(previewScheme.targetNpcId)
-        setSchemeDrawerNpcId(previewScheme.targetNpcId)
-        setScope(nextPreviewNpc?.powerBase === 'external' ? 'external' : 'court')
-    }, [previewScheme?.targetNpcId, npcs])
 
     const powerLabel = getPowerLabel(northPower)
     const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
@@ -431,6 +410,14 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
     const highlightedNpcIds = new Set(getHighlightedNpcIds(currentRound, npcs))
     const selectedNpc = selectedNpcId ? npcs.find(npc => npc.id === selectedNpcId) ?? null : null
     const { emperorInfluence, empressInfluence } = getCourtBalance(factions, npcs, currentRound)
+
+    useEffect(() => {
+        setBgmSceneContext(resolveCourtBgmSceneContext(scope, selectedNpc?.powerBase ?? null))
+    }, [scope, selectedNpc?.powerBase, setBgmSceneContext])
+
+    useEffect(() => {
+        return () => setBgmSceneContext(null)
+    }, [setBgmSceneContext])
 
     const externalProgressMap = Object.fromEntries(
         externalNpcs.map(npc => [
@@ -461,8 +448,8 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
             strengthValue: emperorInfluence,
             strengthParts: [
                 { label: '军力', value: emperorFaction?.militaryPower ?? 0 },
-                { label: '内稳', value: emperorFaction?.internalStability ?? 0 },
-                { label: '朝堂影响', value: emperorFaction?.courtInfluence ?? 0 },
+                { label: '内部稳定度', value: emperorFaction?.internalStability ?? 0 },
+                { label: '朝堂影响力', value: emperorFaction?.courtInfluence ?? 0 },
             ],
         },
         {
@@ -474,8 +461,8 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
             strengthValue: empressInfluence,
             strengthParts: [
                 { label: '军力', value: empressFaction?.militaryPower ?? 0 },
-                { label: '内稳', value: empressFaction?.internalStability ?? 0 },
-                { label: '朝堂影响', value: empressFaction?.courtInfluence ?? 0 },
+                { label: '内部稳定度', value: empressFaction?.internalStability ?? 0 },
+                { label: '朝堂影响力', value: empressFaction?.courtInfluence ?? 0 },
             ],
         },
     ]
@@ -707,11 +694,36 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         setSelectedNpcId(npc.id)
     }
 
+    const primeGateSfx = (nextScope: Exclude<CourtScope, 'overview'>) => {
+        if (gateSfxPrimedRef.current[nextScope]) return
+        gateSfxPrimedRef.current[nextScope] = true
+        if (nextScope === 'court') {
+            playSfx('court-gate-hover')
+        } else {
+            playSfx('external-gate-hover')
+        }
+    }
+
+    const resetGateSfxPrime = (nextScope: Exclude<CourtScope, 'overview'>) => {
+        gateSfxPrimedRef.current[nextScope] = false
+        if (nextScope === 'court') {
+            stopSfx('court-gate-hover')
+        } else {
+            stopSfx('external-gate-hover')
+        }
+    }
+
     const goScope = (nextScope: Exclude<CourtScope, 'overview'>) => {
+        primeGateSfx(nextScope)
         stopNpcDetailVoice()
-        setSelectedNpcId(null)
-        setSchemeDrawerNpcId(null)
-        setScope(nextScope)
+        void runSceneTransition({
+            variant: 'north-dark-cloud',
+            onCovered: () => {
+                setSelectedNpcId(null)
+                setSchemeDrawerNpcId(null)
+                setScope(nextScope)
+            },
+        })
     }
 
     const backToOverview = () => {
@@ -723,6 +735,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
 
     const enterSchemeWithNpc = (npc: NPC) => {
         if (schemeCount >= maxSchemes || usedNpcIds.has(npc.id)) return
+        playSfx('north-page-action')
         setSchemeDrawerNpcId(npc.id)
     }
 
@@ -1071,7 +1084,12 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
         >
             {renderHud(formatRoundVolumeLabel(currentRound))}
             <div className="court-gate-grid">
-                <button className="court-gate court-gate-court" onClick={() => goScope('court')}>
+                <button
+                    className="court-gate court-gate-court"
+                    onPointerEnter={() => primeGateSfx('court')}
+                    onPointerLeave={() => resetGateSfxPrime('court')}
+                    onClick={() => goScope('court')}
+                >
                     <span className="court-gate-visual" aria-hidden="true">
                         <span className="court-gate-art-mask">
                             <span className="court-gate-art" />
@@ -1087,7 +1105,12 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         <strong>朝堂势力</strong>
                     </span>
                 </button>
-                <button className="court-gate court-gate-external" onClick={() => goScope('external')}>
+                <button
+                    className="court-gate court-gate-external"
+                    onPointerEnter={() => primeGateSfx('external')}
+                    onPointerLeave={() => resetGateSfxPrime('external')}
+                    onClick={() => goScope('external')}
+                >
                     <span className="court-gate-visual" aria-hidden="true">
                         <span className="court-gate-art-mask">
                             <span className="court-gate-art" />
@@ -1394,9 +1417,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                     {isComposing ? (
                         <div className="court-hebaqi-composer-shell">
                             <SchemeComposer
-                                mode="embedded"
                                 lockedNpcId={npc.id}
-                                initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}
                                 onAfterSubmit={handleEmbeddedSchemeAfterSubmit}
                             />
                         </div>
@@ -1502,15 +1523,19 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                         : undefined,
                 )}
                 <div className="court-character-stand">
-                    <NpcPortrait name={npc.name} className="court-detail-portrait" positionY="12%" zoom={1.04} />
+                    <NpcPortrait
+                        name={npc.name}
+                        className="court-detail-portrait"
+                        positionY="12%"
+                        zoom={1.04}
+                        variant={isExternal ? 'externalFullbody' : 'courtFullbody'}
+                    />
                     <span>{npc.name}</span>
                 </div>
                 <article className={`court-dossier ${isComposing ? 'court-dossier-composer' : ''}`}>
                     {isComposing ? (
                         <SchemeComposer
-                            mode="embedded"
                             lockedNpcId={npc.id}
-                            initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}
                             onAfterSubmit={handleEmbeddedSchemeAfterSubmit}
                         />
                     ) : (
@@ -1542,7 +1567,7 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
                                         <p>
                                             军力 {npc.militaryPower} · {getExternalMilitaryPostureLabel(npc.militaryPower)}
                                             {' / '}
-                                            忠诚 {npc.loyaltyToCourt}
+                                            忠诚度 {npc.loyaltyToCourt}
                                             {' / '}
                                             {getExternalTiltLabel(npc.alignmentBias)}
                                         </p>
@@ -1597,368 +1622,3 @@ export function CourtView({ previewScheme = null }: CourtViewProps = {}) {
     )
 }
 
-export function LegacyCourtView() {
-    const {
-        currentRound,
-        difficulty,
-        nextPhase,
-        northPower,
-        playerSuspicionHeat,
-        invasionPressure,
-        schemeCount,
-        maxSchemes,
-        npcs,
-        factions,
-        intelProgress,
-        prevPhase,
-        firstRoundGuideSeen,
-        markFirstRoundGuideSeen,
-        openGameplayGuide,
-        shuCampaign,
-        huainanCampaign,
-    } = useGameStore()
-    const { openNpcDetail } = useUiStore()
-
-    const powerLabel = getPowerLabel(northPower)
-    const courtNpcs = npcs.filter(npc => npc.powerBase === 'court')
-    const externalNpcs = npcs.filter(npc => npc.powerBase === 'external' && npc.isAlive)
-    const emperorMembers = courtNpcs.filter(npc => npc.factionId === 'emperor')
-    const empressMembers = courtNpcs.filter(npc => npc.factionId === 'empress')
-    const longxiMembers = externalNpcs.filter(npc => npc.factionId === 'longxi')
-    const prairieMembers = externalNpcs.filter(npc => npc.factionId === 'prairie')
-    const externalProgressMap = Object.fromEntries(
-        externalNpcs.map(npc => [
-            npc.id,
-            buildExternalLineProgress({
-                npc,
-                unlockedSecrets: intelProgress[npc.id] ?? 0,
-                difficulty,
-                round: currentRound,
-                externalActionEnabled: roundSupportsExternalAction(
-                    currentRound,
-                    npc.highActionBias === 'rebellion' ? 'rebellion' : 'secession',
-                ),
-            }),
-        ]),
-    )
-    const { emperorInfluence, empressInfluence } = getCourtBalance(factions, npcs, currentRound)
-
-    const invasionRisk = getInvasionPressurePresentation(invasionPressure)
-    const safetyRisk = getPlayerDangerPresentation(playerSuspicionHeat)
-
-    return (
-        <div className="page-container court-view page-enter">
-            {currentRound === 1 && !firstRoundGuideSeen.court_observe && (
-                <FirstRoundGuideModal
-                    title={FIRST_ROUND_GUIDE_CONTENT.court_observe.title}
-                    body={FIRST_ROUND_GUIDE_CONTENT.court_observe.body}
-                    onClose={() => markFirstRoundGuideSeen('court_observe')}
-                />
-            )}
-
-            <div className="page-utility-row utility-split animate-slide-up">
-                <button className="btn-utility-secondary" onClick={prevPhase}>
-                    上一页
-                </button>
-                <PageUtilityActions onOpenGuide={() => openGameplayGuide('gameplay')} />
-            </div>
-
-            <div className="court-header animate-slide-up">
-                <h2 className="page-title">朝堂局势</h2>
-
-                <div className="glass-panel status-bar">
-                    <div className="status-item">
-                        <span className="status-label">北周国力</span>
-                        <span className={`status-value power-level-${powerLabel}`}>{powerLabel}</span>
-                    </div>
-                    <div className="status-item">
-                        <span className="status-label">
-                            南征风向
-                            <span
-                                className="status-help status-help-seal"
-                                title={WAR_TREND_TOOLTIP}
-                                aria-label={WAR_TREND_TOOLTIP}
-                            >
-                                ?
-                            </span>
-                        </span>
-                        <span className={`status-value ${invasionRisk.className}`}>{invasionRisk.label}</span>
-                    </div>
-                    <div className="status-item">
-                        <span className="status-label">
-                            自身安危
-                            <span
-                                className="status-help status-help-seal"
-                                title={SAFETY_RISK_TOOLTIP}
-                                aria-label={SAFETY_RISK_TOOLTIP}
-                            >
-                                ?
-                            </span>
-                        </span>
-                        <span className={`status-value ${safetyRisk.className}`}>{safetyRisk.label}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="court-main-grid animate-slide-up animate-delay-2">
-                <section className="court-column">
-                    <div className="section-heading-wrap">
-                        <h3 className="section-heading">朝堂势力</h3>
-                    </div>
-
-                    {[
-                        {
-                            id: 'emperor' as const,
-                            influence: emperorInfluence,
-                            faction: factions.find(faction => faction.id === 'emperor'),
-                            members: emperorMembers,
-                        },
-                        {
-                            id: 'empress' as const,
-                            influence: empressInfluence,
-                            faction: factions.find(faction => faction.id === 'empress'),
-                            members: empressMembers,
-                        },
-                    ].map(group => {
-                        const doctrine = getFactionDoctrine(group.id)
-                        return (
-                            <div key={group.id} className={`gold-panel faction-block faction-${group.id}`}>
-                                <div className="faction-summary-card">
-                                    <div className="faction-card-header">
-                                        <div>
-                                            <span className="faction-name">{doctrine.title}</span>
-                                            <p className="faction-doctrine">{doctrine.summary}</p>
-                                        </div>
-                                        <span className="faction-value">综合实力 {group.influence.toFixed(1)}</span>
-                                    </div>
-                                    <div className="faction-bar">
-                                        <div
-                                            className="faction-fill"
-                                            style={{ width: `${Math.max(12, Math.min(100, group.influence))}%` }}
-                                        />
-                                    </div>
-                                    <div className="faction-metrics">
-                                        <span>
-                                            朝堂影响 {group.faction?.courtInfluence ?? 0}
-                                            {' · '}
-                                            {getFactionConditionLabel('courtInfluence', group.faction?.courtInfluence ?? 0)}
-                                        </span>
-                                        <span>
-                                            军事实力 {group.faction?.militaryPower ?? 0}
-                                            {' · '}
-                                            {getFactionConditionLabel('militaryPower', group.faction?.militaryPower ?? 0)}
-                                        </span>
-                                        <span>
-                                            内部稳定 {group.faction?.internalStability ?? 0}
-                                            {' · '}
-                                            {getFactionConditionLabel('internalStability', group.faction?.internalStability ?? 0)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="npc-grid">
-                                    {group.members.map((npc, index) => {
-                                        const displayedTitle = getDisplayedNpcTitle(npc)
-                                        const knownIntel = intelProgress[npc.id] ?? 0
-                                        const courtStatus = getCourtStatus(npc)
-                                        const isTerminalCourt = isCourtDispositionTarget(npc) && getCourtStatus(npc) !== 'active'
-                                        const courtFavor = getCourtFavor(npc)
-                                        const opportunity = getCourtDispositionOpportunity(npc)
-                                        const dispositionHint = buildCourtDispositionHint(npc)
-                                        return (
-                                            <button
-                                                key={npc.id}
-                                                className={`npc-card trust-${getTrustLevel(npc.trust)} animate-slide-up ${(!npc.isAlive || isTerminalCourt) ? 'dead court-terminal' : ''}`}
-                                                style={{ animationDelay: `${0.12 + index * 0.04}s` }}
-                                                onClick={() => openNpcDetail(npc.id)}
-                                                disabled={!npc.isAlive || isTerminalCourt}
-                                            >
-                                                <NpcPortrait
-                                                    name={npc.name}
-                                                    className="npc-card-portrait"
-                                                    positionY="14%"
-                                                    zoom={1.1}
-                                                />
-                                                <div className="npc-card-main">
-                                                    <div className="npc-card-head">
-                                                        <div className="npc-head-copy">
-                                                            <span className="npc-name">{npc.name}</span>
-                                                            <span className="npc-title">{displayedTitle}</span>
-                                                        </div>
-                                                        <div className="npc-attitude">
-                                                            <div className="npc-trust-badge">{getTrustLabel(npc.trust)}</div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="npc-meta-row">
-                                                        <span className="npc-meta-chip">{group.faction?.name}</span>
-                                                        <span className="npc-meta-chip">
-                                                            已知情报 {getKnownIntelBudget(knownIntel)}/2
-                                                        </span>
-                                                    </div>
-                                                    {isCourtDispositionTarget(npc) && courtStatus === 'active' && (
-                                                        <>
-                                                            <div className="npc-favor-row">
-                                                                <span className="npc-meta-chip npc-favor-chip">
-                                                                    皇帝恩宠 {courtFavor.emperorFavor} · {getFavorPressureLabel('emperorFavor', courtFavor.emperorFavor)}
-                                                                </span>
-                                                                <span className="npc-meta-chip npc-favor-chip">
-                                                                    太后眷顾 {courtFavor.empressDowagerFavor} · {getFavorPressureLabel('empressDowagerFavor', courtFavor.empressDowagerFavor)}
-                                                                </span>
-                                                                {opportunity === 'dismissible' && (
-                                                                    <span className="npc-meta-chip npc-meta-chip-warning">可罢黜</span>
-                                                                )}
-                                                                {opportunity === 'executable' && (
-                                                                    <span className="npc-meta-chip npc-meta-chip-danger">可处决</span>
-                                                                )}
-                                                            </div>
-                                                            {dispositionHint && (
-                                                                <div className={`npc-court-disposition-hint npc-court-disposition-hint--${dispositionHint.tone}`}>
-                                                                    冯道之旁批：{dispositionHint.shortText}
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    )}
-                                                    {npc.isAlive && courtStatus === 'active' && (
-                                                        <span className="npc-reaction">
-                                                            {getNpcRoundReaction(currentRound, npc, knownIntel, {
-                                                                shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
-                                                                huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
-                                                            })}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {isTerminalCourt && (
-                                                    <div className="npc-dead-overlay npc-court-status-overlay">
-                                                        {getCourtStatusLabel(courtStatus)}
-                                                    </div>
-                                                )}
-                                                {!isTerminalCourt && !npc.isAlive && <div className="npc-dead-overlay">已死</div>}
-                                            </button>
-                                        )
-                                    })}
-                                </div>
-                            </div>
-                        )
-                    })}
-                </section>
-
-                <section className="court-column">
-                    <div className="section-heading-wrap">
-                        <h3 className="section-heading">地方军头</h3>
-                    </div>
-
-                    {[
-                        {
-                            id: 'longxi',
-                            members: longxiMembers,
-                        },
-                        {
-                            id: 'prairie',
-                            members: prairieMembers,
-                        },
-                    ].map(group => {
-                        const doctrine = getExternalBlocDoctrine(group.id as 'longxi' | 'prairie')
-                        return (
-                        <div key={group.id} className={`gold-panel faction-block faction-${group.id} external-block`}>
-                            <div className="faction-summary-card faction-summary-card-external">
-                                <div className="faction-card-header">
-                                    <div>
-                                        <span className="faction-name">{doctrine.title}</span>
-                                        <p className="faction-doctrine">{doctrine.summary}</p>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="external-grid">
-                                {group.members.map((npc, index) => {
-                                    const progress = externalProgressMap[npc.id]
-                                    const unlockedSecrets = intelProgress[npc.id] ?? 0
-                                    const displayedTitle = getDisplayedNpcTitle(npc)
-                                    const isTerminal = isTerminalExternalNpc(npc)
-                                    return (
-                                        <button
-                                            key={npc.id}
-                                            className={`external-card animate-slide-up ${isTerminal ? 'dead' : ''}`}
-                                            style={{ animationDelay: `${0.14 + index * 0.05}s` }}
-                                            onClick={() => openNpcDetail(npc.id)}
-                                            disabled={isTerminal}
-                                        >
-                                            <NpcPortrait
-                                                name={npc.name}
-                                                className="external-card-portrait"
-                                                positionY="14%"
-                                                zoom={1.08}
-                                            />
-                                            <div className="external-main">
-                                                <div className="external-card-header">
-                                                    <div className="external-name">{npc.name}</div>
-                                                    <div className="external-title npc-title">{displayedTitle}</div>
-                                                </div>
-                                                <div className="external-kpi-row">
-                                                    <div
-                                                        className="external-kpi external-kpi-explained"
-                                                        title={MILITARY_TOOLTIP}
-                                                        aria-label={MILITARY_TOOLTIP}
-                                                    >
-                                                        <span className="external-kpi-label">军力</span>
-                                                        <strong className="external-kpi-value">
-                                                            {npc.militaryPower} · {getExternalMilitaryPostureLabel(npc.militaryPower)}
-                                                        </strong>
-                                                    </div>
-                                                    <div
-                                                        className="external-kpi external-kpi-explained"
-                                                        title={LOYALTY_TOOLTIP}
-                                                        aria-label={LOYALTY_TOOLTIP}
-                                                    >
-                                                        <span className="external-kpi-label">忠诚度（对朝廷）</span>
-                                                        <strong className="external-kpi-value">{npc.loyaltyToCourt}</strong>
-                                                    </div>
-                                                    <div
-                                                        className="external-kpi external-kpi-explained"
-                                                        title={TRUST_TOOLTIP}
-                                                        aria-label={TRUST_TOOLTIP}
-                                                    >
-                                                        <span className="external-kpi-label">信任度（对主角）</span>
-                                                        <strong className="external-kpi-value">{npc.trust}</strong>
-                                                    </div>
-                                                </div>
-                                                <div className="external-stats">
-                                                    <span>{getExternalTiltLabel(npc.alignmentBias)}</span>
-                                                    <span>{getExternalPostureLabel(npc)}</span>
-                                                </div>
-                                                {!isTerminal && (
-                                                    <span className="npc-reaction external-reaction">
-                                                        {getNpcRoundReaction(currentRound, npc, intelProgress[npc.id] ?? 0, {
-                                                            shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state,
-                                                            huainanCampaignState: huainanCampaign.resolvedState ?? huainanCampaign.state,
-                                                        })}
-                                                    </span>
-                                                )}
-                                                {!isTerminal && progress && (
-                                                    <span className="npc-reaction external-reaction external-progress-copy">
-                                                        {buildExternalWhisper(npc, progress, unlockedSecrets)}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {isTerminal && (
-                                                <div className="npc-dead-overlay">{getExternalTerminalLabel(npc.externalStatus)}</div>
-                                            )}
-                                        </button>
-                                    )
-                                })}
-                            </div>
-                        </div>
-                    )})}
-                </section>
-            </div>
-
-            <div className="action-footer animate-slide-up animate-delay-4">
-                <div className="scheme-counter">
-                    今日可用计谋：<span className="highlight-number">{maxSchemes - schemeCount}</span>/<span className="highlight-number">{maxSchemes}</span>
-                </div>
-                <button className="btn-primary" onClick={nextPhase} disabled={schemeCount >= maxSchemes}>
-                    {schemeCount >= maxSchemes ? '今日已无可落之子' : '看定人选，去落子'}
-                </button>
-            </div>
-        </div>
-    )
-}

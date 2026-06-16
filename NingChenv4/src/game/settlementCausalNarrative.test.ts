@@ -75,7 +75,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
         expect(events[0]?.promptLine).toContain('NPC回报')
         expect(events[0]?.promptLine).not.toContain('追问回应')
         expect(events[0]?.promptLine).not.toContain('本官明日便以账册为由入奏帘前')
-        expect(events[0]?.promptLine).toContain('北周粮赋-1')
+        expect(events[0]?.promptLine).toContain('北周 粮草-1')
     })
 
     it('uses concrete npc action narrative as settlement causal motion when present', () => {
@@ -121,7 +121,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
                     motionSource: 'fallback',
                     primaryDimensions: ['grain'],
                     secondaryDimensions: [],
-                    effectSummary: ['北周粮赋-1'],
+                    effectSummary: ['北周 粮草-1'],
                     relatedImpactSummary: null,
                 },
             })],
@@ -160,7 +160,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
                     motionSource: 'fallback',
                     primaryDimensions: [],
                     secondaryDimensions: [],
-                    effectSummary: ['祖廷信任-6'],
+                    effectSummary: ['祖廷信任度-6'],
                     relatedImpactSummary: null,
                 },
             })],
@@ -196,7 +196,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
                         motionSource: 'fallback',
                         primaryDimensions: [],
                         secondaryDimensions: [],
-                        effectSummary: ['独孤文约信任+5'],
+                        effectSummary: ['独孤文约信任度+5'],
                         relatedImpactSummary: null,
                     },
                 }),
@@ -216,7 +216,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
                         motionSource: 'fallback',
                         primaryDimensions: [],
                         secondaryDimensions: [],
-                        effectSummary: ['祖廷信任+3', '暗线+1'],
+                                effectSummary: ['祖廷信任度+3', '祖廷已知情报+1'],
                         relatedImpactSummary: null,
                     },
                 }),
@@ -274,7 +274,7 @@ describe('buildSettlementSchemeCausalEvents', () => {
         })
 
         expect(events[0]?.promptLine).toContain('谶纬余音')
-        expect(events[0]?.promptLine).toContain('尔朱烈忠诚-8')
+        expect(events[0]?.promptLine).toContain('尔朱烈忠诚度-8')
         expect(events[0]?.promptLine).toContain('尔朱烈军力-3')
         expect(events[0]?.promptLine).toContain('粮道、军需与监军')
     })

@@ -51,7 +51,7 @@ export function buildSchemeNpcActionContext(params: {
 
     if (faction) {
         lines.push(
-            `所属派系：${faction.name}；军事力量 ${faction.militaryPower}；朝堂影响 ${faction.courtInfluence}；内部稳定 ${faction.internalStability}`,
+            `所属派系：${faction.name}；军力 ${faction.militaryPower}；朝堂影响力 ${faction.courtInfluence}；内部稳定度 ${faction.internalStability}`,
         )
     }
 

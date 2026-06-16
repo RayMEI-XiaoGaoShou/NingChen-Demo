@@ -7,7 +7,6 @@ import {
     getVisibleAvailableFollowUpId,
     orchestrateOmenEchoFeedback,
     shouldQueueRecoveryParse,
-    shouldAutoRevealSchemeFeedbackPreview,
     shouldDelaySchemeNpcActionFallback,
     shouldWaitForPrefetchedFeedback,
 } from './SchemeFeedback'
@@ -149,6 +148,9 @@ describe('SchemeFeedback orchestration', () => {
     })
 
     it('renders the compact response HUD and character-response stage', () => {
+        expect(schemeFeedbackSource).toContain("import { useGameSfx } from '../../audio/gameSfx'")
+        expect(schemeFeedbackSource).toContain('const { playSfx } = useGameSfx()')
+        expect(schemeFeedbackSource).toContain("playSfx('north-inline-action')")
         expect(schemeFeedbackSource).not.toContain('<span className="page-eyebrow">计谋回报</span>')
         expect(schemeFeedbackSource).not.toContain('<h2 className="page-title">计谋回报</h2>')
         expect(schemeFeedbackSource).toContain('<HudStatusChip label="已阅"')
@@ -657,15 +659,6 @@ describe('getVisibleAvailableFollowUpId', () => {
     })
 })
 
-describe('shouldAutoRevealSchemeFeedbackPreview', () => {
-    it('auto-reveals settlement results only for the direct preview unless hidden explicitly', () => {
-        expect(shouldAutoRevealSchemeFeedbackPreview('?preview=scheme-feedback')).toBe(true)
-        expect(shouldAutoRevealSchemeFeedbackPreview('?preview=scheme-feedback&settlement=revealed')).toBe(true)
-        expect(shouldAutoRevealSchemeFeedbackPreview('?preview=scheme-feedback&settlement=hidden')).toBe(false)
-        expect(shouldAutoRevealSchemeFeedbackPreview('?preview=scheme-omen')).toBe(false)
-    })
-})
-
 describe('SchemeFeedback', () => {
     it('shows the basic feedback guide before the follow-up onboarding on first entry', () => {
         state.firstRoundGuideSeen = { scheme_feedback: false }
@@ -855,7 +848,7 @@ describe('SchemeFeedback', () => {
             schemeOutcomeExplanations: [
                 {
                     segments: [
-                        { label: '国力影响', text: '北周治理穿透力被削弱。' },
+                        { label: '国力影响', text: '北周统治被削弱。' },
                         { label: '朝堂政局', text: '祖廷更愿意听你的话。' },
                     ],
                 },
@@ -880,8 +873,8 @@ describe('SchemeFeedback', () => {
         expect(markup).not.toContain('FEEDBACK_TEMPLATE_SENTINEL')
         expect(markup).not.toContain('祖廷举措')
         expect(markup).not.toContain('NPC_ACTION_SENTINEL secures the ledgers.')
-        expect(markup).not.toContain('后党 朝堂影响 -2')
-        expect(markup).not.toContain('后党 内部稳定 -1')
+        expect(markup).not.toContain('后党 朝堂影响力 -2')
+        expect(markup).not.toContain('后党 内部稳定度 -1')
         expect(markup).not.toContain('朝堂收网')
         expect(markup).toContain('揭示筹算结果')
     })

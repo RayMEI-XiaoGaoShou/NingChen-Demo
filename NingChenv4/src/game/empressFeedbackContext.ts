@@ -59,9 +59,9 @@ export interface EmpressFeedbackContext {
 const DIMENSION_LABELS: Record<EmpressPolicyDomain, string> = {
     military: '军事',
     finance: '财政',
-    grain: '粮赋',
-    governance: '治理',
-    socialOrder: '民生秩序',
+    grain: '粮草',
+    governance: '统治',
+    socialOrder: '民生',
 }
 
 const TOPIC_DOMAIN_HINTS: Array<{ pattern: RegExp; domain: EmpressPolicyDomain }> = [
@@ -160,10 +160,10 @@ function describeLegitimacyTone(tone: 'up' | 'down' | 'steady'): string {
 function describeStatePriority(weakest: EmpressPolicyDomain, warWindow: boolean): string {
     const base = {
         finance: '江南眼下最急的仍是财用，轻易动不得虚名太盛的急策。',
-        grain: '江南眼下最急的是粮赋根基，诸策都得先问能不能养得住。',
+        grain: '江南眼下最急的是粮草根基，诸策都得先问能不能养得住。',
         military: '江南眼下最急的是兵备，任何良策都要先看能不能撑住前线。',
-        socialOrder: '江南眼下最急的是民生秩序，治国不能先把人心逼散。',
-        governance: '江南眼下最急的是治理穿透，若诏令落不下去，再好的策也只是纸上。',
+        socialOrder: '江南眼下最急的是民生，治国不能先把人心逼散。',
+        governance: '江南眼下最急的是统治，若诏令落不下去，再好的策也只是纸上。',
     }[weakest]
 
     return warWindow

@@ -49,8 +49,8 @@ function formatExternalStatus(status: string): string {
 }
 
 function formatMap(mapSrc: string): string {
-    if (mapSrc.includes('map_3_bashu_huainan')) return '巴蜀+淮南'
-    if (mapSrc.includes('map_2_bashu')) return '巴蜀'
-    if (mapSrc.includes('map_4_huainan')) return '淮南'
+    if (mapSrc.includes('roundstart-world-map-aiart-bashu-huainan')) return '巴蜀+淮南'
+    if (mapSrc.includes('roundstart-world-map-aiart-bashu')) return '巴蜀'
+    if (mapSrc.includes('roundstart-world-map-aiart-huainan')) return '淮南'
     return '初始版图'
 }

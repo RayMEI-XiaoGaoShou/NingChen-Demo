@@ -1,7 +1,12 @@
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+    const env = loadEnv(mode, process.cwd(), '')
+    const deepSeekProxyApiKey = env.DEEPSEEK_API_KEY
+    const deepSeekProxyBaseUrl = env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+
+    return {
     plugins: [react()],
     base: './',
     build: {
@@ -78,12 +83,17 @@ export default defineConfig({
     server: {
         proxy: {
             // 代理 AI API 请求，绕过 CORS
+            // Local .env.local uses DEEPSEEK_API_KEY plus VITE_DEEPSEEK_API_KEY=local-dev-proxy.
             '/api/ai': {
-                target: 'https://api.deepseek.com',
+                target: deepSeekProxyBaseUrl,
                 changeOrigin: true,
                 rewrite: path => path.replace(/^\/api\/ai/, ''),
                 secure: true,
+                headers: deepSeekProxyApiKey
+                    ? { Authorization: `Bearer ${deepSeekProxyApiKey}` }
+                    : undefined,
             },
         },
     },
+    }
 })

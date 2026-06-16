@@ -29,6 +29,7 @@ import {
     buildPersistedSnapshot,
     buildRoundStartSnapshot,
     loadGameSnapshot,
+    normalizePersistedRoundPhase,
     saveGameSnapshot,
     type PersistedGameSnapshot,
     type RoundStartSnapshot,
@@ -329,10 +330,6 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
 
             case 'COURT_OBSERVE':
-                set({ currentPhase: 'SCHEME_PHASE' })
-                break
-
-            case 'SCHEME_PHASE':
                 // 三次计谋用完后进入女帝来信（AI在后台继续处理）
                 if (schemeCount >= maxSchemes) {
                     set({ currentPhase: 'EMPRESS_LETTER' })
@@ -540,10 +537,6 @@ export const useGameStore = create<GameState>((set, get) => ({
                 break
 
             case 'SETTLEMENT':
-                set({ currentPhase: 'ROUND_END' })
-                break
-
-            case 'ROUND_END':
                 if (currentRound >= 20) {
                     const settlement = get().lastSettlement
                     set({
@@ -610,9 +603,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         switch (state.currentPhase) {
             case 'COURT_OBSERVE':
                 set({ currentPhase: 'ROUND_START' })
-                break
-            case 'SCHEME_PHASE':
-                set({ currentPhase: 'COURT_OBSERVE' })
                 break
             default:
                 break
@@ -1095,13 +1085,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             fengDaozhiAssistsRemaining?: number
         }
 
+        const currentPhase = normalizePersistedRoundPhase(
+            snapshot.currentPhase as RoundPhase | string,
+            snapshot.schemeCount,
+            snapshot.maxSchemes,
+        )
         const prologueStep =
             guideSnapshot.prologueStep ??
-            (snapshot.currentPhase === 'PROLOGUE' ? 'PROLOGUE' : 'INGAME')
+            (currentPhase === 'PROLOGUE' ? 'PROLOGUE' : 'INGAME')
 
         set({
             currentRound: snapshot.currentRound,
-            currentPhase: snapshot.currentPhase,
+            currentPhase,
             difficulty: snapshot.difficulty ?? initialDifficulty,
             schemeCount: snapshot.schemeCount,
             maxSchemes: snapshot.maxSchemes,
@@ -1125,6 +1120,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             roundStartSnapshot: snapshot.roundStartSnapshot
                 ? {
                     ...snapshot.roundStartSnapshot,
+                    currentPhase: normalizePersistedRoundPhase(
+                        snapshot.roundStartSnapshot.currentPhase as RoundPhase | string,
+                        snapshot.roundStartSnapshot.schemeCount,
+                        snapshot.roundStartSnapshot.maxSchemes,
+                    ),
                     difficulty: snapshot.roundStartSnapshot.difficulty ?? snapshot.difficulty ?? initialDifficulty,
                     schemeOnboardingSeen: {
                         ...initialSchemeOnboardingSeen,

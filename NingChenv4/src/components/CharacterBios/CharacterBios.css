@@ -116,6 +116,16 @@
     flex-shrink: 0;
     overflow: hidden;
     display: block;
+    object-fit: cover;
+}
+
+.character-bio-portrait-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-gold);
+    font-size: 2rem;
+    font-weight: 700;
 }
 
 .character-bio-body {

@@ -698,7 +698,7 @@ export function checkFactionCollapse(
         else if (f.courtInfluence <= 18) breachReasons.push('朝堂影响力明显失血')
 
         if (f.internalStability <= 10) collapseReasons.push('内部分裂已成定势')
-        else if (f.internalStability <= 18) breachReasons.push('内部稳定已现裂口')
+        else if (f.internalStability <= 18) breachReasons.push('内部稳定度已现裂口')
 
         if (collapseReasons.length > 0) {
             collapses.push({

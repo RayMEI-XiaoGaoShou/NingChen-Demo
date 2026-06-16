@@ -1,13 +1,31 @@
 import type { CampaignOutcomeState } from '../game/types'
 
-export type BgmTrackKey = 'bgm1' | 'bgm2' | 'bgm3' | 'bgm4'
-export type NpcPortraitVariant = 'default' | 'courtDark' | 'courtBright' | 'courtFullbody' | 'externalFullbody'
+export type BgmTrackKey =
+    | 'coverEnding'
+    | 'roundCourtOverview'
+    | 'externalDetailScheme'
+    | 'courtDetailScheme'
+    | 'empressQuestion'
+    | 'schemeFeedback'
+    | 'empressReply'
+    | 'settlement'
+export type SfxKey =
+    | 'roundstart-to-court'
+    | 'settlement-next-volume'
+    | 'empress-next-page'
+    | 'court-gate-hover'
+    | 'external-gate-hover'
+    | 'north-page-action'
+    | 'north-inline-action'
+    | 'empress-option-a'
+    | 'empress-option-b'
+    | 'empress-option-c'
+    | 'empress-option-d'
+    | 'feng-draft'
+export type NpcPortraitVariant = 'courtFullbody' | 'externalFullbody'
 export type NpcDetailAttitude = 'cold_guard' | 'watchful' | 'trusted' | 'relied' | 'devoted'
 export type HebaQiDetailPortraitKey = NpcDetailAttitude
 
-const NPC_PORTRAIT_BASE = '/images/npc/确认【抠背景】'
-const NPC_COURT_DARK_PORTRAIT_BASE = '/images/npc/朝堂暗版'
-const NPC_COURT_BRIGHT_PORTRAIT_BASE = '/images/npc/hover亮版_v1'
 const NPC_COURT_FULLBODY_PORTRAIT_BASE = '/images/npc/court-fullbody'
 const NPC_EXTERNAL_FULLBODY_PORTRAIT_BASE = '/images/npc/external-fullbody'
 const NPC_DETAIL_BASE = '/images/npc/detail'
@@ -16,8 +34,8 @@ const NPC_DETAIL_VOICE_BASE = '/audio/generated/scheme_avatar'
 const NPC_SCHEME_BASE = '/images/npc/scheme'
 const COURT_FACTION_UI_BASE = '/images/ui/court-faction'
 const EXTERNAL_FACTION_UI_BASE = '/images/ui/external-faction'
-const MAP_BASE = '/地图底稿'
 const BGM_BASE = '/bgm'
+const SFX_BASE = '/audio/sfx'
 const PUBLIC_STATEMENT_AUDIO_BASE = '/audio/generated/court_statements'
 
 type PublicStatementAudioBranch = 'main' | 'a' | 'b' | 'c'
@@ -122,56 +140,37 @@ export function getHebaQiDetailPortraitPath(trust: number) {
 }
 
 export const BGM_TRACKS: Record<BgmTrackKey, string> = {
-    bgm1: buildPublicAssetPath(`${BGM_BASE}/BGM_1_回合首页+朝堂页.mp3`),
-    bgm2: buildPublicAssetPath(`${BGM_BASE}/BGM_2_施计.mp3`),
-    bgm3: buildPublicAssetPath(`${BGM_BASE}/BGM_3_女帝问政.mp3`),
-    bgm4: buildPublicAssetPath(`${BGM_BASE}/BGM_4_背景介绍+玩法介绍+每回合天道结算页.mp3`),
+    coverEnding: buildPublicAssetPath(`${BGM_BASE}/bgm-cover-ending.mp3`),
+    roundCourtOverview: buildPublicAssetPath(`${BGM_BASE}/bgm-round-court-overview.mp3`),
+    externalDetailScheme: buildPublicAssetPath(`${BGM_BASE}/bgm-external-detail-scheme.mp3`),
+    courtDetailScheme: buildPublicAssetPath(`${BGM_BASE}/bgm-court-detail-scheme.mp3`),
+    empressQuestion: buildPublicAssetPath(`${BGM_BASE}/bgm-empress-question.mp3`),
+    schemeFeedback: buildPublicAssetPath(`${BGM_BASE}/bgm-scheme-feedback.mp3`),
+    empressReply: buildPublicAssetPath(`${BGM_BASE}/bgm-empress-reply.mp3`),
+    settlement: buildPublicAssetPath(`${BGM_BASE}/bgm-settlement.mp3`),
 }
 
-const NPC_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: '拓跋棣.webp',
-    贺拔琪: '贺拔琪.webp',
-    宗艾: '宗艾.webp',
-    令狐律光: '令狐律光.webp',
-    尉迟暮: '尉迟暮.webp',
-    祖廷: '祖廷.webp',
-    贺拔伯圭: '贺拔伯圭.webp',
-    独孤文约: '独孤文约.webp',
-    尔朱烈: '尔朱烈.webp',
-    安思明: '安思明.webp',
-    冯道之: '冯道之.webp',
-    陈倩: '陈倩.webp',
+export const SFX_ASSETS: Record<SfxKey, string> = {
+    'roundstart-to-court': buildPublicAssetPath(`${SFX_BASE}/transitions/roundstart-to-court.mp3`),
+    'settlement-next-volume': buildPublicAssetPath(`${SFX_BASE}/transitions/settlement-next-volume.mp3`),
+    'empress-next-page': buildPublicAssetPath(`${SFX_BASE}/transitions/empress-next-page.mp3`),
+    'court-gate-hover': buildPublicAssetPath(`${SFX_BASE}/court/court-gate-hover.mp3`),
+    'external-gate-hover': buildPublicAssetPath(`${SFX_BASE}/court/external-gate-hover.mp3`),
+    'north-page-action': buildPublicAssetPath(`${SFX_BASE}/buttons/north-page-action.mp3`),
+    'north-inline-action': buildPublicAssetPath(`${SFX_BASE}/buttons/north-inline-action.mp3`),
+    'empress-option-a': buildPublicAssetPath(`${SFX_BASE}/empress/option-a.mp3`),
+    'empress-option-b': buildPublicAssetPath(`${SFX_BASE}/empress/option-b.mp3`),
+    'empress-option-c': buildPublicAssetPath(`${SFX_BASE}/empress/option-c.mp3`),
+    'empress-option-d': buildPublicAssetPath(`${SFX_BASE}/empress/option-d.mp3`),
+    'feng-draft': buildPublicAssetPath(`${SFX_BASE}/scheme/feng-draft.mp3`),
 }
 
-const NPC_COURT_DARK_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: 'portrait_yuwendi_base_dark_cutout.webp',
-    贺拔琪: 'portrait_hebaqi_base_dark_cutout.webp',
-    宗艾: 'portrait_zongai_base_dark_cutout.webp',
-    令狐律光: 'portrait_linghulvguang_base_dark_cutout.webp',
-    尉迟暮: 'portrait_yuchimu_base_dark_cutout.webp',
-    祖廷: 'portrait_zuting_base_dark_cutout.webp',
-    贺拔伯圭: 'portrait_hebabogui_base_dark_cutout.webp',
-    独孤文约: 'portrait_duguwenyue_base_dark_cutout.webp',
-    尔朱烈: 'portrait_erzhulie_base_dark_cutout.webp',
-    安思明: 'portrait_ansiming_base_dark_cutout.webp',
-    冯道之: 'portrait_fengdaozhi_base_dark_cutout.webp',
-    陈倩: 'portrait_chenqian_base_dark_cutout.webp',
-}
-
-const NPC_COURT_BRIGHT_PORTRAIT_FILES: Record<string, string> = {
-    宇文棣: 'portrait_yuwendi_hover_bright_cutout.webp',
-    贺拔琪: 'portrait_hebaqi_hover_bright_cutout.webp',
-    宗艾: 'portrait_zongai_hover_bright_cutout.webp',
-    令狐律光: 'portrait_linghulvguang_hover_bright_cutout.webp',
-    尉迟暮: 'portrait_yuchimu_hover_bright_cutout.webp',
-    祖廷: 'portrait_zuting_hover_bright_cutout.webp',
-    贺拔伯圭: 'portrait_hebabogui_hover_bright_cutout.webp',
-    独孤文约: 'portrait_duguwenyue_hover_bright_cutout.webp',
-    尔朱烈: 'portrait_erzhulie_hover_bright_cutout.webp',
-    安思明: 'portrait_ansiming_hover_bright_cutout.webp',
-    冯道之: 'portrait_fengdaozhi_hover_bright_cutout.webp',
-    陈倩: 'portrait_chenqian_hover_bright_cutout.webp',
-}
+const EMPRESS_OPTION_SFX_KEYS = [
+    'empress-option-a',
+    'empress-option-b',
+    'empress-option-c',
+    'empress-option-d',
+] as const
 
 const NPC_COURT_FULLBODY_PORTRAIT_FILES: Record<string, string> = {
     宇文棣: 'portrait_yuwendi_fullbody.webp',
@@ -207,18 +206,6 @@ const PUBLIC_STATEMENT_AUDIO_SLUGS: Record<string, string> = {
 }
 
 const NPC_PORTRAIT_VARIANTS: Record<NpcPortraitVariant, { base: string; files: Record<string, string> }> = {
-    default: {
-        base: NPC_PORTRAIT_BASE,
-        files: NPC_PORTRAIT_FILES,
-    },
-    courtDark: {
-        base: NPC_COURT_DARK_PORTRAIT_BASE,
-        files: NPC_COURT_DARK_PORTRAIT_FILES,
-    },
-    courtBright: {
-        base: NPC_COURT_BRIGHT_PORTRAIT_BASE,
-        files: NPC_COURT_BRIGHT_PORTRAIT_FILES,
-    },
     courtFullbody: {
         base: NPC_COURT_FULLBODY_PORTRAIT_BASE,
         files: NPC_COURT_FULLBODY_PORTRAIT_FILES,
@@ -231,19 +218,19 @@ const NPC_PORTRAIT_VARIANTS: Record<NpcPortraitVariant, { base: string; files: R
 
 export const MAP_ASSETS = {
     initial: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_1_initial.webp`),
+        src: new URL('../assets/ui/round-start/roundstart-world-map-aiart-v1.webp', import.meta.url).href,
         label: '南北初局',
     },
     bashu: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_2_bashu.webp`),
+        src: new URL('../assets/ui/round-start/roundstart-world-map-aiart-bashu-v1.webp', import.meta.url).href,
         label: '南陈得巴蜀',
     },
     bashuHuainan: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_3_bashu_huainan.webp`),
+        src: new URL('../assets/ui/round-start/roundstart-world-map-aiart-bashu-huainan-v1.webp', import.meta.url).href,
         label: '南陈得巴蜀与淮南',
     },
     huainan: {
-        src: buildPublicAssetPath(`${MAP_BASE}/map_4_huainan.webp`),
+        src: new URL('../assets/ui/round-start/roundstart-world-map-aiart-huainan-v1.webp', import.meta.url).href,
         label: '南陈得淮南',
     },
 } as const
@@ -268,7 +255,7 @@ export const EXTERNAL_FACTION_UI_ASSETS = {
     metricTrustIcon: buildPublicAssetPath(`${EXTERNAL_FACTION_UI_BASE}/external-metric-icon-trust.webp`),
 } as const
 
-export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant = 'default') {
+export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant) {
     const { base, files } = NPC_PORTRAIT_VARIANTS[variant]
     const file = files[name]
     if (!file) return null
@@ -277,6 +264,14 @@ export function getNpcPortraitPath(name: string, variant: NpcPortraitVariant = '
 
 export function getBgmTrackPath(track: BgmTrackKey) {
     return BGM_TRACKS[track]
+}
+
+export function getSfxPath(key: SfxKey) {
+    return SFX_ASSETS[key]
+}
+
+export function getEmpressOptionSfxKey(optionIndex: number): SfxKey | null {
+    return EMPRESS_OPTION_SFX_KEYS[optionIndex] ?? null
 }
 
 function getCampaignBranch(state: CampaignOutcomeState | null | undefined): PublicStatementAudioBranch {
@@ -305,6 +300,3 @@ export function getNpcPublicStatementAudioPath(
     return buildPublicAssetPath(`${PUBLIC_STATEMENT_AUDIO_BASE}/public_statement_r${roundLabel}_${branch}_${slug}.mp3`)
 }
 
-export function getEmpressPortraitPath() {
-    return getNpcPortraitPath('陈倩')
-}

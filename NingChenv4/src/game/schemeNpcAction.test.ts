@@ -198,7 +198,7 @@ describe('validateSchemeNpcActionNarrative', () => {
         expect((narrative as any)?.kind).toBe('attitude')
         expect(narrative?.text).toMatch(/太后|贺拔琪/u)
         expect(narrative?.text).toMatch(/信|记下|愿意|留|看作/u)
-        expect(narrative?.text).not.toMatch(/北周财政|北周粮赋|国力|军令迟滞/u)
+        expect(narrative?.text).not.toMatch(/北周 财政|北周 粮草|国力|军令迟滞/u)
     })
 
     it('fallback narrates intel progress as exposed hints without leaking southern identity', () => {

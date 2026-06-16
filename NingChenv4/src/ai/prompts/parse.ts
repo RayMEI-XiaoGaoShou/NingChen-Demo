@@ -27,9 +27,9 @@ export function buildNorthSchemeParsePrompt(params: {
     }
     const targetTypeLine = params.npc.powerBase === 'external'
         ? `目标类型：外部军头
-公开数值：军事力量 ${params.npc.militaryPower}、朝廷忠诚 ${params.npc.loyaltyToCourt}、信任 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}、外部状态 ${getExternalStatusLabel(params.npc.externalStatus)}`
+公开数值：军力 ${params.npc.militaryPower}、忠诚度 ${params.npc.loyaltyToCourt}、信任度 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}、外部状态 ${getExternalStatusLabel(params.npc.externalStatus)}`
         : `目标类型：朝廷人物
-公开数值：信任 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}`
+公开数值：信任度 ${params.npc.trust}、阵营偏向 ${getAlignmentLabel(params.npc.alignmentBias)}`
 
     const schemeSpecificRubric =
         params.schemeType === 'slander' || params.schemeType === 'alienate' || params.schemeType === 'frame'

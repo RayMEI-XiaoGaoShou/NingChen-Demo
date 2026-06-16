@@ -11,30 +11,17 @@ import {
     getNpcDetailPortraitPath,
     getNpcDetailVoicePath,
     HEBAQI_DETAIL_ASSETS,
+    BGM_TRACKS,
+    SFX_ASSETS,
+    getEmpressOptionSfxKey,
     getNpcPortraitPath,
     getNpcPublicStatementAudioPath,
+    getBgmTrackPath,
+    getSfxPath,
+    MAP_ASSETS,
 } from './mediaAssets'
 
 describe('mediaAssets', () => {
-    it('maps 宇文棣 to 拓跋棣 portrait asset', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣') ?? '')).toContain('拓跋棣.webp')
-    })
-
-    it('returns direct name-based portrait assets when available', () => {
-        expect(decodeURI(getNpcPortraitPath('祖廷') ?? '')).toContain('祖廷.webp')
-        expect(decodeURI(getNpcPortraitPath('贺拔琪') ?? '')).toContain('贺拔琪.webp')
-    })
-
-    it('maps court dark portraits to finalized cutout assets', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_yuwendi_base_dark_cutout.webp')
-        expect(decodeURI(getNpcPortraitPath('令狐律光', 'courtDark') ?? '')).toContain('朝堂暗版/portrait_linghulvguang_base_dark_cutout.webp')
-    })
-
-    it('maps court bright portraits to hover cutout assets', () => {
-        expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_yuwendi_hover_bright_cutout.webp')
-        expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtBright') ?? '')).toContain('hover亮版_v1/portrait_hebaqi_hover_bright_cutout.webp')
-    })
-
     it('maps court fullbody portraits to selected AIART assets', () => {
         expect(decodeURI(getNpcPortraitPath('宇文棣', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_yuwendi_fullbody.webp')
         expect(decodeURI(getNpcPortraitPath('贺拔琪', 'courtFullbody') ?? '')).toContain('court-fullbody/portrait_hebaqi_fullbody.webp')
@@ -48,7 +35,18 @@ describe('mediaAssets', () => {
     })
 
     it('returns null for unknown names', () => {
-        expect(getNpcPortraitPath('不存在的人')).toBeNull()
+        expect(getNpcPortraitPath('不存在的人', 'courtFullbody')).toBeNull()
+    })
+
+    it('tracks campaign maps directly on the selected AIART round-start assets', () => {
+        expect(MAP_ASSETS.initial.src).toContain('roundstart-world-map-aiart-v1.webp')
+        expect(MAP_ASSETS.bashu.src).toContain('roundstart-world-map-aiart-bashu-v1.webp')
+        expect(MAP_ASSETS.bashuHuainan.src).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
+        expect(MAP_ASSETS.huainan.src).toContain('roundstart-world-map-aiart-huainan-v1.webp')
+
+        for (const asset of Object.values(MAP_ASSETS)) {
+            expect(decodeURI(asset.src)).not.toContain('地图底稿')
+        }
     })
 
     it('tracks court faction UI assets used by the polished court screen', () => {
@@ -74,6 +72,51 @@ describe('mediaAssets', () => {
     it('tracks scheme UI assets with stable ASCII filenames', () => {
         expect(SCHEME_UI_ASSETS.fengDaozhiAssistPortrait).toBe('/images/npc/scheme/fengdaozhi-assist.webp')
         expect(SCHEME_UI_ASSETS.fengDaozhiAssistPortrait).toMatch(/^[\x00-\x7F]+$/)
+    })
+
+    it('tracks game SFX assets with stable ASCII filenames grouped by use case', () => {
+        expect(SFX_ASSETS).toEqual({
+            'roundstart-to-court': '/audio/sfx/transitions/roundstart-to-court.mp3',
+            'settlement-next-volume': '/audio/sfx/transitions/settlement-next-volume.mp3',
+            'empress-next-page': '/audio/sfx/transitions/empress-next-page.mp3',
+            'court-gate-hover': '/audio/sfx/court/court-gate-hover.mp3',
+            'external-gate-hover': '/audio/sfx/court/external-gate-hover.mp3',
+            'north-page-action': '/audio/sfx/buttons/north-page-action.mp3',
+            'north-inline-action': '/audio/sfx/buttons/north-inline-action.mp3',
+            'empress-option-a': '/audio/sfx/empress/option-a.mp3',
+            'empress-option-b': '/audio/sfx/empress/option-b.mp3',
+            'empress-option-c': '/audio/sfx/empress/option-c.mp3',
+            'empress-option-d': '/audio/sfx/empress/option-d.mp3',
+            'feng-draft': '/audio/sfx/scheme/feng-draft.mp3',
+        })
+
+        for (const path of Object.values(SFX_ASSETS)) {
+            expect(path).toMatch(/^[\x00-\x7F]+$/)
+        }
+
+        expect(getSfxPath('north-page-action')).toBe('/audio/sfx/buttons/north-page-action.mp3')
+        expect(getEmpressOptionSfxKey(0)).toBe('empress-option-a')
+        expect(getEmpressOptionSfxKey(3)).toBe('empress-option-d')
+        expect(getEmpressOptionSfxKey(4)).toBeNull()
+    })
+
+    it('tracks the new BGM suite with stable ASCII filenames grouped by scene', () => {
+        expect(BGM_TRACKS).toEqual({
+            coverEnding: '/bgm/bgm-cover-ending.mp3',
+            roundCourtOverview: '/bgm/bgm-round-court-overview.mp3',
+            externalDetailScheme: '/bgm/bgm-external-detail-scheme.mp3',
+            courtDetailScheme: '/bgm/bgm-court-detail-scheme.mp3',
+            empressQuestion: '/bgm/bgm-empress-question.mp3',
+            schemeFeedback: '/bgm/bgm-scheme-feedback.mp3',
+            empressReply: '/bgm/bgm-empress-reply.mp3',
+            settlement: '/bgm/bgm-settlement.mp3',
+        })
+
+        for (const path of Object.values(BGM_TRACKS)) {
+            expect(path).toMatch(/^[\x00-\x7F]+$/)
+        }
+
+        expect(getBgmTrackPath('courtDetailScheme')).toBe('/bgm/bgm-court-detail-scheme.mp3')
     })
 
     it('tracks selected HebaQi detail assets with stable ASCII filenames', () => {

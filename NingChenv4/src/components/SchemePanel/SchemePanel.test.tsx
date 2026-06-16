@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+﻿import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
-import { buildSchemeSpeechPayload, getSchemeSpeechFields, getSchemeUnlockHint, SchemeComposer, SchemePanel } from './SchemePanel'
+import { buildSchemeSpeechPayload, getSchemeSpeechFields, getSchemeUnlockHint, SchemeComposer } from './SchemePanel'
 import schemePanelSource from './SchemePanel.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
 import { INITIAL_NPCS } from '../../data/npcs'
 import { SCHEMES } from '../../data/schemes'
-import { getOmenGuidePresentation } from '../../game/omenGuide'
-import { buildOmenTargetHint } from '../../game/omenTargetHint'
 
 const nodeFsSpecifier: string = 'node:fs'
 const { readFileSync } = await import(nodeFsSpecifier)
@@ -23,9 +21,24 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelCss).toContain('font-family: Arial, Helvetica, sans-serif;')
     })
 
+
+    it('uses the optimized scheme explanation copy from the handoff markdown', () => {
+        expect(SCHEMES.find(scheme => scheme.type === 'probe')?.description).toBe('摸底牌、探口风，发掘该角色的隐藏立场')
+        expect(SCHEMES.find(scheme => scheme.type === 'advise')?.description).toBe('对其晓以利害，顺其所欲献上利他而暗损北周国本之 “良策”')
+        expect(SCHEMES.find(scheme => scheme.type === 'slander')?.description).toBe('在 施计对象甲 心中种下对 关联人物乙 的疑心')
+    })
+
+    it('uses the canonical frame scheme display label from the system rules', () => {
+        const frameScheme = SCHEMES.find(scheme => scheme.type === 'frame')
+
+        expect(frameScheme?.name).toBe('嫁祸')
+        expect(frameScheme?.type).toBe('frame')
+        expect(frameScheme?.description).toContain('陷阱')
+    })
+
     it('renders the embedded composer as a vertical scheme board with speech supplement', () => {
         const html = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="zongai" />,
         )
 
         expect(html).toContain('scheme-embedded-board')
@@ -43,33 +56,17 @@ describe('SchemePanel layout labels', () => {
         expect(html).toContain('>贰<')
         expect(html).toContain('>说辞<')
         expect(html).not.toContain('今日第')
-        expect(html).not.toContain('说辞补充区')
-        expect(html).not.toContain('说辞若切中此人的立场与心结')
-    })
-
-    it('uses the optimized scheme explanation copy from the handoff markdown', () => {
-        expect(SCHEMES.find(scheme => scheme.type === 'probe')?.description).toBe('摸底牌、探口风，发掘该角色的隐藏立场')
-        expect(SCHEMES.find(scheme => scheme.type === 'advise')?.description).toBe('对其晓以利害，顺其所欲献上利他而暗损北周国本之 “良策”')
-        expect(SCHEMES.find(scheme => scheme.type === 'slander')?.description).toBe('在 施计对象甲 心中种下对 关联人物乙 的疑心')
-    })
-
-    it('uses the canonical frame scheme display label from the system rules', () => {
-        const frameScheme = SCHEMES.find(scheme => scheme.type === 'frame')
-
-        expect(frameScheme?.name).toBe('嫁祸')
-        expect(frameScheme?.type).toBe('frame')
-        expect(frameScheme?.description).toContain('陷阱')
     })
 
     it('hides target-ineligible schemes in the embedded art-backed composer', () => {
         const externalHtml = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="ansiming" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="ansiming" />,
         )
         const ordinaryCourtHtml = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="linghuelvguang" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="linghuelvguang" />,
         )
         const leaderHtml = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="zongai" />,
         )
 
         expect(externalHtml).not.toContain('data-scheme-type="proxy"')
@@ -87,10 +84,10 @@ describe('SchemePanel layout labels', () => {
 
     it('matches the dossier leader role suffixes in embedded headers', () => {
         const hebaqiHtml = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="hebaqí" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="hebaqí" />,
         )
         const zongaiHtml = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="zongai" />,
         )
 
         expect(hebaqiHtml).toContain('北周太后、摄政者【后党魁首】')
@@ -104,7 +101,7 @@ describe('SchemePanel layout labels', () => {
 
     it('keeps the embedded empty state light before a scheme is selected', () => {
         const html = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="hebaqí" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="hebaqí" />,
         )
 
         expect(html).not.toContain('先选一计，冯道之方能替你校准说辞。')
@@ -174,31 +171,6 @@ describe('SchemePanel layout labels', () => {
         expect(embeddedLockRule).toContain('white-space: nowrap;')
     })
 
-    it('renders embedded omen speech as a unified framed dual-field surface', () => {
-        const html = renderToStaticMarkup(
-            <SchemeComposer
-                mode="embedded"
-                lockedNpcId="hebaqí"
-                initialSchemeType="omen"
-                onChangeTarget={() => undefined}
-            />,
-        )
-
-        const speechTitleIndex = html.indexOf('>说辞<')
-        const omenPrimaryIndex = html.indexOf('谶辞 / 征兆')
-        const speechTitleSlice = html.slice(speechTitleIndex, omenPrimaryIndex)
-
-        expect(html).not.toContain('谶纬偏灾异、法统、天命与人心，不宜写成兵粮调度')
-        expect(html).toContain('scheme-embedded-speech-field scheme-embedded-omen-field')
-        expect(html).toContain('scheme-embedded-omen-inputs')
-        expect(html).toContain('scheme-embedded-omen-label-row')
-        expect(html).toContain('scheme-embedded-omen-count')
-        expect(html).toContain('0/60')
-        expect(html).toContain('0/100')
-        expect(speechTitleSlice).not.toContain('0/100')
-        expect(html).not.toContain('omen-helper-card')
-        expect(html.indexOf('scheme-feng-assist')).toBeGreaterThan(html.indexOf('scheme-embedded-omen-field'))
-    })
 
     it('keeps the embedded composer body and footer in the same height budget', () => {
         expect(schemePanelCss).toContain('grid-template-rows: auto minmax(0, 1fr) auto;')
@@ -211,9 +183,8 @@ describe('SchemePanel layout labels', () => {
     })
 
     it('models embedded speech readiness around related target selection', () => {
-        expect(schemePanelSource).toContain('initialSchemeType?: SchemeType | null')
-        expect(schemePanelSource).toContain('const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(initialSchemeType ?? null)')
-        expect(schemePanelSource).toContain('setSelectedScheme(initialSchemeType)')
+        expect(schemePanelSource).not.toContain('initialSchemeType')
+        expect(schemePanelSource).toContain('const [selectedScheme, setSelectedScheme] = useState<SchemeType | null>(null)')
         expect(schemePanelSource).toContain('const needsRelatedTarget = Boolean(currentSchemeData?.needsSecondTarget)')
         expect(schemePanelSource).toContain('const speechReady = Boolean(selectedScheme && (!needsRelatedTarget || (relatedNpcId && !relatedPickerOpen)))')
         expect(schemePanelSource).toContain('speechReady ? (')
@@ -222,7 +193,7 @@ describe('SchemePanel layout labels', () => {
     })
 
     it('collapses the embedded related picker after choosing a related target', () => {
-        expect(schemePanelSource).toContain('const [relatedPickerOpen, setRelatedPickerOpen] = useState(Boolean(initialSchemeType && getSchemeByType(initialSchemeType)?.needsSecondTarget))')
+        expect(schemePanelSource).toContain('const [relatedPickerOpen, setRelatedPickerOpen] = useState(false)')
         expect(schemePanelSource).toContain('setRelatedPickerOpen(scheme.needsSecondTarget)')
         expect(schemePanelSource).toContain('setRelatedPickerOpen(false)')
         expect(schemePanelSource).not.toContain('has-collapsed-related')
@@ -267,13 +238,6 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelCss).toContain('.scheme-modal-embedded .scheme-embedded-omen-count')
     })
 
-    it('renders scheme attempt quotas with a compact slash and no spacing around the divider', () => {
-        expect(schemePanelSource).toContain('scheme-attempt-quota')
-        expect(schemePanelSource).toContain('{schemeCount + 1}</span>/<span className="highlight-number">{maxSchemes}</span>')
-        expect(schemePanelCss).toContain('.scheme-attempt-quota .highlight-number')
-        expect(schemePanelSource).not.toContain('</span> / {maxSchemes}')
-        expect(schemePanelSource).not.toContain('{schemeCount + 1}</span> / {maxSchemes}')
-    })
 
     it('reports the submitted target and post-submit quota to embedded callers', () => {
         expect(schemePanelSource).toContain('export interface SchemeSubmitResult')
@@ -295,54 +259,26 @@ describe('SchemePanel layout labels', () => {
         expect(schemePanelSource).not.toContain('completeSchemingIfReady()')
     })
 
+    it('uses the black-gold north cloud transition for non-final scheme submissions', () => {
+        expect(schemePanelSource).toContain("import { useGameSfx } from '../../audio/gameSfx'")
+        expect(schemePanelSource).toContain('const { playSfx } = useGameSfx()')
+        expect(schemePanelSource).toContain("playSfx('north-page-action')")
+        expect(schemePanelSource).toContain('const resetAfterSubmit = () => {')
+        expect(schemePanelSource).toContain("variant: 'north-dark-cloud'")
+        expect(schemePanelSource).toContain('onCovered: resetAfterSubmit')
+        expect(schemePanelSource).toContain("variant: 'to-empress-letter'")
+        expect(schemePanelSource).toContain('onCovered: completeSchemingIfReady')
+    })
+
     it('keeps court embedded targets free of external-only escalation schemes', () => {
         const html = renderToStaticMarkup(
-            <SchemeComposer mode="embedded" lockedNpcId="zongai" onChangeTarget={() => undefined} />,
+            <SchemeComposer lockedNpcId="zongai" />,
         )
 
         expect(html).not.toContain('data-scheme-type="secession"')
         expect(html).not.toContain('data-scheme-type="rebellion"')
         expect(schemePanelSource).toContain('title={unlockHint}')
         expect(schemePanelSource).toContain('aria-label={unlockHint}')
-    })
-
-    it('does not show scheme hook chips in the current layout leverage points', () => {
-        expect(schemePanelSource).toContain('selectedNpc.softSpot')
-        expect(schemePanelSource).toContain('selectedNpc.triggerPoint')
-        expect(schemePanelSource).not.toMatch(/leverageChips[\s\S]*selectedNpc\.schemeHooks/)
-    })
-
-    it('uses 叁 for 当前布局 before a second-target step is needed', () => {
-        const markup = renderToStaticMarkup(<SchemePanel />)
-
-        expect(markup).toContain('当前布局')
-        expect(markup).toContain('叁')
-    })
-
-    it('computes omen onboarding for the first guided omen round', () => {
-        const presentation = getOmenGuidePresentation({
-            round: 13,
-            difficulty: 'normal',
-            firstRoundGuideSeen: {
-                round_start: true,
-                court_observe: true,
-                scheme_phase: true,
-                empress_letter: true,
-                scheme_feedback: true,
-                settlement: true,
-            },
-            schemeOnboardingSeen: {
-                scheme_master_guide: true,
-                first_omen_teaching: false,
-                first_external_line_teaching: false,
-                first_follow_up_teaching: false,
-            },
-            omenGuideSeen: {
-                first_omen_modal: false,
-            },
-        })
-
-        expect(presentation).toBe('modal')
     })
 
     it('uses a two-stage input definition for omen speech', () => {
@@ -370,43 +306,7 @@ describe('SchemePanel layout labels', () => {
         expect(payload.omenSpeechInput?.interpretationText).toBe('此非独天灾，恐是名分失序之兆。')
     })
 
-    it('renders omen helper copy and target hint when omen is selected', () => {
-        const npc = useGameStore.getState().npcs.find(item => item.id === 'zongai')!
 
-        useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
-            currentRound: 13,
-            firstRoundGuideSeen: {
-                round_start: true,
-                court_observe: true,
-                scheme_phase: true,
-                empress_letter: true,
-                scheme_feedback: true,
-                settlement: true,
-            },
-            schemeOnboardingSeen: {
-                scheme_master_guide: true,
-                first_omen_teaching: true,
-                first_external_line_teaching: false,
-                first_follow_up_teaching: false,
-            },
-            omenGuideSeen: {
-                first_omen_modal: true,
-            },
-            currentSchemes: [],
-            npcs: useGameStore.getState().npcs.map(item =>
-                item.id === npc.id
-                    ? { ...item, trust: 60 }
-                    : item,
-            ),
-        })
-
-        const markup = renderToStaticMarkup(<SchemePanel />)
-
-        expect(getSchemeSpeechFields('omen').primaryLabel).toBe('谶辞 / 征兆')
-        expect(buildOmenTargetHint({ npc })).toContain('名分')
-        expect(markup).toContain('计谋指南')
-    })
     it('describes what is still missing for a locked scheme', () => {
         const npc = useGameStore.getState().npcs.find(item => item.id === 'duguwenyue')!
 
@@ -463,20 +363,21 @@ describe('SchemePanel layout labels', () => {
     })
 
     it('drops stale related targets when the selected scheme no longer needs one', () => {
-        expect(schemePanelSource).toContain('if (!scheme.needsSecondTarget) setRelatedNpcId(null)')
+        expect(schemePanelSource).toContain('setRelatedNpcId(null)')
         expect(schemePanelSource).toContain('const effectiveRelatedNpcId = currentSchemeData?.needsSecondTarget ? relatedNpcId : null')
         expect(schemePanelSource).toContain('relatedNpcId: effectiveRelatedNpcId ?? undefined')
     })
 
-    it('references locked copy and the current round public stance in source', () => {
-        expect(schemePanelSource).toContain('未解锁')
-        expect(schemePanelSource).toContain('本回合公开表态')
-        expect(schemePanelSource).toContain('const selectedRoundReaction = selectedNpc')
-        expect(schemePanelSource).toContain('getNpcRoundReaction(currentRound, selectedNpc, selectedUnlockedSecrets, {')
-        expect(schemePanelSource).toContain('shuCampaignState: shuCampaign.resolvedState ?? shuCampaign.state')
+    it('plays inline SFX for related-person choices and Feng Daozhi draft assistance', () => {
+        expect(schemePanelSource).toContain("playSfx('north-inline-action')")
+        expect(schemePanelSource).toContain("playSfx('feng-draft')")
+        expect(schemePanelSource).toContain('setRelatedNpcId(npc.id)')
+        expect(schemePanelSource).toContain('const handleFengDaozhiDraft = async () => {')
     })
+
+
     it('filters secessionist external warlords out of the target list in source', () => {
-        expect(schemePanelSource).toContain("const aliveNpcs = npcs.filter(n => n.isAlive && !isTerminalExternalNpc(n) && getCourtStatus(n) === 'active')")
+        expect(schemePanelSource).toContain("!isTerminalExternalNpc(npc) && getCourtStatus(npc) === 'active'")
         expect(schemePanelSource).toContain("import { isExternalEscalationOpen, isTerminalExternalNpc } from '../../game/externalStatus'")
         expect(schemePanelSource).toContain("!npc.isAlive || !isExternalEscalationOpen(npc.externalStatus)")
     })
@@ -490,3 +391,4 @@ describe('SchemePanel execution path', () => {
         expect(schemePanelSource).toContain('forceStatementReplyText(')
     })
 })
+

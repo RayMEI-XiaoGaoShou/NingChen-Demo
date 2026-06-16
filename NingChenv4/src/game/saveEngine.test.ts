@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+﻿import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INITIAL_FACTIONS } from '../data/factions'
 import { NORTH_INITIAL, SOUTH_INITIAL } from '../data/nationStats'
 import { INITIAL_NPCS } from '../data/npcs'
 import { INITIAL_RELATIONSHIP_EDGES } from '../data/npcRelationships'
-import { buildPersistedSnapshot, loadGameSnapshot, saveGameSnapshot } from './saveEngine'
+import { buildPersistedSnapshot, loadGameSnapshot, normalizePersistedRoundPhase, saveGameSnapshot } from './saveEngine'
 import { calculateCompositePower } from './types'
 
 function createLocalStorageMock(): Storage {
@@ -167,7 +167,7 @@ const initialSchemeOnboardingSeen = {
     it('persists world memory ledger through save and load', () => {
         const snapshot = buildPersistedSnapshot({
             ...createBaseState(),
-            currentPhase: 'ROUND_END',
+            currentPhase: 'SETTLEMENT',
             prologueStep: 'INGAME',
             worldMemoryLedger: [{
                 id: 'world-1',
@@ -223,7 +223,7 @@ const initialSchemeOnboardingSeen = {
     it('preserves scheme follow-up parse data through save and load', () => {
         const snapshot = buildPersistedSnapshot({
             ...createBaseState(),
-            currentPhase: 'SCHEME_PHASE',
+            currentPhase: 'COURT_OBSERVE',
             prologueStep: 'INGAME',
             currentSchemes: [
                 {
@@ -291,6 +291,15 @@ const initialSchemeOnboardingSeen = {
         expect(loaded?.empressReplyRecord?.mode).toBe('default')
     })
 
+    it('normalizes old saved page phases into the current visible flow', () => {
+        const legacySchemePhase = ['SCHEME', 'PHASE'].join('_')
+        const legacyPostSettlementPhase = ['ROUND', 'END'].join('_')
+
+        expect(normalizePersistedRoundPhase(legacySchemePhase, 2, 3)).toBe('COURT_OBSERVE')
+        expect(normalizePersistedRoundPhase(legacySchemePhase, 3, 3)).toBe('EMPRESS_LETTER')
+        expect(normalizePersistedRoundPhase(legacyPostSettlementPhase)).toBe('SETTLEMENT')
+    })
+
     it('fills court disposition fields when building and loading older npc snapshots', () => {
         const oldNpcs = INITIAL_NPCS.map(npc => {
             const { emperorFavor, empressDowagerFavor, courtStatus, ...legacyNpc } = npc as any
@@ -335,3 +344,4 @@ const initialSchemeOnboardingSeen = {
         expect(loadedRoundStartZuting.emperorFavor).toBe(26)
     })
 })
+

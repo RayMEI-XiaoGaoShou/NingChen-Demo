@@ -22,7 +22,7 @@ function buildBaseJudgePrompt(overrides: Partial<Parameters<typeof buildJudgePro
         factionSummary: '后党略稳，帝党受挫。',
         relationshipSummary: '祖廷与贺拔伯圭嫌隙加深。',
         externalSummary: '陇右粮道被收紧。',
-        northSummary: '北周粮赋与治理受损。',
+        northSummary: '北周粮草与统治受损。',
         southSummary: '南陈新政初见回响。',
         invasionSummary: '南征风向仍待观察',
         southEmpressReply: null,
@@ -70,7 +70,7 @@ describe('buildJudgePrompt chronicle mode', () => {
 
     it('feeds cached South Chen empress reply as source material without allowing copied decrees or invented officials', () => {
         const messages = buildBaseJudgePrompt({
-            southEmpressReply: '朕已按“清点户籍仓廪”着手施行。只是眼下更要先稳住粮赋这一头。',
+            southEmpressReply: '朕已按“清点户籍仓廪”着手施行。只是眼下更要先稳住粮草这一头。',
         })
 
         expect(messages[1]?.content).toContain('南陈回信原文')

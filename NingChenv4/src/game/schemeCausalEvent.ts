@@ -102,11 +102,11 @@ export interface SchemeCausalEventDraft {
 }
 
 const DIMENSION_LABELS: Record<SchemeImpactDimension, string> = {
-    finance: '北周财政',
-    grain: '北周粮赋',
-    military: '北周军事',
-    socialOrder: '北周社会秩序',
-    governance: '北周治理穿透力',
+    finance: '北周 财政',
+    grain: '北周 粮草',
+    military: '北周 军事',
+    socialOrder: '北周 民生',
+    governance: '北周 统治',
 }
 
 const FACTION_LABELS: Record<CourtFactionId, string> = {
@@ -374,11 +374,11 @@ function buildCausalEffects(
 
 function buildPersonEffectSummary(targetNpc: NPC, relatedNpc: NPC | null, effects: PersonEffects): string[] {
     const pieces: string[] = []
-    if (isNonZero(effects.trustDelta)) pieces.push(`${targetNpc.name}信任${formatSigned(effects.trustDelta)}`)
-    if (relatedNpc && isNonZero(effects.relatedTrustDelta)) pieces.push(`${relatedNpc.name}信任${formatSigned(effects.relatedTrustDelta)}`)
-    if (isNonZero(effects.intelDelta)) pieces.push(`暗线${formatSigned(effects.intelDelta)}`)
-    if (targetNpc.powerBase === 'external' && isNonZero(effects.loyaltyDelta)) pieces.push(`${targetNpc.name}忠诚${formatSigned(effects.loyaltyDelta)}`)
-    if (relatedNpc?.powerBase === 'external' && isNonZero(effects.relatedLoyaltyDelta)) pieces.push(`${relatedNpc.name}忠诚${formatSigned(effects.relatedLoyaltyDelta)}`)
+    if (isNonZero(effects.trustDelta)) pieces.push(`${targetNpc.name}信任度${formatSigned(effects.trustDelta)}`)
+    if (relatedNpc && isNonZero(effects.relatedTrustDelta)) pieces.push(`${relatedNpc.name}信任度${formatSigned(effects.relatedTrustDelta)}`)
+    if (isNonZero(effects.intelDelta)) pieces.push(`${targetNpc.name}已知情报${formatSigned(effects.intelDelta)}`)
+    if (targetNpc.powerBase === 'external' && isNonZero(effects.loyaltyDelta)) pieces.push(`${targetNpc.name}忠诚度${formatSigned(effects.loyaltyDelta)}`)
+    if (relatedNpc?.powerBase === 'external' && isNonZero(effects.relatedLoyaltyDelta)) pieces.push(`${relatedNpc.name}忠诚度${formatSigned(effects.relatedLoyaltyDelta)}`)
     if (targetNpc.powerBase === 'external' && isNonZero(effects.militaryPowerDelta)) pieces.push(`${targetNpc.name}军力${formatSigned(effects.militaryPowerDelta)}`)
     if (relatedNpc?.powerBase === 'external' && isNonZero(effects.relatedMilitaryPowerDelta)) pieces.push(`${relatedNpc.name}军力${formatSigned(effects.relatedMilitaryPowerDelta ?? 0)}`)
     return pieces
@@ -393,12 +393,12 @@ function inferCausalEventKind(
         trace.factionEffectSummary.length > 0
         || trace.nationEffectSummary.length > 0
         || Boolean(trace.relatedImpactSummary)
-        || trace.personEffectSummary.some(summary => /忠诚|军力/u.test(summary))
+        || trace.personEffectSummary.some(summary => /忠诚度|军力/u.test(summary))
     ) {
         return 'visible_impact'
     }
-    if (trace.personEffectSummary.some(summary => /暗线/u.test(summary))) return 'intel_progress'
-    if (trace.personEffectSummary.some(summary => /信任/u.test(summary))) return 'trust_only'
+    if (trace.personEffectSummary.some(summary => /已知情报/u.test(summary))) return 'intel_progress'
+    if (trace.personEffectSummary.some(summary => /信任度/u.test(summary))) return 'trust_only'
     return null
 }
 
@@ -427,9 +427,9 @@ function buildFactionEffectSummary(effects: Partial<Record<CourtFactionId, Facti
     for (const [factionId, vector] of Object.entries(effects) as Array<[CourtFactionId, FactionVector | undefined]>) {
         if (!vector) continue
         const details: string[] = []
-        if (isNonZero(vector.militaryPower)) details.push(`军事实力${formatSigned(vector.militaryPower)}`)
-        if (isNonZero(vector.courtInfluence)) details.push(`朝堂影响${formatSigned(vector.courtInfluence)}`)
-        if (isNonZero(vector.internalStability)) details.push(`内部稳定${formatSigned(vector.internalStability)}`)
+        if (isNonZero(vector.militaryPower)) details.push(`军力${formatSigned(vector.militaryPower)}`)
+        if (isNonZero(vector.courtInfluence)) details.push(`朝堂影响力${formatSigned(vector.courtInfluence)}`)
+        if (isNonZero(vector.internalStability)) details.push(`内部稳定度${formatSigned(vector.internalStability)}`)
         if (details.length > 0) pieces.push(`${FACTION_LABELS[factionId]}${details.join('、')}`)
     }
     return pieces

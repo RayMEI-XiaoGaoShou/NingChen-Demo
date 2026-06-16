@@ -12,7 +12,7 @@ function makePolicyReport(overrides: Partial<PolicySettlementReport> = {}): Poli
         optionContent: '清点户籍仓廪',
         reason: '先核仓册，再定州县转运。',
         effects: { grain: 1, governance: 1 },
-        effectSummary: '南陈粮赋与治理略有起色。',
+        effectSummary: '南陈粮草与统治略有起色。',
         legitimacyTone: 'steady',
         focusMatched: true,
         scoringFocus: '是否兼顾仓储与州县执行',

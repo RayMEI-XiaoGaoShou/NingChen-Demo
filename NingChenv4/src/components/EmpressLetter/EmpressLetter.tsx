@@ -6,6 +6,8 @@ import { FIRST_ROUND_GUIDE_CONTENT } from '../../data/prologueContent'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { useSceneTransition } from '../SceneTransition/SceneTransition'
+import { useGameSfx } from '../../audio/gameSfx'
+import { getEmpressOptionSfxKey } from '../../data/mediaAssets'
 import optionApprovalSeal from '../../assets/ui/round-start/roundstart-volume-seal.webp'
 import './EmpressLetter.css'
 
@@ -23,6 +25,7 @@ export function EmpressLetter() {
         huainanCampaign,
     } = useGameStore()
     const { runSceneTransition } = useSceneTransition()
+    const { playSfx } = useGameSfx()
     const [selected, setSelected] = useState<number | null>(null)
     const [reason, setReason] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -32,9 +35,16 @@ export function EmpressLetter() {
         huainanCampaignState: huainanCampaign.state,
     })
 
+    const handleSelectOption = (optionIndex: number) => {
+        const optionSfx = getEmpressOptionSfxKey(optionIndex)
+        if (optionSfx) playSfx(optionSfx)
+        setSelected(optionIndex)
+    }
+
     const handleSubmit = async () => {
         if (selected === null || !policyQ || isSubmitting) return
 
+        playSfx('empress-next-page')
         setIsSubmitting(true)
         const selectedOption = policyQ.options[selected]
         const trimmedReason = reason.trim()
@@ -110,7 +120,7 @@ export function EmpressLetter() {
                                                 <button
                                                     key={opt.label}
                                                     className={`option-btn ${selected === i ? 'selected' : ''}`}
-                                                    onClick={() => setSelected(i)}
+                                                    onClick={() => handleSelectOption(i)}
                                                 >
                                                     <div className="option-index">{optionIndexLabels[i] ?? opt.label}</div>
                                                     <div className="option-copy">

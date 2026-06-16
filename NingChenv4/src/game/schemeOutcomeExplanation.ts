@@ -29,10 +29,10 @@ export interface SchemeOutcomeExplanationInput {
 
 const DIMENSION_NAMES: Record<keyof NationDimensions, string> = {
     finance: '财政',
-    grain: '粮赋',
+    grain: '粮草',
     military: '军事',
-    socialOrder: '社会秩序',
-    governance: '治理穿透力',
+    socialOrder: '民生',
+    governance: '统治',
 }
 
 export function buildSchemeOutcomeExplanation(input: SchemeOutcomeExplanationInput): SchemeOutcomeExplanation {
@@ -195,7 +195,7 @@ function buildRelatedExternalPressureText(input: SchemeOutcomeExplanationInput):
 
     const details: string[] = []
     if (loyaltyDelta < 0) {
-        details.push(`对朝廷的忠诚已跌到 ${input.relatedAfter.loyaltyToCourt}`)
+        details.push(`对朝廷的忠诚度已跌到 ${input.relatedAfter.loyaltyToCourt}`)
     }
     if (militaryDelta < 0) {
         details.push(
@@ -226,13 +226,13 @@ function buildFactionPressureText(input: SchemeOutcomeExplanationInput): string 
 
         const relevantParts: string[] = []
         if (after.courtInfluence !== before.courtInfluence) {
-            relevantParts.push(`朝堂影响 ${after.courtInfluence} · ${getFactionConditionLabel('courtInfluence', after.courtInfluence)}`)
+            relevantParts.push(`朝堂影响力 ${after.courtInfluence} · ${getFactionConditionLabel('courtInfluence', after.courtInfluence)}`)
         }
         if (after.internalStability !== before.internalStability) {
-            relevantParts.push(`内部稳定 ${after.internalStability} · ${getFactionConditionLabel('internalStability', after.internalStability)}`)
+            relevantParts.push(`内部稳定度 ${after.internalStability} · ${getFactionConditionLabel('internalStability', after.internalStability)}`)
         }
         if (after.militaryPower !== before.militaryPower) {
-            relevantParts.push(`军事实力 ${after.militaryPower} · ${getFactionConditionLabel('militaryPower', after.militaryPower)}`)
+            relevantParts.push(`军力 ${after.militaryPower} · ${getFactionConditionLabel('militaryPower', after.militaryPower)}`)
         }
 
         if (relevantParts.length === 0) return ''

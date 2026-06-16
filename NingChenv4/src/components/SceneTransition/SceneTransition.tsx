@@ -10,7 +10,12 @@ import {
 } from 'react'
 import './SceneTransition.css'
 
-export type SceneTransitionVariant = 'to-empress-letter' | 'from-empress-letter' | 'to-settlement'
+export type SceneTransitionVariant =
+    | 'to-empress-letter'
+    | 'from-empress-letter'
+    | 'to-settlement'
+    | 'north-court-entry'
+    | 'north-dark-cloud'
 export type SceneTransitionPhase = 'idle' | 'covering' | 'covered' | 'revealing'
 export type SceneTransitionState =
     | { phase: 'idle' }
@@ -56,6 +61,16 @@ export const SCENE_TRANSITION_TIMINGS: Record<SceneTransitionVariant, SceneTrans
         coverMs: 560,
         holdMs: 240,
         revealMs: 760,
+    },
+    'north-court-entry': {
+        coverMs: 760,
+        holdMs: 280,
+        revealMs: 1000,
+    },
+    'north-dark-cloud': {
+        coverMs: 500,
+        holdMs: 180,
+        revealMs: 650,
     },
 }
 
@@ -185,6 +200,8 @@ export function SceneTransitionLayer() {
 
     if (state.phase === 'idle') return null
 
+    const isNorthCourtEntry = state.variant === 'north-court-entry'
+
     return (
         <div
             className={`scene-transition scene-transition--${state.variant} scene-transition--${state.phase}`}
@@ -192,12 +209,23 @@ export function SceneTransitionLayer() {
             data-variant={state.variant}
             aria-hidden="true"
         >
-            <div className="scene-transition__wash" />
-            <div className="scene-transition__cloud scene-transition__cloud--back" />
-            <div className="scene-transition__side scene-transition__side--left" />
-            <div className="scene-transition__side scene-transition__side--right" />
-            <div className="scene-transition__cloud scene-transition__cloud--front" />
-            <div className="scene-transition__grain" />
+            {isNorthCourtEntry ? (
+                <>
+                    <div className="scene-transition__north-scrim" />
+                    <div className="scene-transition__north-door scene-transition__north-door--left" />
+                    <div className="scene-transition__north-door scene-transition__north-door--right" />
+                    <div className="scene-transition__north-foreground" />
+                </>
+            ) : (
+                <>
+                    <div className="scene-transition__wash" />
+                    <div className="scene-transition__cloud scene-transition__cloud--back" />
+                    <div className="scene-transition__side scene-transition__side--left" />
+                    <div className="scene-transition__side scene-transition__side--right" />
+                    <div className="scene-transition__grain" />
+                    <div className="scene-transition__cloud scene-transition__cloud--front" />
+                </>
+            )}
         </div>
     )
 }

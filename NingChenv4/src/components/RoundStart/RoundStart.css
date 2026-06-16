@@ -189,13 +189,6 @@
     background: rgba(212, 76, 76, 0.1);
 }
 
-.context-list {
-    margin: var(--spacing-md) 0 0;
-    padding-left: 18px;
-    color: var(--color-text-secondary);
-    line-height: 1.8;
-}
-
 .event-descriptions {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -260,15 +253,6 @@
     font-size: clamp(1.125rem, 1rem + 0.4vw, 1.5rem);
     padding: var(--spacing-md) 72px;
     border-width: 2px;
-}
-
-.round-strategy-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.95fr);
-    gap: var(--spacing-xl);
-    align-items: start;
-    width: 100%;
-    margin-bottom: var(--spacing-xl);
 }
 
 .round-side-stack {
@@ -551,7 +535,6 @@
     }
 
     .event-descriptions,
-    .round-strategy-grid,
     .power-dashboard {
         grid-template-columns: 1fr;
     }
@@ -1318,157 +1301,3 @@
     padding: 8px 24px;
 }
 
-.round-start-compact.roundstart-game-screen.roundstart-wireframe-screen {
-    height: 100%;
-    min-height: 0;
-    box-sizing: border-box;
-    padding: 14px 18px 12px;
-    grid-template-rows: 76px 138px minmax(0, 1fr) 48px;
-    gap: 10px;
-    overflow: hidden;
-    background:
-        linear-gradient(180deg, rgba(18, 20, 23, 0.98), rgba(8, 9, 11, 0.98)),
-        radial-gradient(circle at 50% 18%, rgba(201, 176, 101, 0.08), transparent 36%);
-}
-
-.roundstart-wireframe-screen.round-start-compact.roundstart-game-screen::before {
-    display: none;
-}
-
-.roundstart-wireframe-screen .animate-slide-up,
-.roundstart-wireframe-screen .animate-fade-in {
-    animation: none;
-    opacity: 1;
-    transform: none;
-}
-
-.roundstart-wireframe-screen .roundstart-volume-hud {
-    width: 100%;
-    aspect-ratio: auto;
-    min-height: 0;
-    padding: 8px 14px;
-    border: 1px solid rgba(226, 198, 124, 0.42);
-    background: rgba(13, 15, 18, 0.72);
-    background-image: none;
-    box-shadow: inset 0 0 0 1px rgba(255, 239, 180, 0.08);
-    filter: none;
-}
-
-.roundstart-wireframe-screen .roundstart-volume-title-plaque {
-    gap: 10px;
-    padding: 0;
-}
-
-.roundstart-wireframe-screen .roundstart-volume-seal {
-    display: none;
-}
-
-.roundstart-wireframe-screen .roundstart-title-line {
-    color: #f3dfb8;
-    font-size: clamp(1.5rem, 1.1rem + 1.2vw, 2.05rem);
-    text-shadow: none;
-}
-
-.roundstart-wireframe-screen .roundstart-volume-hud .game-hud-tools {
-    gap: 8px;
-}
-
-.roundstart-wireframe-screen .roundstart-volume-hud .game-hud-icon-button {
-    width: 40px;
-    height: 40px;
-    flex-basis: 40px;
-    border: 1px solid rgba(226, 198, 124, 0.38);
-    background: rgba(9, 10, 12, 0.52);
-    background-image: none;
-}
-
-.roundstart-wireframe-screen .roundstart-scroll-briefing {
-    width: 100%;
-    aspect-ratio: auto;
-    min-height: 0;
-    padding: 12px 18px;
-    border: 1px solid rgba(226, 198, 124, 0.4);
-    background: rgba(238, 219, 177, 0.1);
-    color: #eadab3;
-    overflow: hidden;
-    filter: none;
-}
-
-.roundstart-wireframe-screen .roundstart-scroll-briefing::before {
-    display: none;
-}
-
-.roundstart-wireframe-screen .roundstart-section-kicker {
-    margin-bottom: 2px;
-    color: #d8b978;
-    font-size: 14px;
-}
-
-.roundstart-wireframe-screen .roundstart-scroll-paragraphs p {
-    color: #efe2c2;
-    font-size: clamp(0.9rem, 0.82rem + 0.18vw, 1rem);
-    line-height: 1.42;
-    font-weight: 500;
-    text-shadow: none;
-}
-
-.roundstart-wireframe-screen .roundstart-scroll-paragraphs p + p {
-    margin-top: 2px;
-}
-
-.roundstart-wireframe-screen .roundstart-war-board-grid {
-    min-height: 0;
-    gap: 12px;
-}
-
-.roundstart-wireframe-screen .roundstart-war-board {
-    min-height: 0;
-    border: 1px solid rgba(226, 198, 124, 0.34);
-    background: rgba(13, 15, 18, 0.66);
-    box-shadow: none;
-}
-
-.roundstart-wireframe-screen .roundstart-war-board::before,
-.roundstart-wireframe-screen .roundstart-war-board::after {
-    display: none;
-}
-
-.roundstart-wireframe-screen .roundstart-board-content {
-    padding: 14px 16px;
-    gap: 8px;
-}
-
-.roundstart-wireframe-screen .roundstart-board-header h2 {
-    color: #f3dfb8;
-    font-size: clamp(1.04rem, 0.92rem + 0.3vw, 1.24rem);
-    text-shadow: none;
-}
-
-.roundstart-wireframe-screen .roundstart-power-core {
-    overflow: hidden;
-}
-
-.roundstart-wireframe-screen .roundstart-power-core .radar-chart {
-    transform: scale(0.94);
-}
-
-.roundstart-wireframe-screen .roundstart-world-map-shell {
-    min-height: 0;
-    overflow: hidden;
-    border: 1px solid rgba(226, 198, 124, 0.22);
-    background: rgba(0, 0, 0, 0.18);
-}
-
-.roundstart-wireframe-screen .roundstart-map-image {
-    filter: none;
-}
-
-.roundstart-wireframe-screen .roundstart-action-bar {
-    min-height: 0;
-    padding: 0;
-}
-
-.roundstart-wireframe-screen .roundstart-enter-btn {
-    min-height: 40px;
-    padding: 8px 24px;
-}

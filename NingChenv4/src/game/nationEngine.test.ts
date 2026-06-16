@@ -357,7 +357,7 @@ describe('buildPolicyAftereffect', () => {
         const aftereffect = buildPolicyAftereffect({
             round: 2,
             topic: '流民安置',
-            nextRoundFeedback: '流民政策会在灾年和粮赋恢复中体现后果',
+            nextRoundFeedback: '流民政策会在灾年和粮草恢复中体现后果',
             legitimacyEffect: 'up',
             immediateEffects: immediate,
             reasonText: '可先把流民编户屯田，按州郡分流，并预留春耕口粮，免得地方彼此推诿。',

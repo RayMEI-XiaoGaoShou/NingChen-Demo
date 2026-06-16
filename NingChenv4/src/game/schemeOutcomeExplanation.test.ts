@@ -99,7 +99,7 @@ describe('buildSchemeOutcomeExplanation', () => {
         })
 
         expect(explanation.segments.map(segment => segment.label)).toEqual(['国力影响', '朝堂政局'])
-        expect(explanation.direct.text).toContain('北周治理穿透力')
+        expect(explanation.direct.text).toContain('北周统治')
         expect(explanation.structural.text).toContain('祖廷')
         expect(explanation.structural.text).toContain('更愿意听你的话')
         expect(explanation.structural.text).not.toContain('耳朵说热')
@@ -206,7 +206,7 @@ describe('buildSchemeOutcomeExplanation', () => {
 
         expect(explanation.structural.text).toContain('独孤文约')
         expect(explanation.structural.text).toContain('军力 42')
-        expect(explanation.structural.text).toContain('忠诚')
+        expect(explanation.structural.text).toContain('忠诚度')
     })
 
     it('calls out borrowed-blade progress when frame pushes a court target toward dismissal', () => {

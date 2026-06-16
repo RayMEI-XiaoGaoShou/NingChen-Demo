@@ -6,28 +6,13 @@ import {
     SCHEME_MASTER_GUIDE_CONTENT,
 } from '../../data/prologueContent'
 import { OmenTeachingModal } from './OmenTeachingModal'
-import { getSchemeUnlockHint, SchemePanel } from './SchemePanel'
+import { getSchemeUnlockHint } from './SchemePanel'
 import { useGameStore } from '../../stores/gameStore'
 import { SchemeOnboardingModal } from './SchemeOnboardingModal'
 
 describe('SchemePanel onboarding flows', () => {
     beforeEach(() => {
         useGameStore.getState().resetGame()
-    })
-
-    it('shows the scheme master guide on first entry to the scheme phase', () => {
-        useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
-            currentRound: 1,
-        })
-
-        const markup = renderToStaticMarkup(<SchemePanel />)
-
-        expect(markup).toContain('六种计谋，各有用处')
-        expect(markup).toContain('献策')
-        expect(markup).toContain('嫁祸')
-        expect(markup).toContain('皇帝恩宠和太后眷顾都压到足够低')
-        expect(markup).toContain('将嫌疑兑现为罢黜或处决')
     })
 
     it('keeps the scheme master guide focused on the two visible explainability layers', () => {
@@ -38,32 +23,6 @@ describe('SchemePanel onboarding flows', () => {
             ]),
         )
         expect(SCHEME_MASTER_GUIDE_CONTENT.pages[1]?.bullets.join('')).not.toContain('局势伏线')
-    })
-
-    it('renders top-right buttons for reopening the scheme guide and gameplay guide', () => {
-        useGameStore.setState({
-            currentPhase: 'SCHEME_PHASE',
-            currentRound: 2,
-            schemeOnboardingSeen: {
-                scheme_master_guide: true,
-                first_omen_teaching: false,
-                first_external_line_teaching: false,
-                first_follow_up_teaching: false,
-            },
-            firstRoundGuideSeen: {
-                round_start: true,
-                court_observe: true,
-                scheme_phase: true,
-                empress_letter: false,
-                scheme_feedback: false,
-                settlement: false,
-            },
-        })
-
-        const markup = renderToStaticMarkup(<SchemePanel />)
-
-        expect(markup).toContain('计谋指南')
-        expect(markup).toContain('玩法说明')
     })
 
     it('uses the renamed external-line teaching content', () => {
@@ -126,7 +85,7 @@ describe('SchemePanel onboarding flows', () => {
         )
         expect(FIRST_OMEN_TEACHING_CONTENT.impactNotes).toEqual(
             expect.arrayContaining([
-                expect.stringContaining('北周治理'),
+                expect.stringContaining('北周统治'),
                 expect.stringContaining('稳局'),
             ]),
         )

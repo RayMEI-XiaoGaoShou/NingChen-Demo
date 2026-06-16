@@ -22,7 +22,7 @@ function makeResult(eventPatch: Partial<SchemeCausalEventDraft>, resultPatch: Pa
         motionSource: 'fallback',
         primaryDimensions: ['grain'],
         secondaryDimensions: ['finance'],
-        effectSummary: ['北周粮赋-0.2', '北周财政-0.1'],
+        effectSummary: ['北周 粮草-0.2', '北周 财政-0.1'],
         relatedImpactSummary: null,
         ...eventPatch,
     }
@@ -249,7 +249,7 @@ describe('worldEventMemory', () => {
                 motionText: '祖珽按下话头，反令属吏收口并反查来路。',
                 primaryDimensions: [],
                 secondaryDimensions: [],
-                effectSummary: ['祖珽信任-6'],
+                effectSummary: ['祖珽信任度-6'],
             } as any, {
                 success: false,
                 trustChange: -6,
@@ -293,7 +293,7 @@ describe('worldEventMemory', () => {
                 motionText: '独孤文约把这句话记作私下情面，暂愿为你留一线退路。',
                 primaryDimensions: [],
                 secondaryDimensions: [],
-                effectSummary: ['独孤文约信任+5'],
+                effectSummary: ['独孤文约信任度+5'],
             } as any, {
                 trustChange: 5,
                 personEffects: {
@@ -332,7 +332,7 @@ describe('worldEventMemory', () => {
                 motionText: '祖珽在问答间露出口风，你由此摸到后党仓簿旧线。',
                 primaryDimensions: [],
                 secondaryDimensions: [],
-                effectSummary: ['祖珽信任+3', '暗线+1'],
+                effectSummary: ['祖珽信任度+3', '祖珽已知情报+1'],
             } as any, {
                 trustChange: 3,
                 personEffects: {

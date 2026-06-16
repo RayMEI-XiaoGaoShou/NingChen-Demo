@@ -9,10 +9,10 @@ type EmpressReplySource =
 
 export const SOUTH_DIMENSION_LABELS: Record<keyof NationDimensions, string> = {
     finance: '财政',
-    grain: '粮赋',
+    grain: '粮草',
     military: '军事',
-    socialOrder: '民生秩序',
-    governance: '治理穿透力',
+    socialOrder: '民生',
+    governance: '统治',
 }
 
 export function getSettlementPolicyFollowupText(focusMatched: boolean): string {

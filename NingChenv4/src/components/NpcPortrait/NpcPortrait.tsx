@@ -9,7 +9,7 @@ interface NpcPortraitProps {
     positionY?: string
     zoom?: number
     framed?: boolean
-    variant?: NpcPortraitVariant
+    variant: NpcPortraitVariant
 }
 
 export function NpcPortrait({
@@ -19,7 +19,7 @@ export function NpcPortrait({
     positionY,
     zoom,
     framed = false,
-    variant = 'default',
+    variant,
 }: NpcPortraitProps) {
     const [failed, setFailed] = useState(false)
     const src = useMemo(() => getNpcPortraitPath(name, variant), [name, variant])

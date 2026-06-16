@@ -15,25 +15,25 @@ describe('simulationMatrix', () => {
         ])
 
         expect(results.find(item => item.id === 'shu_gained')?.resolvedState).toBe('gained')
-        expect(results.find(item => item.id === 'shu_gained')?.finalMapSrc).toContain('map_2_bashu.webp')
+        expect(results.find(item => item.id === 'shu_gained')?.finalMapSrc).toContain('roundstart-world-map-aiart-bashu-v1.webp')
         expect(results.find(item => item.id === 'shu_gained')?.campaignSummary).toContain('胜机')
 
         expect(results.find(item => item.id === 'shu_stalemate')?.resolvedState).toBe('stalemate')
-        expect(results.find(item => item.id === 'shu_stalemate')?.finalMapSrc).toContain('map_1_initial.webp')
+        expect(results.find(item => item.id === 'shu_stalemate')?.finalMapSrc).toContain('roundstart-world-map-aiart-v1.webp')
         expect(results.find(item => item.id === 'shu_stalemate')?.campaignSummary).toContain('僵持')
 
         expect(results.find(item => item.id === 'shu_failed')?.resolvedState).toBe('failed')
-        expect(results.find(item => item.id === 'shu_failed')?.finalMapSrc).toContain('map_1_initial.webp')
+        expect(results.find(item => item.id === 'shu_failed')?.finalMapSrc).toContain('roundstart-world-map-aiart-v1.webp')
 
         expect(results.find(item => item.id === 'huainan_gained_after_bashu')?.resolvedState).toBe('gained')
-        expect(results.find(item => item.id === 'huainan_gained_after_bashu')?.finalMapSrc).toContain('map_3_bashu_huainan.webp')
+        expect(results.find(item => item.id === 'huainan_gained_after_bashu')?.finalMapSrc).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
 
         expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.resolvedState).toBe('stalemate')
-        expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.finalMapSrc).toContain('map_2_bashu.webp')
+        expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.finalMapSrc).toContain('roundstart-world-map-aiart-bashu-v1.webp')
         expect(results.find(item => item.id === 'huainan_stalemate_after_bashu')?.campaignSummary).toContain('淮南战事迁延日久')
 
         expect(results.find(item => item.id === 'huainan_failed_after_bashu')?.resolvedState).toBe('failed')
-        expect(results.find(item => item.id === 'huainan_failed_after_bashu')?.finalMapSrc).toContain('map_2_bashu.webp')
+        expect(results.find(item => item.id === 'huainan_failed_after_bashu')?.finalMapSrc).toContain('roundstart-world-map-aiart-bashu-v1.webp')
     })
 
     it('covers external secession and rebellion-style branches with summarized outcomes', () => {

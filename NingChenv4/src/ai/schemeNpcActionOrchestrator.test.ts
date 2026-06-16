@@ -67,7 +67,7 @@ function makeSettlement() {
                 motionSource: 'fallback',
                 primaryDimensions: ['grain', 'military'],
                 secondaryDimensions: [],
-                effectSummary: ['令狐律光军力-1', '北周粮赋-0.4', '北周军事-0.5'],
+                effectSummary: ['令狐律光军力-1', '北周 粮草-0.4', '北周 军事-0.5'],
                 relatedImpactSummary: '令狐律光的粮道与军需军令受牵动',
             },
         }],
@@ -130,7 +130,7 @@ function makeSlanderSettlement() {
                 motionSource: 'fallback',
                 primaryDimensions: ['governance', 'finance'],
                 secondaryDimensions: [],
-                effectSummary: ['后党内部稳定-10.1', '北周财政-0.8', '北周治理穿透力-0.9'],
+                effectSummary: ['后党内部稳定度-10.1', '北周 财政-0.8', '北周 统治-0.9'],
                 relatedImpactSummary: '祖廷所在后党的度支账册与中枢调度受牵动',
                 narrativeObligations: [
                     {
@@ -203,7 +203,7 @@ function makePositiveAdviseSettlement() {
                 motionSource: 'fallback',
                 primaryDimensions: ['grain', 'military'],
                 secondaryDimensions: [],
-                effectSummary: ['宇文棣信任+11', '北周粮赋+0.1', '北周军事+0.1'],
+                effectSummary: ['宇文棣信任度+11', '北周 粮草+0.1', '北周 军事+0.1'],
                 relatedImpactSummary: null,
                 narrativeObligations: [
                     {
@@ -279,7 +279,7 @@ function makeFailureCounterSettlement() {
                 motionSource: 'fallback',
                 primaryDimensions: [],
                 secondaryDimensions: [],
-                effectSummary: ['祖廷信任-6'],
+                effectSummary: ['祖廷信任度-6'],
                 relatedImpactSummary: null,
             },
         }],
@@ -342,7 +342,7 @@ function makeBorrowedBladeExecutionSettlement() {
                 motionSource: 'fallback',
                 primaryDimensions: ['finance', 'governance'],
                 secondaryDimensions: [],
-                effectSummary: ['北周财政-3.1', '北周治理穿透力-4.2'],
+                effectSummary: ['北周 财政-3.1', '北周 统治-4.2'],
                 postResolutionEvent: {
                     kind: 'borrowed_blade',
                     outcome: 'executed',

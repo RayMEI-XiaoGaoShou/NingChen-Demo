@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
 import { readFileSync } from 'fs'
-import { CourtView } from './CourtView'
+import { CourtView, resolveCourtBgmSceneContext } from './CourtView'
 import courtViewSource from './CourtView.tsx?raw'
 import { useGameStore } from '../../stores/gameStore'
 import { useUiStore } from '../../stores/uiStore'
@@ -104,6 +104,41 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('对其施计')
     })
 
+    it('uses the black-gold north cloud transition when entering court or external faction stages', () => {
+        const goScopeSource = courtViewSource.slice(
+            courtViewSource.indexOf('const goScope'),
+            courtViewSource.indexOf('const backToOverview'),
+        )
+
+        expect(courtViewSource).toContain("import { useSceneTransition } from '../SceneTransition/SceneTransition'")
+        expect(courtViewSource).toContain("import { useGameSfx } from '../../audio/gameSfx'")
+        expect(courtViewSource).toContain('const { runSceneTransition } = useSceneTransition()')
+        expect(courtViewSource).toContain('const { playSfx, stopSfx } = useGameSfx()')
+        expect(courtViewSource).toContain('gateSfxPrimedRef')
+        expect(courtViewSource).toContain("primeGateSfx('court')")
+        expect(courtViewSource).toContain("primeGateSfx('external')")
+        expect(courtViewSource).toContain("playSfx('court-gate-hover')")
+        expect(courtViewSource).toContain("playSfx('external-gate-hover')")
+        expect(courtViewSource).toContain("stopSfx('court-gate-hover')")
+        expect(courtViewSource).toContain("stopSfx('external-gate-hover')")
+        expect(goScopeSource).toContain("variant: 'north-dark-cloud'")
+        expect(goScopeSource).toContain('onCovered: () => {')
+        expect(goScopeSource).toContain('setScope(nextScope)')
+        expect(courtViewSource).toContain("onClick={() => goScope('court')}")
+        expect(courtViewSource).toContain("onClick={() => goScope('external')}")
+        expect(goScopeSource).not.toContain('setScope(nextScope)\n    }')
+    })
+
+    it('maps court view navigation scopes to focused BGM scene contexts', () => {
+        expect(resolveCourtBgmSceneContext('overview', null)).toBe('court-overview')
+        expect(resolveCourtBgmSceneContext('court', null)).toBe('court-focus')
+        expect(resolveCourtBgmSceneContext('external', null)).toBe('external-focus')
+        expect(resolveCourtBgmSceneContext('overview', 'court')).toBe('court-focus')
+        expect(resolveCourtBgmSceneContext('overview', 'external')).toBe('external-focus')
+        expect(courtViewSource).toContain('setBgmSceneContext(resolveCourtBgmSceneContext(')
+        expect(courtViewSource).toContain('return () => setBgmSceneContext(null)')
+    })
+
     it('keeps court and external explainability available inside the dossier layer', () => {
         expect(courtViewSource).toContain('getFavorPressureLabel')
         expect(courtViewSource).toContain('buildCourtDispositionHint')
@@ -149,6 +184,7 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('{knownThreads.length}/2')
         expect(courtViewSource).toContain('court-hebaqi-scheme-button')
         expect(courtViewSource).toContain('enterSchemeWithNpc(npc)')
+        expect(courtViewSource).toContain("playSfx('north-page-action')")
         expect(courtViewSource).not.toContain('return renderHebaQiDetail')
     })
 
@@ -431,8 +467,8 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewSource).toContain('setSchemeDrawerNpcId(null)')
         expect(courtViewSource).toContain('breadcrumbActionLabel?: string')
         expect(courtViewSource).toContain('court-hud-breadcrumb-action')
-        expect(courtViewSource).toContain('previewScheme?: CourtPreviewScheme')
-        expect(courtViewSource).toContain('initialSchemeType={previewScheme?.targetNpcId === npc.id ? previewScheme.schemeType : undefined}')
+        expect(courtViewSource).not.toContain(['previewScheme?: Court', 'PreviewScheme'].join(''))
+        expect(courtViewSource).not.toContain(['initialScheme', 'Type='].join(''))
         expect(renderToStaticMarkup(<CourtView />)).toContain('第一卷')
         expect(renderToStaticMarkup(<CourtView />)).toContain('class="ui-number">3/3</span>')
         expect(courtViewSource).toContain('isComposing ? \'更换目标\' : undefined')
@@ -592,9 +628,8 @@ describe('CourtView layered game-screen flow', () => {
         expect(courtViewCss).toContain('.court-faction-screen-court .court-faction-scroll-head .court-faction-strength {\n    pointer-events: auto;')
     })
 
-    it('preserves the legacy court view as an exported fallback during the UX rollout', () => {
-        expect(courtViewSource).toContain('export function LegacyCourtView()')
-        expect(courtViewSource).toContain('faction-block faction-${group.id} external-block')
-        expect(courtViewSource).toContain('getExternalTerminalLabel(npc.externalStatus)')
+    it('does not keep the legacy court view fallback after the UX rollout', () => {
+        expect(courtViewSource).not.toContain(['export function Legacy', 'CourtView()'].join(''))
+        expect(courtViewSource).not.toContain('faction-block faction-${group.id} external-block')
     })
 })

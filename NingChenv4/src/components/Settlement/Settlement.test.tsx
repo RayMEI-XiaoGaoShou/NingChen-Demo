@@ -78,6 +78,17 @@ describe('Settlement two-deck lower layout contract', () => {
         expect(settlementSource).toContain('查看本卷异动后继续')
     })
 
+    it('routes the next-volume action through the north court entry transition', () => {
+        expect(settlementSource).toContain("import { useSceneTransition } from '../SceneTransition/SceneTransition'")
+        expect(settlementSource).toContain("import { useGameSfx } from '../../audio/gameSfx'")
+        expect(settlementSource).toContain('const { runSceneTransition } = useSceneTransition()')
+        expect(settlementSource).toContain('const { playSfx } = useGameSfx()')
+        expect(settlementSource).toContain("playSfx('settlement-next-volume')")
+        expect(settlementSource).toContain("variant: 'north-court-entry'")
+        expect(settlementSource).toContain('onCovered: nextPhase')
+        expect(settlementSource).not.toContain('if (!canProceedToNextVolume) return\n        nextPhase()')
+    })
+
     it('uses fixed-width vertical art tabs around a single flexible deck stage', () => {
         expect(settlementSource).toContain('settlement-deck-tab settlement-deck-tab-power')
         expect(settlementSource).toContain('settlement-deck-tab settlement-deck-tab-anomaly')
@@ -293,7 +304,7 @@ describe('Settlement helpers', () => {
                 factionId: 'empress',
                 factionName: '后党',
                 severity: 'breach',
-                reasons: ['内部稳定下滑'],
+                reasons: ['内部稳定度下滑'],
                 summary: '后党内部稳定度出现裂口。',
             }],
             keyChangeHighlights: [],
@@ -326,7 +337,7 @@ describe('Settlement helpers', () => {
                     id: 'external-trust',
                     category: 'external',
                     title: '贺拔琪动向',
-                    text: '贺拔琪：信任-3。只是言语层面的试探。',
+                    text: '贺拔琪：信任度-3。只是言语层面的试探。',
                     tone: 'negative',
                 },
                 {
@@ -347,14 +358,14 @@ describe('Settlement helpers', () => {
                     id: 'faction-shift',
                     category: 'faction',
                     title: '帝党消长',
-                    text: '帝党：朝堂影响+1。派系层面的声势变化。',
+                    text: '帝党：朝堂影响力+1。派系层面的声势变化。',
                     tone: 'positive',
                 },
                 {
                     id: 'faction-extra',
                     category: 'faction',
                     title: '后党消长',
-                    text: '后党：军事实力-1。派系层面的声势变化。',
+                    text: '后党：军力-1。派系层面的声势变化。',
                     tone: 'negative',
                 },
             ],

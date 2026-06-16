@@ -88,6 +88,25 @@ export interface PersistedGameSnapshot extends GameSnapshotCore {
     roundStartSnapshot: RoundStartSnapshot | null
 }
 
+const LEGACY_SCHEME_PAGE_PHASE = ['SCHEME', 'PHASE'].join('_')
+const LEGACY_POST_SETTLEMENT_PHASE = ['ROUND', 'END'].join('_')
+
+export function normalizePersistedRoundPhase(
+    phase: RoundPhase | string,
+    schemeCount = 0,
+    maxSchemes = 3,
+): RoundPhase {
+    if (phase === LEGACY_SCHEME_PAGE_PHASE) {
+        return schemeCount >= maxSchemes ? 'EMPRESS_LETTER' : 'COURT_OBSERVE'
+    }
+
+    if (phase === LEGACY_POST_SETTLEMENT_PHASE) {
+        return 'SETTLEMENT'
+    }
+
+    return phase as RoundPhase
+}
+
 function buildSnapshotCore(state: GameSnapshotCore): GameSnapshotCore {
     return {
         currentRound: state.currentRound,
@@ -177,6 +196,7 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
 
     try {
         const parsed = JSON.parse(raw) as PersistedGameSnapshot & {
+            currentPhase?: RoundPhase | string
             difficulty?: GameDifficulty
             schemeOnboardingSeen?: SchemeOnboardingSeenMap
             omenGuideSeen?: OmenGuideSeenMap
@@ -191,8 +211,14 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             invasionPressure?: number
         }
         if (parsed.version !== 1) return null
+        const normalizedCurrentPhase = normalizePersistedRoundPhase(
+            parsed.currentPhase ?? 'ROUND_START',
+            parsed.schemeCount,
+            parsed.maxSchemes,
+        )
         return {
             ...parsed,
+            currentPhase: normalizedCurrentPhase,
             difficulty: parsed.difficulty ?? 'normal',
             schemeOnboardingSeen: Object.assign(
                 {
@@ -209,6 +235,11 @@ export function loadGameSnapshot(): PersistedGameSnapshot | null {
             roundStartSnapshot: parsed.roundStartSnapshot
                 ? {
                     ...parsed.roundStartSnapshot,
+                    currentPhase: normalizePersistedRoundPhase(
+                        parsed.roundStartSnapshot.currentPhase as RoundPhase | string,
+                        parsed.roundStartSnapshot.schemeCount,
+                        parsed.roundStartSnapshot.maxSchemes,
+                    ),
                     npcs: normalizeCourtDispositionNpcs(parsed.roundStartSnapshot.npcs ?? []),
                     relationMemoryLedger: parsed.roundStartSnapshot.relationMemoryLedger ?? {},
                     worldMemoryLedger: parsed.roundStartSnapshot.worldMemoryLedger ?? [],

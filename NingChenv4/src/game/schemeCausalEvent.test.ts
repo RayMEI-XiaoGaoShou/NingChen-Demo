@@ -28,13 +28,13 @@ function makeTrace(patch: Partial<SchemeImpactTrace> = {}): SchemeImpactTrace {
         rippleNationDimensions: [],
         secondaryNationDimensions: [],
         nationImpactSources: [
-            { dimension: 'grain', value: -0.2, source: 'player_direct', label: '玩家说辞直接命中：北周粮赋-0.2' },
-            { dimension: 'finance', value: -0.1, source: 'player_direct', label: '玩家说辞直接命中：北周财政-0.1' },
-            { dimension: 'governance', value: -0.1, source: 'player_direct', label: '玩家说辞直接命中：北周治理穿透力-0.1' },
+            { dimension: 'grain', value: -0.2, source: 'player_direct', label: '玩家说辞直接命中：北周 粮草-0.2' },
+            { dimension: 'finance', value: -0.1, source: 'player_direct', label: '玩家说辞直接命中：北周 财政-0.1' },
+            { dimension: 'governance', value: -0.1, source: 'player_direct', label: '玩家说辞直接命中：北周 统治-0.1' },
         ],
         personEffectSummary: [],
         factionEffectSummary: [],
-        nationEffectSummary: ['北周粮赋-0.2', '北周财政-0.1', '北周治理穿透力-0.1'],
+        nationEffectSummary: ['北周 粮草-0.2', '北周 财政-0.1', '北周 统治-0.1'],
         relatedImpactSummary: null,
         ...patch,
     }

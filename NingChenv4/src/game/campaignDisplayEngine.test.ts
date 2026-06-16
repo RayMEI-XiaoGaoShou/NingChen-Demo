@@ -44,7 +44,7 @@ describe('campaignDisplayEngine', () => {
             makeCampaignState(),
         )
 
-        expect(display.map.src).toContain('map_2_bashu.webp')
+        expect(display.map.src).toContain('roundstart-world-map-aiart-bashu-v1.webp')
         expect(display.summary).toContain('蜀地')
     })
 
@@ -59,7 +59,7 @@ describe('campaignDisplayEngine', () => {
             }),
         )
 
-        expect(display.map.src).toContain('map_4_huainan.webp')
+        expect(display.map.src).toContain('roundstart-world-map-aiart-huainan-v1.webp')
         expect(display.summary).toContain('淮南')
     })
 

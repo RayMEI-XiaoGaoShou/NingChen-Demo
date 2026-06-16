@@ -1,13 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+﻿import { beforeEach, describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 // @ts-ignore - Vitest source-contract tests can read local CSS without adding Node types to the app.
 import { readFileSync } from 'fs'
-import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
 import {
-    getRoundStartLayoutMode,
     resolveCompactRoundStartMapSrc,
     RoundStart,
-    shouldUseCompactRoundStartLayout,
     splitRoundStartBriefingDateLead,
 } from './RoundStart'
 import { useGameStore } from '../../stores/gameStore'
@@ -31,6 +28,7 @@ describe('RoundStart compact layout', () => {
             currentTrack: null,
             playbackRequestToken: 0,
             voiceDuckingCount: 0,
+            sfxPlaybackLockCount: 0,
         })
     })
 
@@ -66,7 +64,7 @@ describe('RoundStart compact layout', () => {
         expect(markup).toContain('roundstart-map-container')
         expect(markup).toContain('roundstart-world-map-aiart-v1.webp')
         expect(markup).not.toContain('朝堂势力')
-        expect(markup).not.toContain('context-list')
+        expect(markup).not.toContain('冯道之锦囊')
         expect(markup).toContain('入朝听政')
     })
 
@@ -83,7 +81,19 @@ describe('RoundStart compact layout', () => {
         expect(markup).not.toContain('南陈国力图')
         expect(markup).not.toContain('朝堂势力')
         expect(markup).not.toContain('round-header')
-        expect(markup).not.toContain('context-list')
+        expect(markup).not.toContain('冯道之锦囊')
+    })
+
+    it('routes entering court through the north court entry scene transition', () => {
+        expect(roundStartSource).toContain("import { useSceneTransition } from '../SceneTransition/SceneTransition'")
+        expect(roundStartSource).toContain("import { useGameSfx } from '../../audio/gameSfx'")
+        expect(roundStartSource).toContain('const { runSceneTransition } = useSceneTransition()')
+        expect(roundStartSource).toContain('const { playSfx } = useGameSfx()')
+        expect(roundStartSource).toContain("playSfx('roundstart-to-court')")
+        expect(roundStartSource).toContain("variant: 'north-court-entry'")
+        expect(roundStartSource).toContain('onCovered: nextPhase')
+        expect(roundStartSource).not.toContain('roundstart-enter-btn" onClick={nextPhase}')
+        expect(roundStartSource).not.toContain('btn-enter" onClick={nextPhase}')
     })
 
     it('highlights reign-date leads in the court briefing paragraphs', () => {
@@ -100,151 +110,13 @@ describe('RoundStart compact layout', () => {
         expect(roundStartStyles).toContain('.roundstart-single-screen-art .roundstart-briefing-date')
     })
 
-    it('uses the shared battle record helper instead of directly exposing momentum copy', () => {
-        expect(roundStartSource).toContain('buildCampaignRecordPanel({')
-        expect(roundStartSource).toContain('campaignRecord.visible')
-        expect(roundStartSource).toContain('campaignRecord.title')
-        expect(roundStartSource).not.toContain('getCampaignMomentumPresentation(currentRound, shuMomentum, huainanMomentum)')
-        expect(roundStartSource).not.toContain('战役回响')
-
-        expect(buildCampaignRecordPanel({
-            round: 6,
-            surface: 'round_start',
-            shuCampaign: useGameStore.getState().shuCampaign,
-            huainanCampaign: useGameStore.getState().huainanCampaign,
-            shuMomentum: 0.56,
-            huainanMomentum: 0,
-            campaignReports: [],
-        })).toEqual(
-            expect.objectContaining({
-                visible: true,
-                title: '巴蜀之战',
-                phase: '战前伏笔汇总',
-            }),
-        )
-
-        expect(buildCampaignRecordPanel({
-            round: 17,
-            surface: 'round_start',
-            shuCampaign: useGameStore.getState().shuCampaign,
-            huainanCampaign: useGameStore.getState().huainanCampaign,
-            shuMomentum: 0.56,
-            huainanMomentum: 0.88,
-            campaignReports: [],
-        })).toEqual(
-            expect.objectContaining({
-                visible: false,
-            }),
-        )
-    })
-
-    it('only shows the battle record board in the configured campaign windows', () => {
-        const baseState = useGameStore.getState()
-
-        expect(buildCampaignRecordPanel({
-            round: 1,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0.56,
-            huainanMomentum: 0,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: false }))
-
-        expect(buildCampaignRecordPanel({
-            round: 6,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0.56,
-            huainanMomentum: 0,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: true, title: '巴蜀之战' }))
-
-        expect(buildCampaignRecordPanel({
-            round: 10,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0.88,
-            huainanMomentum: 0,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: true, title: '巴蜀之战' }))
-
-        expect(buildCampaignRecordPanel({
-            round: 11,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0.88,
-            huainanMomentum: 0,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: false }))
-
-        expect(buildCampaignRecordPanel({
-            round: 16,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0,
-            huainanMomentum: 0.72,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: true, title: '淮南之战' }))
-
-        expect(buildCampaignRecordPanel({
-            round: 17,
-            surface: 'round_start',
-            shuCampaign: baseState.shuCampaign,
-            huainanCampaign: baseState.huainanCampaign,
-            shuMomentum: 0,
-            huainanMomentum: 0.72,
-            campaignReports: [],
-        })).toEqual(expect.objectContaining({ visible: false }))
-    })
-
-    it('uses the compact layout for every round start', () => {
-        expect(shouldUseCompactRoundStartLayout(1)).toBe(true)
-        expect(shouldUseCompactRoundStartLayout(2)).toBe(true)
-        expect(shouldUseCompactRoundStartLayout(8)).toBe(true)
-        expect(shouldUseCompactRoundStartLayout(20)).toBe(true)
-    })
-
-    it('keeps the wireframe layout behind an explicit query parameter', () => {
-        expect(getRoundStartLayoutMode()).toBe('art')
-        expect(getRoundStartLayoutMode('?roundStartLayout=wireframe')).toBe('wireframe')
-        expect(getRoundStartLayoutMode('?roundStartLayout=natural')).toBe('natural')
-        expect(getRoundStartLayoutMode('?roundStartLayout=art')).toBe('art')
-        expect(roundStartSource).toContain('roundstart-wireframe-screen')
-        expect(roundStartSource).toContain('roundstart-natural-art-screen')
-        expect(roundStartSource).toContain('roundstart-single-screen-art')
-    })
-
-    it('keeps the previous natural-ratio art layout available for comparison', () => {
-        expect(roundStartStyles).toContain('min-height: 100dvh;')
-        expect(roundStartStyles).toContain('grid-template-rows: auto auto minmax(360px, 1fr) auto;')
-        expect(roundStartStyles).toContain('overflow-y: auto;')
-        expect(roundStartStyles).toContain('aspect-ratio: 1600 / 585;')
-        expect(roundStartStyles).toContain('background-size: 100% auto;')
-        expect(roundStartStyles).toContain('.roundstart-war-board-grid')
-        expect(roundStartSource).toContain('roundstart-briefing-scroll-wide-aiart-v2.webp')
-        expect(roundStartSource).toContain('roundstart-briefing-scroll.webp')
-        expect(roundStartSource).toContain('roundstart-volume-seal.webp')
-        expect(roundStartSource).toContain('roundstart-power-north.webp')
-        expect(roundStartSource).toContain('stat-finance-coin.webp')
-        expect(roundStartSource).not.toContain('roundstart-scroll-advisor')
-        expect(roundStartSource).not.toContain('roundstart-footnote-strip')
-        expect(roundStartSource).not.toContain('roundstart-board-score')
-        expect(roundStartSource).not.toContain('roundstart-stat-row')
-        expect(roundStartStyles).not.toContain('grid-template-rows: minmax(0, 1fr) auto;')
-    })
-
     it('uses selected single-screen art assets for the default round start layout', () => {
         const singleScreenHudButtonRule = roundStartStyles.match(/\.roundstart-single-screen-art \.roundstart-volume-hud \.game-hud-icon-button \{[\s\S]*?\n\}/)?.[0] ?? ''
 
         expect(roundStartSource).toContain('GameViewport')
         expect(roundStartSource).toContain('className="roundstart-viewport"')
         expect(roundStartSource).not.toContain('className="roundstart-viewport page-container round-start"')
-        expect(roundStartSource).toContain('canvasClassName={`roundstart-design-canvas')
+        expect(roundStartSource).toContain('canvasClassName="roundstart-design-canvas page-enter"')
         expect(roundStartStyles).toContain('.roundstart-design-canvas')
         expect(roundStartStyles).toContain('.roundstart-canvas-content')
         expect(roundStartStyles).toContain('--roundstart-canvas-vw: var(--game-canvas-vw);')
@@ -314,7 +186,6 @@ describe('RoundStart compact layout', () => {
         expect(roundStartSource).toContain('roundstart-power-north.webp')
         expect(roundStartSource).toContain('roundstart-power-south.webp')
         expect(roundStartSource).toContain('roundstart-board-frame.webp')
-        expect(roundStartSource).toContain('roundstart-world-map-aiart-v1.webp')
         expect(roundStartSource).not.toContain('style={useWireframeLayout ? undefined : framedBoardStyle}')
     })
 
@@ -333,18 +204,11 @@ describe('RoundStart compact layout', () => {
     })
 
     it('uses selected AIART map assets for every compact campaign map state', () => {
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_1_initial.webp', false)).toContain('roundstart-world-map-aiart-v1.webp')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.webp', false)).toContain('roundstart-world-map-aiart-bashu-v1.webp')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_3_bashu_huainan.webp', false)).toContain('roundstart-world-map-aiart-bashu-huainan-v1.webp')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_4_huainan.webp', false)).toContain('roundstart-world-map-aiart-huainan-v1.webp')
-        expect(resolveCompactRoundStartMapSrc('/地图底稿/map_2_bashu.webp', true)).toBe('/地图底稿/map_2_bashu.webp')
-    })
+        const selectedMapSrc = '/src/assets/ui/round-start/roundstart-world-map-aiart-bashu-v1.webp'
 
-    it('defines a no-art single-screen wireframe for layout confirmation', () => {
-        expect(roundStartStyles).toContain('.round-start-compact.roundstart-game-screen.roundstart-wireframe-screen')
-        expect(roundStartStyles).toContain('grid-template-rows: 76px 138px minmax(0, 1fr) 48px;')
-        expect(roundStartStyles).toContain('height: 100%;')
-        expect(roundStartStyles).toContain('background-image: none;')
-        expect(roundStartStyles).toContain('.roundstart-wireframe-screen .roundstart-volume-seal')
+        expect(resolveCompactRoundStartMapSrc(selectedMapSrc)).toBe(selectedMapSrc)
+        expect(resolveCompactRoundStartMapSrc(selectedMapSrc)).not.toContain('地图底稿')
     })
+
 })
+

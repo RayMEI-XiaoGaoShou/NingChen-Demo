@@ -8,6 +8,7 @@ import { RadarChart } from '../RadarChart/RadarChart'
 import { FirstRoundGuideModal } from '../FirstRoundGuide/FirstRoundGuideModal'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import { GameViewport } from '../GameViewport/GameViewport'
+import { useSceneTransition } from '../SceneTransition/SceneTransition'
 import { getRelativePowerLabel, getRelativePowerLevel } from '../../game/relativePower'
 import { getRoundCampaignEventContext } from '../../game/campaignDisplayEngine'
 import { buildCampaignRecordPanel } from '../../game/campaignRecordBoard'
@@ -18,6 +19,7 @@ import { getInvasionPressurePresentation, getPlayerDangerPresentation } from '..
 import { getChronicleTimeLabels, sanitizeChronicleNarration } from '../../game/chronicleTime'
 import type { ExternalActionReport, JudgeFacts, RoundSettlementResult, SettlementKeyChangeHighlight } from '../../game/roundSettlement'
 import type { BorrowedBladeReport, DelayedBacklash, FactionCollapseReport, NationDimensions, PlayerDangerStage, RelationshipReport } from '../../game/types'
+import { useGameSfx } from '../../audio/gameSfx'
 import './Settlement.css'
 
 const SETTLEMENT_ASSETS = {
@@ -371,7 +373,7 @@ function shouldAdmitKeyChange(
     }
 
     if (highlight.category === 'faction') {
-        return /朝堂影响|军事实力|内部稳定|军权|稳定度/.test(highlight.text)
+        return /朝堂影响力|军力|内部稳定度/.test(highlight.text)
     }
 
     return false
@@ -379,19 +381,19 @@ function shouldAdmitKeyChange(
 
 export function getBacklashExplanation(backlash: DelayedBacklash): string {
     if (backlash.type === 'guarded') {
-        return `${backlash.npcName}开始对你多了一层提防，下回合信任可能下降。${backlash.summary}`
+        return `${backlash.npcName}开始对你多了一层提防，下回合信任度可能下降。${backlash.summary}`
     }
 
     if (backlash.type === 'shock') {
-        return `${backlash.npcName}已被你的话锋惊动，并牵动朝议转烈；下回合他对你的信任与北周治理、秩序、军事都会承压。${backlash.summary}`
+        return `${backlash.npcName}已被你的话锋惊动，并牵动朝议转烈；下回合他对你的信任度与北周统治、民生、军事都会承压。${backlash.summary}`
     }
 
     if (backlash.type === 'exposed') {
-        return `你的行止已被${backlash.npcName}暗中记下，下回合他对你的信任可能下降。${backlash.summary}`
+        return `你的行止已被${backlash.npcName}暗中记下，下回合他对你的信任度可能下降。${backlash.summary}`
     }
 
     if (backlash.type === 'misdirected') {
-        return `你的说辞让${backlash.npcName}所在的朝议方向被带偏，下回合北周治理、秩序或军事可能继续受损。${backlash.summary}`
+        return `你的说辞让${backlash.npcName}所在的朝议方向被带偏，下回合北周统治、民生或军事可能继续受损。${backlash.summary}`
     }
 
     return backlash.summary
@@ -492,7 +494,7 @@ export function getSettlementBacklashText(backlash: DelayedBacklash): string {
     }
 
     if (backlash.type === 'shock') {
-        const primary = `${backlash.npcName} 已被这一步真正惊动，朝议也随之转烈。下回合不只他会更防你——北周在治理、秩序或军政上，也可能顺着这道裂口继续失血。`
+        const primary = `${backlash.npcName} 已被这一步真正惊动，朝议也随之转烈。下回合不只他会更防你——北周在统治、民生或军事上，也可能顺着这道裂口继续失血。`
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '转烈', '承压', '惊动'])
             ? `${primary}${backlash.summary}`
             : primary
@@ -506,7 +508,7 @@ export function getSettlementBacklashText(backlash: DelayedBacklash): string {
     }
 
     if (backlash.type === 'misdirected') {
-        const primary = `你的说辞没有当场引发波澜，却把 ${backlash.npcName} 身边的朝议风向轻轻带偏了。下一回合，这股偏移很可能继续在治理、秩序或军政上结出苦果。`
+        const primary = `你的说辞没有当场引发波澜，却把 ${backlash.npcName} 身边的朝议风向轻轻带偏了。下一回合，这股偏移很可能继续在统治、民生或军事上结出苦果。`
         return shouldKeepSettlementSupplement(primary, backlash.summary, ['朝议', '方向', '带偏', '受损'])
             ? `${primary}${backlash.summary}`
             : primary
@@ -606,6 +608,8 @@ export function Settlement() {
         empressReplyRecord,
         worldMemoryLedger,
     } = useGameStore()
+    const { runSceneTransition } = useSceneTransition()
+    const { playSfx } = useGameSfx()
 
     const [judgeNarration, setJudgeNarration] = useState<string | null>(lastSettlement?.summaryText ?? null)
     const [isLoading, setIsLoading] = useState(Boolean(lastSettlement))
@@ -670,7 +674,12 @@ export function Settlement() {
     const canProceedToNextVolume = viewedAnomaly
     const handleNextVolume = () => {
         if (!canProceedToNextVolume) return
-        nextPhase()
+
+        playSfx('settlement-next-volume')
+        void runSceneTransition({
+            variant: 'north-court-entry',
+            onCovered: nextPhase,
+        })
     }
 
     useEffect(() => {

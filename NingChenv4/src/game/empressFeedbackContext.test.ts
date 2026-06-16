@@ -107,7 +107,7 @@ describe('buildEmpressFeedbackContext', () => {
                 optionContent: '先核仓籍',
                 reason: '先稳住粮簿。',
                 effects: { grain: 1 },
-                effectSummary: '粮赋略稳。',
+                effectSummary: '粮草略稳。',
                 legitimacyTone: 'steady',
                 focusMatched: true,
             },

@@ -20,10 +20,10 @@ import type {
 export function summarizeDimensions(changes: Partial<NationDimensions>): string {
     const names: Record<keyof NationDimensions, string> = {
         finance: '财政',
-        grain: '粮赋',
+        grain: '粮草',
         military: '军事',
-        socialOrder: '民生秩序',
-        governance: '统治穿透力',
+        socialOrder: '民生',
+        governance: '统治',
     }
 
     return Object.entries(changes)
@@ -121,8 +121,8 @@ export function buildSettlementKeyChangeHighlights(params: {
 
             if (shouldShow) {
                 const deltas = [
-                    trustDelta !== 0 ? `信任${signed(trustDelta)}` : '',
-                    loyaltyDelta !== 0 ? `忠诚${signed(loyaltyDelta)}` : '',
+                    trustDelta !== 0 ? `信任度${signed(trustDelta)}` : '',
+                    loyaltyDelta !== 0 ? `忠诚度${signed(loyaltyDelta)}` : '',
                     militaryDelta !== 0 ? `军力${signed(militaryDelta)}` : '',
                     statusChanged ? `状态转为${getExternalStatusNarrativeLabel(after.externalStatus)}` : '',
                 ].filter(Boolean)
@@ -182,9 +182,9 @@ export function buildSettlementKeyChangeHighlights(params: {
         if (!shouldShow) continue
 
         const deltas = [
-            influenceDelta !== 0 ? `朝堂影响${signed(influenceDelta)}` : '',
-            stabilityDelta !== 0 ? `内部稳定${signed(stabilityDelta)}` : '',
-            militaryDelta !== 0 ? `军事实力${signed(militaryDelta)}` : '',
+            influenceDelta !== 0 ? `朝堂影响力${signed(influenceDelta)}` : '',
+            stabilityDelta !== 0 ? `内部稳定度${signed(stabilityDelta)}` : '',
+            militaryDelta !== 0 ? `军力${signed(militaryDelta)}` : '',
         ].filter(Boolean)
 
         highlights.push({
@@ -320,9 +320,9 @@ function summarizeFactionChanges(before: Faction[], after: Faction[]): string {
         const influence = round(faction.courtInfluence - previous.courtInfluence)
         const stability = round(faction.internalStability - previous.internalStability)
         const military = round(faction.militaryPower - previous.militaryPower)
-        if (influence !== 0) parts.push(`朝堂影响${influence > 0 ? '+' : ''}${influence}`)
-        if (stability !== 0) parts.push(`稳定${stability > 0 ? '+' : ''}${stability}`)
-        if (military !== 0) parts.push(`军权${military > 0 ? '+' : ''}${military}`)
+        if (influence !== 0) parts.push(`朝堂影响力${influence > 0 ? '+' : ''}${influence}`)
+        if (stability !== 0) parts.push(`内部稳定度${stability > 0 ? '+' : ''}${stability}`)
+        if (military !== 0) parts.push(`军力${military > 0 ? '+' : ''}${military}`)
         return parts.length > 0 ? `${faction.name}${parts.join('、')}` : `${faction.name}维持现状`
     }).join('；')
 }

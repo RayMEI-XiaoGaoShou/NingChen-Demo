@@ -1,7 +1,7 @@
 import { CHARACTER_BIO_PAGES } from '../../data/prologueContent'
+import { getNpcDetailAvatarPath } from '../../data/mediaAssets'
 import { AUTO_PAGE_SCROLL_SPEEDS, useAutoPageScroll } from '../../hooks/useAutoPageScroll'
 import { useGameStore } from '../../stores/gameStore'
-import { NpcPortrait } from '../NpcPortrait/NpcPortrait'
 import { PageUtilityActions } from '../PageUtilityActions/PageUtilityActions'
 import './CharacterBios.css'
 
@@ -44,6 +44,27 @@ function getDisplayPages() {
     })
 }
 
+function CharacterBioPortrait({ name }: { name: string }) {
+    const avatarSrc = getNpcDetailAvatarPath(name)
+
+    if (!avatarSrc) {
+        return (
+            <span className="character-bio-portrait character-bio-portrait-fallback" aria-hidden="true">
+                {name.charAt(0)}
+            </span>
+        )
+    }
+
+    return (
+        <img
+            src={avatarSrc}
+            alt={`${name}头像`}
+            className="character-bio-portrait"
+            draggable={false}
+        />
+    )
+}
+
 export function CharacterBios() {
     const advancePrologue = useGameStore(state => state.advancePrologue)
     const displayPages = getDisplayPages()
@@ -83,13 +104,7 @@ export function CharacterBios() {
                                     <div className="character-bios-grid">
                                         {group.entries.map(entry => (
                                             <article key={entry.name} className="character-bio-card">
-                                                <NpcPortrait
-                                                    name={entry.name}
-                                                    className="character-bio-portrait"
-                                                    framed
-                                                    positionY="18%"
-                                                    zoom={1.18}
-                                                />
+                                                <CharacterBioPortrait name={entry.name} />
                                                 <div className="character-bio-body">
                                                     <div className="character-bio-header">
                                                         <span className="character-bio-name">{entry.name}</span>
