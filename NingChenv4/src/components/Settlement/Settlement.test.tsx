@@ -18,7 +18,7 @@ import {
 
 const fsSpecifier: string = 'fs'
 const { readFileSync } = await import(fsSpecifier)
-const settlementStyles = readFileSync(new URL('./Settlement.css', import.meta.url), 'utf8')
+const settlementStyles = readFileSync(new URL('./Settlement.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 
 describe('Settlement fullscreen redesign contract', () => {
     it('uses the shared full-screen game canvas instead of a scrolling page background', () => {

@@ -8,7 +8,7 @@ import {
     type SceneTransitionState,
 } from './SceneTransition'
 
-const sceneTransitionStyles = readFileSync(new URL('./SceneTransition.css', import.meta.url), 'utf8')
+const sceneTransitionStyles = readFileSync(new URL('./SceneTransition.css', import.meta.url), 'utf8').replace(/\r\n/g, '\n')
 const sceneTransitionSource = readFileSync(new URL('./SceneTransition.tsx', import.meta.url), 'utf8')
 
 function cssRule(selector: string) {
