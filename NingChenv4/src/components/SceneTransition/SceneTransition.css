@@ -1,0 +1,586 @@
+html:has(.scene-transition),
+body:has(.scene-transition) {
+    overflow: hidden;
+}
+
+.scene-transition {
+    --scene-cover-ms: 620ms;
+    --scene-hold-ms: 260ms;
+    --scene-reveal-ms: 820ms;
+    --scene-wash: rgba(234, 229, 198, 0.82);
+    --scene-shadow: rgba(43, 78, 70, 0.22);
+    --scene-cloud-back-art: url('/images/ui/scene-transition/scene-cloud-back.webp');
+    --scene-cloud-front-art: url('/images/ui/scene-transition/scene-cloud-front.webp');
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    overflow: hidden;
+    pointer-events: auto;
+    isolation: isolate;
+}
+
+.scene-transition--from-empress-letter {
+    --scene-cover-ms: 580ms;
+    --scene-hold-ms: 250ms;
+    --scene-reveal-ms: 770ms;
+    --scene-wash: rgba(224, 223, 211, 0.78);
+    --scene-shadow: rgba(30, 41, 45, 0.24);
+}
+
+.scene-transition--to-settlement {
+    --scene-cover-ms: 560ms;
+    --scene-hold-ms: 240ms;
+    --scene-reveal-ms: 760ms;
+    --scene-wash: rgba(215, 221, 210, 0.8);
+    --scene-shadow: rgba(33, 47, 45, 0.26);
+}
+
+.scene-transition--north-court-entry {
+    --scene-cover-ms: 760ms;
+    --scene-hold-ms: 280ms;
+    --scene-reveal-ms: 1000ms;
+    --scene-shadow: rgba(0, 0, 0, 0.62);
+    --scene-left-door-art: url('/images/ui/scene-transition/north-court-entry-left-door.webp');
+    --scene-right-door-art: url('/images/ui/scene-transition/north-court-entry-right-door.webp');
+    --scene-foreground-art: url('/images/ui/scene-transition/north-court-entry-foreground.webp');
+    --scene-door-height: calc(100dvh + 24px);
+    --scene-door-bleed: -12px;
+    --scene-door-open-offset: 50%;
+    --scene-door-overlap: clamp(8px, 0.6vw, 16px);
+    background: transparent;
+}
+
+.scene-transition--north-dark-cloud {
+    --scene-cover-ms: 500ms;
+    --scene-hold-ms: 180ms;
+    --scene-reveal-ms: 650ms;
+    --scene-wash: rgba(18, 15, 11, 0.78);
+    --scene-shadow: rgba(199, 157, 74, 0.26);
+    --scene-cloud-back-art: url('/images/ui/scene-transition/north-dark-cloud-back.webp');
+    --scene-cloud-front-art: url('/images/ui/scene-transition/north-dark-cloud-front.webp');
+}
+
+.scene-transition__wash,
+.scene-transition__cloud,
+.scene-transition__side,
+.scene-transition__grain {
+    position: absolute;
+    pointer-events: none;
+}
+
+.scene-transition__wash {
+    inset: -8%;
+    z-index: 0;
+    background:
+        linear-gradient(180deg, rgba(255, 252, 232, 0.88), var(--scene-wash) 52%, rgba(209, 226, 205, 0.88)),
+        linear-gradient(90deg, rgba(225, 241, 225, 0.54), rgba(255, 249, 222, 0.68), rgba(204, 225, 217, 0.58));
+    opacity: 0;
+}
+
+.scene-transition__cloud {
+    inset: -10%;
+    z-index: 1;
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0;
+    filter: saturate(1.06) contrast(0.98);
+}
+
+.scene-transition__cloud--back {
+    background-image: var(--scene-cloud-back-art);
+    mix-blend-mode: normal;
+    filter: contrast(1.1) saturate(1.14) brightness(0.96);
+}
+
+.scene-transition__cloud--front {
+    z-index: 4;
+    background-image: var(--scene-cloud-front-art);
+    mix-blend-mode: normal;
+    filter: saturate(0.92) contrast(1.04);
+}
+
+.scene-transition__side {
+    top: -8%;
+    bottom: -8%;
+    z-index: 3;
+    width: 58%;
+    background: var(--scene-cloud-front-art) center / cover no-repeat;
+    opacity: 0;
+    mix-blend-mode: normal;
+    filter: saturate(0.95) contrast(1.04) drop-shadow(0 10px 24px var(--scene-shadow));
+}
+
+.scene-transition--north-dark-cloud .scene-transition__wash {
+    background:
+        radial-gradient(circle at 50% 46%, rgba(205, 162, 79, 0.16), transparent 48%),
+        linear-gradient(180deg, rgba(6, 6, 5, 0.92), var(--scene-wash) 52%, rgba(4, 4, 4, 0.94));
+}
+
+.scene-transition--north-dark-cloud .scene-transition__cloud {
+    filter: saturate(1.04) contrast(1.08) brightness(0.84);
+}
+
+.scene-transition--north-dark-cloud .scene-transition__cloud--front,
+.scene-transition--north-dark-cloud .scene-transition__side {
+    filter: saturate(1.02) contrast(1.1) brightness(0.9) drop-shadow(0 10px 24px var(--scene-shadow));
+}
+
+.scene-transition__side--left {
+    left: -9%;
+    transform-origin: left center;
+    mask-image: linear-gradient(90deg, #000 0%, #000 58%, transparent 100%);
+}
+
+.scene-transition__side--right {
+    right: -9%;
+    transform: scaleX(-1);
+    transform-origin: right center;
+    mask-image: linear-gradient(90deg, #000 0%, #000 58%, transparent 100%);
+}
+
+.scene-transition__grain {
+    inset: 0;
+    z-index: 7;
+    opacity: 0;
+    background-image:
+        repeating-linear-gradient(90deg, rgba(101, 91, 65, 0.05) 0 1px, transparent 1px 5px),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 7px);
+    mix-blend-mode: multiply;
+}
+
+.scene-transition__north-scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: #000;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.scene-transition__north-door {
+    position: absolute;
+    bottom: var(--scene-door-bleed);
+    z-index: 5;
+    height: var(--scene-door-height);
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    opacity: 0;
+    filter: saturate(0.96) contrast(1.08) brightness(0.72) drop-shadow(0 18px 36px var(--scene-shadow));
+    pointer-events: none;
+}
+
+.scene-transition__north-door--left {
+    left: 0;
+    width: calc(var(--scene-door-height) * 866 / 1174);
+    background-image: var(--scene-left-door-art);
+    transform: translate3d(calc(-1 * var(--scene-door-open-offset)), 0, 0);
+    transform-origin: right bottom;
+}
+
+.scene-transition__north-door--right {
+    right: 0;
+    width: calc(var(--scene-door-height) * 862 / 1170);
+    background-image: var(--scene-right-door-art);
+    transform: translate3d(var(--scene-door-open-offset), 0, 0);
+    transform-origin: left bottom;
+}
+
+.scene-transition__north-foreground {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    background-image: var(--scene-foreground-art);
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    opacity: 0;
+    filter: saturate(1.02) contrast(1.04);
+    pointer-events: none;
+}
+
+.scene-transition--covering .scene-transition__wash {
+    animation: sceneWashCover var(--scene-cover-ms) ease-out forwards;
+}
+
+.scene-transition--covering .scene-transition__cloud--back {
+    animation: sceneCloudBackCover var(--scene-cover-ms) cubic-bezier(0.2, 0.76, 0.28, 1) forwards;
+}
+
+.scene-transition--covering .scene-transition__cloud--front {
+    animation-name: sceneCloudFrontCover;
+    animation-duration: calc(var(--scene-cover-ms) * 0.95);
+    animation-timing-function: cubic-bezier(0.18, 0.82, 0.24, 1);
+    animation-delay: 0ms;
+    animation-fill-mode: both;
+}
+
+.scene-transition--covering .scene-transition__side--left {
+    animation-name: sceneSideLeftCover;
+    animation-duration: calc(var(--scene-cover-ms) * 0.96);
+    animation-timing-function: cubic-bezier(0.17, 0.78, 0.23, 1);
+    animation-delay: 0ms;
+    animation-fill-mode: both;
+}
+
+.scene-transition--covering .scene-transition__side--right {
+    animation-name: sceneSideRightCover;
+    animation-duration: calc(var(--scene-cover-ms) * 0.96);
+    animation-timing-function: cubic-bezier(0.17, 0.78, 0.23, 1);
+    animation-delay: 0ms;
+    animation-fill-mode: both;
+}
+
+.scene-transition--covering .scene-transition__grain {
+    animation: sceneGrainCover var(--scene-cover-ms) ease-out forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--covering .scene-transition__north-scrim {
+    animation: sceneNorthScrimCover var(--scene-cover-ms) ease-out forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--covering .scene-transition__north-door--left {
+    animation: sceneNorthDoorLeftCover var(--scene-cover-ms) cubic-bezier(0.16, 0.74, 0.22, 1) forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--covering .scene-transition__north-door--right {
+    animation: sceneNorthDoorRightCover var(--scene-cover-ms) cubic-bezier(0.16, 0.74, 0.22, 1) forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--covering .scene-transition__north-foreground {
+    animation: sceneNorthForegroundCover var(--scene-cover-ms) ease-out forwards;
+}
+
+.scene-transition--covered .scene-transition__wash,
+.scene-transition--covered .scene-transition__cloud,
+.scene-transition--covered .scene-transition__side,
+.scene-transition--covered .scene-transition__grain {
+    opacity: 1;
+}
+
+.scene-transition--covered .scene-transition__cloud--back {
+    transform: translate3d(0, 0, 0) scale(1.04);
+}
+
+.scene-transition--covered .scene-transition__cloud--front {
+    opacity: 0.58;
+    transform: translate3d(0, 0, 0) scale(1.02);
+}
+
+.scene-transition--covered .scene-transition__side--left {
+    transform: translate3d(0, 0, 0) scale(1.08);
+}
+
+.scene-transition--covered .scene-transition__side--right {
+    transform: translate3d(0, 0, 0) scaleX(-1) scale(1.08);
+}
+
+.scene-transition--covered .scene-transition__grain {
+    opacity: 0.28;
+}
+
+.scene-transition--covered .scene-transition__side {
+    opacity: 0.38;
+}
+
+.scene-transition--north-court-entry.scene-transition--covered .scene-transition__north-scrim {
+    opacity: 1;
+}
+
+.scene-transition--north-court-entry.scene-transition--covered .scene-transition__north-door--left {
+    left: calc(50% + var(--scene-door-overlap));
+    opacity: 1;
+    transform: translate3d(-100%, 0, 0);
+}
+
+.scene-transition--north-court-entry.scene-transition--covered .scene-transition__north-door--right {
+    right: calc(50% + var(--scene-door-overlap));
+    opacity: 1;
+    transform: translate3d(100%, 0, 0);
+}
+
+.scene-transition--north-court-entry.scene-transition--covered .scene-transition__north-foreground {
+    opacity: 1;
+}
+
+.scene-transition--revealing .scene-transition__wash {
+    animation: sceneWashReveal var(--scene-reveal-ms) ease-in forwards;
+}
+
+.scene-transition--revealing .scene-transition__cloud--back {
+    animation: sceneCloudBackReveal var(--scene-reveal-ms) cubic-bezier(0.58, 0, 0.82, 0.26) forwards;
+}
+
+.scene-transition--revealing .scene-transition__cloud--front {
+    animation-name: sceneCloudFrontReveal;
+    animation-duration: calc(var(--scene-reveal-ms) * 0.88);
+    animation-timing-function: cubic-bezier(0.56, 0, 0.84, 0.28);
+    animation-fill-mode: forwards;
+}
+
+.scene-transition--revealing .scene-transition__side--left {
+    animation-name: sceneSideLeftReveal;
+    animation-duration: calc(var(--scene-reveal-ms) * 0.86);
+    animation-timing-function: cubic-bezier(0.58, 0, 0.85, 0.32);
+    animation-fill-mode: forwards;
+}
+
+.scene-transition--revealing .scene-transition__side--right {
+    animation-name: sceneSideRightReveal;
+    animation-duration: calc(var(--scene-reveal-ms) * 0.86);
+    animation-timing-function: cubic-bezier(0.58, 0, 0.85, 0.32);
+    animation-fill-mode: forwards;
+}
+
+.scene-transition--revealing .scene-transition__grain {
+    animation: sceneGrainReveal var(--scene-reveal-ms) ease-in forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--revealing .scene-transition__north-scrim {
+    animation: sceneNorthScrimReveal var(--scene-reveal-ms) ease-in forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--revealing .scene-transition__north-door--left {
+    animation: sceneNorthDoorLeftReveal var(--scene-reveal-ms) cubic-bezier(0.52, 0, 0.84, 0.28) forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--revealing .scene-transition__north-door--right {
+    animation: sceneNorthDoorRightReveal var(--scene-reveal-ms) cubic-bezier(0.52, 0, 0.84, 0.28) forwards;
+}
+
+.scene-transition--north-court-entry.scene-transition--revealing .scene-transition__north-foreground {
+    animation: sceneNorthForegroundReveal var(--scene-reveal-ms) ease-in forwards;
+}
+
+@keyframes sceneWashCover {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes sceneWashReveal {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes sceneCloudBackCover {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 18%, 0) scale(1.24);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1.04);
+    }
+}
+
+@keyframes sceneCloudBackReveal {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1.04);
+    }
+    30% {
+        opacity: 0.92;
+        transform: translate3d(0, -2%, 0) scale(1.08);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(0, -14%, 0) scale(1.2);
+    }
+}
+
+@keyframes sceneCloudFrontCover {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 32%, 0) scale(1.2);
+    }
+    to {
+        opacity: 0.58;
+        transform: translate3d(0, 0, 0) scale(1.02);
+    }
+}
+
+@keyframes sceneCloudFrontReveal {
+    from {
+        opacity: 0.58;
+        transform: translate3d(0, 0, 0) scale(1.02);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(0, 22%, 0) scale(1.12);
+    }
+}
+
+@keyframes sceneSideLeftCover {
+    from {
+        opacity: 0;
+        transform: translate3d(-74%, 4%, 0) scale(1.14);
+    }
+    to {
+        opacity: 0.38;
+        transform: translate3d(0, 0, 0) scale(1.08);
+    }
+}
+
+@keyframes sceneSideRightCover {
+    from {
+        opacity: 0;
+        transform: translate3d(74%, 4%, 0) scaleX(-1) scale(1.14);
+    }
+    to {
+        opacity: 0.38;
+        transform: translate3d(0, 0, 0) scaleX(-1) scale(1.08);
+    }
+}
+
+@keyframes sceneSideLeftReveal {
+    from {
+        opacity: 0.38;
+        transform: translate3d(0, 0, 0) scale(1.08);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(-88%, -5%, 0) scale(1.16);
+    }
+}
+
+@keyframes sceneSideRightReveal {
+    from {
+        opacity: 0.38;
+        transform: translate3d(0, 0, 0) scaleX(-1) scale(1.08);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(88%, -5%, 0) scaleX(-1) scale(1.16);
+    }
+}
+
+@keyframes sceneGrainCover {
+    from { opacity: 0; }
+    to { opacity: 0.28; }
+}
+
+@keyframes sceneGrainReveal {
+    from { opacity: 0.28; }
+    to { opacity: 0; }
+}
+
+@keyframes sceneNorthScrimCover {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes sceneNorthScrimReveal {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes sceneNorthForegroundCover {
+    from {
+        opacity: 0;
+    }
+    16% {
+        opacity: 1;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes sceneNorthForegroundReveal {
+    from {
+        opacity: 1;
+    }
+    82% {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes sceneNorthDoorLeftCover {
+    from {
+        opacity: 0;
+        left: 0;
+        transform: translate3d(calc(-1 * var(--scene-door-open-offset)), 0, 0);
+    }
+    16% {
+        opacity: 1;
+    }
+    to {
+        left: calc(50% + var(--scene-door-overlap));
+        opacity: 1;
+        transform: translate3d(-100%, 0, 0);
+    }
+}
+
+@keyframes sceneNorthDoorRightCover {
+    from {
+        opacity: 0;
+        right: 0;
+        transform: translate3d(var(--scene-door-open-offset), 0, 0);
+    }
+    16% {
+        opacity: 1;
+    }
+    to {
+        right: calc(50% + var(--scene-door-overlap));
+        opacity: 1;
+        transform: translate3d(100%, 0, 0);
+    }
+}
+
+@keyframes sceneNorthDoorLeftReveal {
+    from {
+        left: calc(50% + var(--scene-door-overlap));
+        opacity: 1;
+        transform: translate3d(-100%, 0, 0);
+    }
+    82% {
+        opacity: 1;
+    }
+    to {
+        left: 0;
+        opacity: 0;
+        transform: translate3d(calc(-1 * var(--scene-door-open-offset)), 0, 0);
+    }
+}
+
+@keyframes sceneNorthDoorRightReveal {
+    from {
+        right: calc(50% + var(--scene-door-overlap));
+        opacity: 1;
+        transform: translate3d(100%, 0, 0);
+    }
+    82% {
+        opacity: 1;
+    }
+    to {
+        right: 0;
+        opacity: 0;
+        transform: translate3d(var(--scene-door-open-offset), 0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scene-transition {
+        --scene-cover-ms: 90ms;
+        --scene-hold-ms: 70ms;
+        --scene-reveal-ms: 120ms;
+    }
+
+    .scene-transition__cloud,
+    .scene-transition__side,
+    .scene-transition__north-foreground {
+        transform: none !important;
+    }
+}

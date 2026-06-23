@@ -1,0 +1,1068 @@
+html:has(.settlement-viewport),
+body:has(.settlement-viewport) {
+    overflow: hidden;
+}
+
+.app:has(.settlement-viewport),
+.app-content:has(.settlement-viewport) {
+    width: 100dvw;
+    max-width: none;
+    min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+}
+
+.settlement-viewport {
+    --settlement-ink: #2b1b11;
+    --settlement-muted-ink: rgba(49, 31, 18, 0.76);
+    --settlement-text: rgba(246, 229, 188, 0.92);
+    --settlement-muted: rgba(226, 204, 160, 0.68);
+    --settlement-gold: #d9b85d;
+    --settlement-panel-bg: rgba(239, 228, 204, 0.62);
+    --settlement-panel-ink: #2b261f;
+    --settlement-panel-muted-ink: rgba(68, 60, 47, 0.7);
+    --settlement-panel-label: rgba(113, 72, 34, 0.82);
+    --settlement-panel-border: rgba(174, 138, 88, 0.42);
+    color: var(--settlement-text);
+    background: #090706;
+    font-family: var(--font-calligraphy);
+}
+
+.settlement-bleed {
+    position: absolute;
+    inset: 0;
+    background: var(--settlement-bg) center / cover no-repeat;
+    transform: none;
+}
+
+.settlement-design-canvas {
+    min-width: 0;
+    min-height: 0;
+    overflow: visible;
+}
+
+.settlement-canvas-content.settlement {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    box-sizing: border-box;
+    padding: clamp(18px, 2.2dvh, 26px)
+        clamp(34px, 3.6dvw, 76px)
+        clamp(14px, 1.8dvh, 22px);
+    display: grid;
+    grid-template-rows: clamp(64px, 7.2dvh, 78px) minmax(0, 1fr);
+    gap: clamp(10px, 1.2dvh, 14px);
+    align-items: stretch;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background: transparent;
+}
+
+.settlement-canvas-content.settlement,
+.settlement-canvas-content.settlement :is(
+    button,
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    span,
+    strong,
+    li,
+    small,
+    label,
+    .settlement-title-line,
+    .game-hud-icon-button,
+    .radar-label,
+    .radar-chip-label
+) {
+    font-family: var(--font-calligraphy);
+}
+
+.settlement-canvas-content.settlement :is(
+    .settlement-power-value,
+    .radar-center-score,
+    .radar-point-value,
+    .radar-chip-value
+) {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.settlement-volume-hud {
+    position: relative;
+    width: min(100%, 1880px);
+    justify-self: center;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(310px, 0.9fr) minmax(520px, 1.2fr) auto;
+    align-items: center;
+    gap: clamp(14px, 1.4dvw, 24px);
+    padding: 0 clamp(8px, 1.2dvw, 22px);
+    border: 0;
+    background: none;
+    background-image: none;
+    background-color: transparent;
+    box-shadow: none;
+    filter: none;
+}
+
+.settlement-volume-title-plaque {
+    grid-column: 1;
+    min-width: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.settlement-volume-seal {
+    width: clamp(48px, 3.2dvw, 58px);
+    height: clamp(48px, 3.2dvw, 58px);
+    display: block;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.56));
+}
+
+.settlement-title-line {
+    min-width: 0;
+    color: #f3dfb8;
+    font-size: clamp(1.32rem, 1.75dvw, 2.1rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: visible;
+    text-overflow: clip;
+    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.76);
+}
+
+.settlement-hud-status {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    z-index: 2;
+    min-width: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    width: max-content;
+    max-width: min(54vw, 840px);
+    transform: translateX(-50%);
+    translate: 0 -50%;
+}
+
+.settlement-hud-status-chip {
+    position: relative;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 clamp(9px, 1vw, 20px);
+    border: 0;
+    background: none;
+    box-shadow: none;
+    color: rgba(224, 214, 190, 0.74);
+    white-space: nowrap;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.72);
+}
+
+.settlement-hud-status-chip:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    top: 12%;
+    right: 0;
+    width: 1px;
+    height: 76%;
+    background: linear-gradient(180deg, transparent, rgba(212, 181, 92, 0.72), transparent);
+}
+
+.settlement-hud-status-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(209, 201, 183, 0.7);
+    font-size: clamp(0.82rem, 0.7rem + 0.22vw, 1.04rem);
+    letter-spacing: 2px;
+}
+
+.settlement-hud-status-value {
+    font-size: clamp(0.92rem, 0.78rem + 0.28vw, 1.12rem);
+    font-weight: 600;
+    letter-spacing: 2px;
+}
+
+.settlement-volume-hud .game-hud-tools {
+    grid-column: 3;
+    position: relative;
+    z-index: 3;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.settlement-volume-hud .game-hud-icon-button {
+    width: clamp(46px, 3.2dvw, 56px);
+    height: clamp(46px, 3.2dvw, 56px);
+    flex: 0 0 clamp(46px, 3.2dvw, 56px);
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: url('../../assets/ui/hud/hud-button-frame.webp');
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    box-shadow: none;
+}
+
+.settlement-content {
+    width: min(100%, 1880px);
+    justify-self: center;
+    min-height: 0;
+    display: grid;
+    grid-template-rows:
+        minmax(258px, 43%)
+        minmax(0, 1fr)
+        clamp(44px, 5.2dvh, 56px);
+    gap: clamp(12px, 1.3dvh, 18px);
+}
+
+.scroll-container {
+    width: 100%;
+    position: relative;
+}
+
+.settlement-chronicle-shell {
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+    overflow: visible;
+}
+
+.chronicle-scroll-art {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns:
+        clamp(92px, 7.4dvw, 148px)
+        minmax(0, 1fr)
+        clamp(92px, 7.4dvw, 148px);
+    align-items: stretch;
+    pointer-events: none;
+    filter: drop-shadow(0 18px 26px rgba(0, 0, 0, 0.46));
+}
+
+.chronicle-scroll-side,
+.chronicle-scroll-paper {
+    min-width: 0;
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+.chronicle-scroll-left {
+    background-image: var(--chronicle-scroll-left);
+    background-position: left center;
+}
+
+.chronicle-scroll-paper {
+    margin-inline: -18px;
+    background-image: var(--chronicle-scroll-center);
+    background-position: center;
+}
+
+.chronicle-scroll-right {
+    background-image: var(--chronicle-scroll-right);
+    background-position: right center;
+}
+
+.judge-narration {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    align-content: stretch;
+    padding:
+        clamp(42px, 5.2dvh, 64px)
+        clamp(116px, 9.2dvw, 190px)
+        clamp(34px, 4.4dvh, 58px);
+    text-align: left;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.judge-title {
+    margin: 0 0 8px;
+    color: #5b2b1b;
+    font-size: clamp(1.24rem, 1.02rem + 0.44vw, 1.58rem);
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: 0;
+    white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(255, 238, 180, 0.48);
+}
+
+.narration-content {
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 8px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(114, 40, 25, 0.42) rgba(255, 248, 225, 0.12);
+}
+
+.narration-text {
+    margin: 0;
+    color: #24180d;
+    font-size: clamp(1rem, 0.9rem + 0.24vw, 1.15rem);
+    font-weight: 600;
+    line-height: 1.48;
+    letter-spacing: 0;
+    text-align: justify;
+    text-shadow: 0 1px 0 rgba(255, 245, 213, 0.72);
+}
+
+.narration-text + .narration-text {
+    margin-top: 1px;
+}
+
+.settlement-chronicle-date {
+    color: #a66b1e;
+    font-weight: 800;
+    text-shadow:
+        0 1px 0 rgba(255, 241, 198, 0.82),
+        0 0 10px rgba(173, 112, 31, 0.2);
+}
+
+.chronicle-narration .loading-state {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-md);
+    color: var(--settlement-muted-ink);
+}
+
+.chronicle-narration .ai-ripple {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 2px solid rgba(114, 40, 25, 0.18);
+    border-top-color: rgba(114, 40, 25, 0.64);
+    animation: settlementSpin 1.4s linear infinite;
+}
+
+.chronicle-narration .narration-loading {
+    color: var(--settlement-muted-ink);
+    line-height: 1.7;
+}
+
+.settlement-lower-deck {
+    --settlement-tab-width: clamp(54px, 3.7dvw, 68px);
+    --settlement-lower-gap: clamp(10px, 1.2dvw, 18px);
+    min-height: 0;
+    display: flex;
+    align-items: stretch;
+    gap: var(--settlement-lower-gap);
+    overflow: hidden;
+}
+
+.settlement-deck-tab {
+    flex: 0 0 var(--settlement-tab-width);
+    min-width: 0;
+    min-height: 0;
+    width: var(--settlement-tab-width);
+    height: 100%;
+    padding: clamp(16px, 2dvh, 26px) 0;
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 10px;
+    border: 0;
+    border-radius: 6px;
+    appearance: none;
+    -webkit-appearance: none;
+    color: rgba(45, 28, 13, 0.96);
+    background:
+        linear-gradient(180deg, rgba(255, 247, 222, 0.94), rgba(225, 207, 154, 0.9)),
+        rgba(227, 204, 140, 0.86);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        0 14px 30px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    outline: 0;
+    transition:
+        filter 160ms ease,
+        transform 180ms ease,
+        opacity 180ms ease;
+}
+
+.settlement-deck-tab:hover {
+    filter: brightness(1.05) saturate(1.02);
+}
+
+.settlement-deck-tab:active {
+    transform: translateY(1px);
+}
+
+.settlement-deck-tab.is-active {
+    filter: brightness(1.08) saturate(1.08);
+}
+
+.settlement-deck-tab-power {
+    order: 1;
+}
+
+.settlement-deck-tab-anomaly {
+    order: 3;
+}
+
+.settlement-deck-tab-label,
+.settlement-deck-tab-state {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0;
+}
+
+.settlement-deck-tab-label {
+    color: rgba(31, 24, 17, 0.92);
+    font-size: clamp(1rem, 1dvw, 1.22rem);
+    font-weight: 700;
+    line-height: 1.18;
+}
+
+.settlement-deck-tab-state {
+    min-height: 0;
+    color: rgba(75, 55, 31, 0.76);
+    font-size: clamp(0.72rem, 0.72dvw, 0.86rem);
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.settlement-deck-tab-state.is-unread {
+    color: #b43b2d;
+    font-weight: 800;
+    text-shadow: 0 0 10px rgba(180, 59, 45, 0.52);
+    animation: settlementUnreadPulse 1.18s ease-in-out infinite;
+}
+
+.settlement-deck-tab-state.is-read {
+    color: rgba(62, 88, 55, 0.84);
+}
+
+.settlement-deck-main {
+    order: 2;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.settlement-lower-deck.is-anomaly .settlement-deck-tab-anomaly {
+    order: 2;
+}
+
+.settlement-lower-deck.is-anomaly .settlement-deck-main {
+    order: 3;
+}
+
+.settlement-deck-view {
+    position: absolute;
+    inset: 0;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    will-change: opacity;
+    transition:
+        opacity 180ms ease,
+        visibility 0s linear 180ms;
+}
+
+.settlement-lower-deck.is-power .settlement-power-deck,
+.settlement-lower-deck.is-anomaly .settlement-anomaly-deck {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+        opacity 180ms ease,
+        visibility 0s;
+}
+
+.settlement-lower-deck.is-anomaly .settlement-power-deck,
+.settlement-lower-deck.is-power .settlement-anomaly-deck {
+    pointer-events: none;
+}
+
+.settlement-power-grid {
+    min-height: 0;
+    height: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(12px, 1.4dvw, 22px);
+}
+
+.settlement-power-panel,
+.settlement-anomaly-panel {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    color: var(--settlement-panel-ink);
+    border: 1px solid var(--settlement-panel-border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(180, 143, 91, 0.08)),
+        var(--settlement-panel-bg);
+    box-shadow:
+        0 18px 36px rgba(20, 12, 5, 0.18),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34),
+        inset 0 0 30px rgba(251, 245, 230, 0.24);
+    backdrop-filter: blur(2.5px) saturate(0.96);
+    -webkit-backdrop-filter: blur(2.5px) saturate(0.96);
+}
+
+.settlement-power-panel::before,
+.settlement-power-panel::after,
+.settlement-anomaly-panel::before,
+.settlement-anomaly-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.settlement-power-panel::before,
+.settlement-anomaly-panel::before {
+    opacity: 0.16;
+    mix-blend-mode: multiply;
+    background:
+        repeating-linear-gradient(96deg, rgba(82, 71, 54, 0.1) 0 1px, transparent 1px 8px),
+        radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.42), transparent 28%),
+        radial-gradient(circle at 86% 92%, rgba(147, 119, 75, 0.14), transparent 34%);
+}
+
+.settlement-power-panel::after,
+.settlement-anomaly-panel::after {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(180, 143, 91, 0.08)),
+        linear-gradient(90deg, rgba(255, 253, 242, 0.08), transparent 48%, rgba(112, 143, 126, 0.06));
+}
+
+.settlement-power-panel > *,
+.settlement-anomaly-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+.settlement-section-header {
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: clamp(10px, 1.3dvh, 16px)
+        clamp(16px, 1.4dvw, 28px)
+        0;
+}
+
+.settlement-section-header h3 {
+    margin: 0;
+    color: var(--settlement-panel-ink);
+    font-size: clamp(1.16rem, 1.25dvw, 1.55rem);
+    line-height: 1.1;
+    letter-spacing: 0;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+.settlement-power-body {
+    height: calc(100% - clamp(40px, 5dvh, 56px));
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(250px, 0.92fr) minmax(280px, 1fr);
+    align-items: center;
+    gap: clamp(10px, 1.1dvw, 18px);
+    padding:
+        0
+        clamp(16px, 1.4dvw, 28px)
+        clamp(14px, 1.6dvh, 20px);
+}
+
+.settlement-power-radar {
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px 0 20px;
+}
+
+.settlement-power-radar .radar-chip-war-board.radar-chip-pos-top {
+    transform: translate(-50%, -118%);
+}
+
+.settlement-power-radar .radar-chip-war-board.radar-chip-pos-right {
+    transform: translate(14px, -50%);
+}
+
+.settlement-power-radar .radar-chip-war-board.radar-chip-pos-left {
+    transform: translate(calc(-100% - 14px), -50%);
+}
+
+.settlement-power-rows {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.settlement-power-row {
+    display: grid;
+    grid-template-columns: 34px minmax(62px, 0.72fr) minmax(122px, 1fr);
+    align-items: center;
+    gap: 10px;
+    min-height: 31px;
+    padding: 3px 8px;
+    border-bottom: 1px solid rgba(83, 67, 42, 0.18);
+    color: var(--settlement-panel-ink);
+}
+
+.settlement-power-row.is-steady {
+    opacity: 0.55;
+}
+
+.settlement-power-row-icon {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+
+.settlement-power-row-label {
+    color: var(--settlement-panel-ink);
+    font-size: clamp(0.94rem, 0.82dvw, 1.06rem);
+    letter-spacing: 0;
+}
+
+.settlement-power-row-values {
+    display: inline-flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.settlement-power-value.previous {
+    width: 44px;
+    color: rgba(68, 60, 47, 0.5);
+    font-size: 0.96rem;
+    text-align: right;
+}
+
+.settlement-power-value.current {
+    width: 54px;
+    color: rgba(35, 31, 25, 0.94);
+    font-size: 1.12rem;
+    font-weight: 700;
+    text-align: right;
+}
+
+.settlement-power-value.steady {
+    color: rgba(68, 60, 47, 0.66);
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.settlement-power-arrow {
+    width: 18px;
+    color: rgba(143, 82, 35, 0.82);
+    font-size: 1.1rem;
+    line-height: 1;
+    text-align: center;
+}
+
+.direction-down .settlement-power-arrow {
+    color: rgba(32, 109, 118, 0.78);
+}
+
+.settlement-anomaly-panel {
+    box-sizing: border-box;
+    display: block;
+    padding:
+        clamp(14px, 1.7dvh, 22px)
+        clamp(18px, 1.6dvw, 30px);
+}
+
+.settlement-anomaly-header {
+    padding-bottom: 6px;
+}
+
+.settlement-anomaly-stream {
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 2px 8px 6px 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(83, 67, 42, 0.28) rgba(255, 248, 225, 0.08);
+}
+
+.settlement-anomaly-entry {
+    display: grid;
+    grid-template-columns: minmax(118px, 0.2fr) minmax(0, 1fr);
+    gap: clamp(12px, 1.1dvw, 20px);
+    padding: 10px clamp(12px, 1.2dvw, 18px);
+    border-top: 1px solid rgba(83, 67, 42, 0.16);
+}
+
+.settlement-anomaly-entry:first-child {
+    border-top: 0;
+}
+
+.settlement-anomaly-labels {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 6px;
+}
+
+.settlement-anomaly-label,
+.settlement-anomaly-sub-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 2px 8px;
+    border: 1px solid rgba(174, 138, 88, 0.24);
+    color: var(--settlement-panel-label);
+    background: rgba(255, 253, 242, 0.16);
+    font-size: 0.82rem;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.settlement-anomaly-label {
+    color: rgba(142, 42, 34, 0.86);
+    border-color: rgba(142, 42, 34, 0.24);
+    background: rgba(142, 42, 34, 0.07);
+}
+
+.settlement-anomaly-copy {
+    min-width: 0;
+}
+
+.settlement-anomaly-copy h4 {
+    margin: 0 0 4px;
+    color: var(--settlement-panel-ink);
+    font-size: clamp(1rem, 0.92dvw, 1.15rem);
+    letter-spacing: 0;
+}
+
+.settlement-anomaly-copy p,
+.settlement-anomaly-empty {
+    margin: 0;
+    color: var(--settlement-panel-muted-ink);
+    font-size: clamp(0.9rem, 0.82dvw, 1rem);
+    line-height: 1.66;
+    letter-spacing: 0;
+}
+
+.settlement-anomaly-entry.tone-negative {
+    background: linear-gradient(90deg, rgba(117, 34, 27, 0.09), transparent 38%);
+}
+
+.settlement-anomaly-entry.tone-positive {
+    background: linear-gradient(90deg, rgba(82, 122, 73, 0.08), transparent 38%);
+}
+
+.settlement-anomaly-empty {
+    padding: 22px clamp(12px, 1.2dvw, 18px);
+    text-align: center;
+}
+
+.relative-badge {
+    display: inline-block;
+}
+
+.relative-badge.level-danger,
+.risk-critical {
+    color: var(--color-danger-light);
+    text-shadow: 0 0 10px rgba(212, 76, 76, 0.5);
+}
+
+.relative-badge.level-warning,
+.risk-warning {
+    color: var(--color-warning-light);
+    text-shadow: 0 0 10px rgba(230, 179, 101, 0.4);
+}
+
+.relative-badge.level-neutral {
+    color: rgba(224, 214, 190, 0.74);
+}
+
+.relative-badge.level-safe,
+.risk-safe {
+    color: var(--color-safe-light);
+}
+
+.action-footer {
+    min-height: 0;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
+}
+
+.btn-next {
+    width: auto;
+    min-width: 176px;
+    min-height: 40px;
+    margin: 0;
+    padding: 8px 24px;
+    font-size: 1rem;
+    letter-spacing: 0;
+}
+
+.action-footer.is-locked .btn-next {
+    opacity: 0.48;
+    filter: saturate(0.7) brightness(0.82);
+    cursor: not-allowed;
+}
+
+.settlement-next-tooltip {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 8px);
+    z-index: 6;
+    padding: 6px 12px;
+    color: rgba(47, 31, 15, 0.96);
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(-50%, 4px);
+    pointer-events: none;
+    border-radius: 4px;
+    background:
+        linear-gradient(180deg, rgba(252, 240, 191, 0.96), rgba(219, 190, 111, 0.92));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 248, 207, 0.58),
+        0 12px 24px rgba(0, 0, 0, 0.28);
+    transition:
+        opacity 160ms ease,
+        transform 180ms ease;
+}
+
+.action-footer.is-locked:hover .settlement-next-tooltip {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+@keyframes settlementUnreadPulse {
+    0%,
+    100% {
+        opacity: 1;
+        filter: saturate(1);
+    }
+
+    48% {
+        opacity: 0.42;
+        filter: saturate(1.35);
+    }
+}
+
+@keyframes settlementSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 1280px) {
+    .settlement-volume-hud {
+        grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1fr) auto;
+    }
+
+    .settlement-hud-status-chip {
+        padding: 0 6px;
+        gap: 4px;
+    }
+
+    .settlement-hud-status-label {
+        font-size: 0.72rem;
+        letter-spacing: 1px;
+    }
+
+    .settlement-hud-status-value {
+        font-size: 0.78rem;
+        letter-spacing: 1px;
+    }
+
+    .settlement-section-header {
+        padding-inline: 14px;
+    }
+
+    .settlement-section-header h3 {
+        font-size: 1rem;
+    }
+
+    .settlement-power-body {
+        grid-template-columns: minmax(158px, 0.82fr) minmax(186px, 1fr);
+        gap: 8px;
+        padding-inline: 10px;
+    }
+
+    .settlement-power-row {
+        grid-template-columns: 28px minmax(42px, 0.62fr) minmax(104px, 1fr);
+        gap: 6px;
+        padding-inline: 5px;
+    }
+
+    .settlement-power-row-icon {
+        width: 20px;
+        height: 20px;
+    }
+
+    .settlement-power-row-values {
+        gap: 6px;
+    }
+
+    .settlement-power-value.previous {
+        width: 36px;
+        font-size: 0.88rem;
+    }
+
+    .settlement-power-arrow {
+        width: 14px;
+        font-size: 1rem;
+    }
+
+    .settlement-power-value.current {
+        width: 44px;
+        font-size: 1rem;
+    }
+
+    .settlement-power-radar .radar-chip-war-board.radar-chip-pos-top {
+        transform: translate(-50%, -104%);
+    }
+
+    .settlement-power-radar .radar-chip-war-board.radar-chip-pos-left {
+        transform: translate(-22px, -50%);
+    }
+}
+
+@media (max-width: 900px) {
+    html:has(.settlement-viewport),
+    body:has(.settlement-viewport),
+    .app:has(.settlement-viewport),
+    .app-content:has(.settlement-viewport) {
+        overflow: auto;
+    }
+
+    .settlement-canvas-content.settlement {
+        height: auto;
+        min-height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        padding: var(--spacing-lg) var(--spacing-md) var(--spacing-2xl);
+    }
+
+    .settlement-volume-hud,
+    .settlement-power-body,
+    .settlement-anomaly-entry {
+        grid-template-columns: 1fr;
+    }
+
+    .settlement-volume-hud {
+        height: auto;
+        gap: 12px;
+    }
+
+    .settlement-hud-status {
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .settlement-content {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .settlement-lower-deck,
+    .settlement-lower-deck.is-anomaly {
+        min-height: 560px;
+        flex-direction: column;
+    }
+
+    .settlement-deck-tab {
+        flex: 0 0 auto;
+        width: 100%;
+        min-height: 44px;
+        padding: 8px 12px;
+    }
+
+    .settlement-deck-tab-power {
+        order: 1;
+    }
+
+    .settlement-deck-tab-anomaly,
+    .settlement-lower-deck.is-anomaly .settlement-deck-tab-anomaly {
+        order: 2;
+    }
+
+    .settlement-deck-main,
+    .settlement-lower-deck.is-anomaly .settlement-deck-main {
+        order: 3;
+        width: 100%;
+        flex: 1 1 auto;
+    }
+
+    .settlement-deck-tab-label,
+    .settlement-deck-tab-state {
+        writing-mode: horizontal-tb;
+        text-orientation: mixed;
+    }
+
+    .settlement-chronicle-shell {
+        min-height: 220px;
+    }
+
+    .chronicle-scroll-art {
+        grid-template-columns: clamp(58px, 14vw, 78px) minmax(0, 1fr) clamp(58px, 14vw, 78px);
+    }
+
+    .chronicle-scroll-paper {
+        margin-inline: -12px;
+    }
+
+    .judge-narration {
+        padding: 36px clamp(28px, 8vw, 44px) 30px;
+    }
+
+    .settlement-power-grid {
+        grid-template-columns: 1fr;
+        min-height: 520px;
+    }
+}

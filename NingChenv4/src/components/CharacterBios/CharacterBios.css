@@ -1,0 +1,193 @@
+.character-bios-page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: var(--spacing-xl) 0 var(--spacing-2xl);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.character-bios-hero {
+    text-align: center;
+    padding: var(--spacing-2xl) var(--spacing-xl) var(--spacing-lg);
+    border-bottom: 1px solid rgba(201, 176, 101, 0.18);
+    background:
+        radial-gradient(circle at top, rgba(201, 176, 101, 0.1), transparent 58%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 72%);
+}
+
+.character-bios-kicker {
+    display: inline-block;
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-sm);
+    letter-spacing: 8px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.character-bios-title {
+    color: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: clamp(2.5rem, 2.1rem + 1.5vw, 4rem);
+    letter-spacing: clamp(8px, 1vw, 16px);
+    text-indent: clamp(8px, 1vw, 16px);
+}
+
+.character-bios-summary {
+    width: min(760px, 100%);
+    margin: var(--spacing-md) auto 0;
+    color: var(--color-text-secondary);
+    line-height: 1.9;
+}
+
+.character-bios-pages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.character-bios-panel {
+    padding: clamp(20px, 2vw, 30px);
+    border-radius: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.character-bios-panel-head {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.character-bios-panel-title {
+    color: var(--color-accent-gold);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-xl);
+    letter-spacing: 4px;
+}
+
+.character-bios-panel-intro {
+    color: var(--color-text-secondary);
+    line-height: 1.85;
+}
+
+.character-bios-groups {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+}
+
+.character-bios-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.character-bios-group-title {
+    color: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-lg);
+    letter-spacing: 3px;
+}
+
+.character-bios-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--spacing-md);
+}
+
+.character-bio-card {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-md);
+    padding: clamp(16px, 1.4vw, 22px);
+    border-radius: 18px;
+    border: 1px solid rgba(201, 176, 101, 0.14);
+    background: rgba(10, 10, 14, 0.84);
+}
+
+.character-bio-portrait {
+    width: 92px;
+    height: 92px;
+    border-radius: 20px;
+    border: 1px solid var(--color-border-gold);
+    background: rgba(201, 176, 101, 0.08);
+    flex-shrink: 0;
+    overflow: hidden;
+    display: block;
+    object-fit: cover;
+}
+
+.character-bio-portrait-fallback {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-gold);
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.character-bio-body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.character-bio-header {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.character-bio-name {
+    color: var(--color-text-primary);
+    font-family: var(--font-heading);
+    font-size: var(--font-size-lg);
+    letter-spacing: 2px;
+}
+
+.character-bio-title {
+    color: var(--color-accent-gold);
+    opacity: 0.82;
+    font-size: var(--font-size-sm);
+    line-height: 1.6;
+}
+
+.character-bio-summary {
+    color: var(--color-text-secondary);
+    line-height: 1.85;
+    text-align: justify;
+}
+
+.character-bios-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: var(--spacing-sm);
+}
+
+.character-bios-button {
+    min-width: 240px;
+}
+
+@media (max-width: 860px) {
+    .character-bios-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .character-bios-hero {
+        padding: var(--spacing-xl) var(--spacing-md) var(--spacing-lg);
+    }
+
+    .character-bio-card {
+        flex-direction: column;
+    }
+
+    .character-bio-portrait {
+        width: 82px;
+        height: 82px;
+    }
+}

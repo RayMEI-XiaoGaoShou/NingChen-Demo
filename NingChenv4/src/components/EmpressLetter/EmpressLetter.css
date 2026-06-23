@@ -1,0 +1,882 @@
+html:has(.empress-letter),
+body:has(.empress-letter) {
+    overflow: hidden;
+}
+
+.app:has(.empress-letter),
+.app-content:has(.empress-letter) {
+    width: 100dvw;
+    max-width: none;
+    min-height: 100dvh;
+    padding: 0;
+    overflow: hidden;
+}
+
+.empress-letter.page-container {
+    --empress-kaiti-font: var(--font-calligraphy);
+    --empress-ink: #324032;
+    --empress-ink-soft: rgba(50, 64, 50, 0.72);
+    --empress-gold: #b89153;
+    --empress-utility-button-size: clamp(30px, 3.75cqw, 48px);
+    --empress-utility-button-gap: clamp(6px, 0.78cqw, 10px);
+    position: fixed;
+    inset: 0;
+    width: 100dvw;
+    height: 100dvh;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    color: var(--empress-ink);
+    font-family: var(--empress-kaiti-font);
+    background: #e7dcc3;
+}
+
+.empress-letter-utility-row {
+    position: absolute;
+    top: 2.5cqh;
+    right: 2.97cqw;
+    z-index: 20;
+    width: auto;
+    margin: 0;
+    padding: 0;
+}
+
+.empress-letter .page-utility-actions {
+    gap: var(--empress-utility-button-gap);
+}
+
+.empress-letter .game-hud-icon-button {
+    width: var(--empress-utility-button-size);
+    height: var(--empress-utility-button-size);
+    flex-basis: var(--empress-utility-button-size);
+    background-image: none;
+    background-color: transparent;
+    filter:
+        drop-shadow(0 8px 10px rgba(35, 23, 12, 0.32))
+        drop-shadow(0 0 8px rgba(245, 218, 141, 0.14));
+}
+
+.empress-letter .game-hud-icon-button:hover {
+    transform: translateY(-1px);
+    filter:
+        brightness(1.12)
+        drop-shadow(0 10px 12px rgba(35, 23, 12, 0.38))
+        drop-shadow(0 0 12px rgba(245, 218, 141, 0.24));
+}
+
+.empress-letter .game-hud-icon-image {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.42));
+}
+
+.empress-letter-stage {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    isolation: isolate;
+    background: #e8ddc8;
+}
+
+.empress-letter-design-frame {
+    position: relative;
+    z-index: 2;
+    width: min(100dvw, calc(100dvh * 16 / 9));
+    height: min(100dvh, calc(100dvw * 9 / 16));
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    isolation: isolate;
+    container-type: size;
+    background: transparent;
+}
+
+.empress-letter-bg-wash {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: url('/images/ui/empress-letter/empress-letter-bg-v2.webp') center / cover no-repeat;
+    filter: saturate(0.98) brightness(1);
+    transform: scale(1.012);
+}
+
+.letter-header {
+    position: absolute;
+    top: 4.2cqh;
+    left: 50%;
+    z-index: 12;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.letter-from {
+    margin: 0;
+    font-family: var(--empress-kaiti-font);
+    font-size: 2.75cqw;
+    font-weight: 700;
+    color: #3d5b48;
+    letter-spacing: 0.08cqw;
+    text-indent: 0.08cqw;
+    white-space: nowrap;
+    text-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.72),
+        0 12px 28px rgba(70, 82, 56, 0.22);
+}
+
+.letter-label {
+    position: absolute;
+    left: calc(100% + 0.72cqw);
+    top: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 3.98cqw;
+    min-height: 2.8cqh;
+    margin-left: 0;
+    padding: 0.18cqh 0.62cqw 0.3cqh;
+    border: 1px solid rgba(168, 48, 39, 0.86);
+    color: #a53126;
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.02cqw;
+    letter-spacing: 0.08cqw;
+    text-indent: 0.08cqw;
+    transform: translateY(-50%);
+    background: rgba(246, 232, 204, 0.38);
+}
+
+.letter-label::before,
+.letter-label::after {
+    content: none;
+}
+
+.letter-label::before {
+    right: calc(100% + 1.09cqw);
+}
+
+.letter-label::after {
+    left: calc(100% + 1.09cqw);
+}
+
+.empress-letter-artboard {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+}
+
+.empress-letter-scroll {
+    position: absolute;
+    left: 5cqw;
+    bottom: -1cqh;
+    z-index: 3;
+    width: 90cqw;
+    aspect-ratio: 1672 / 941;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.empress-letter-scroll-art {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transform: scale(0.93);
+    transform-origin: center top;
+    pointer-events: none;
+    filter:
+        drop-shadow(0 20px 36px rgba(70, 47, 24, 0.2))
+        saturate(1.02)
+        brightness(1.02);
+}
+
+.letter-paper-grain {
+    position: absolute;
+    inset: 15% 11% 8% 11%;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    background:
+        repeating-linear-gradient(92deg, rgba(84, 73, 52, 0.08) 0 1px, transparent 1px 8px),
+        radial-gradient(circle at 23% 18%, rgba(112, 136, 105, 0.1), transparent 26%),
+        radial-gradient(circle at 76% 76%, rgba(173, 132, 77, 0.12), transparent 30%);
+}
+
+.empress-letter-south-seal {
+    position: absolute;
+    left: 8.7%;
+    top: 16.2%;
+    z-index: 4;
+    width: 4.3cqw;
+    height: auto;
+    pointer-events: none;
+    opacity: 0.86;
+    mix-blend-mode: multiply;
+}
+
+.letter-intro {
+    position: absolute;
+    left: 15.4%;
+    top: 15.2%;
+    z-index: 3;
+    width: 57%;
+}
+
+.letter-intro-main {
+    display: flex;
+    flex-direction: column;
+}
+
+.question-background {
+    margin: 0 0 0.86cqh;
+    color: rgba(49, 58, 47, 0.78);
+    line-height: 1.5;
+}
+
+.question-background-prominent {
+    font-size: 1.18cqw;
+    line-height: 1.5;
+}
+
+.question-text {
+    margin: 0;
+    color: rgba(35, 38, 30, 0.92);
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.48cqw;
+    line-height: 1.42;
+    letter-spacing: 0.03cqw;
+    text-align: justify;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.56);
+}
+
+.letter-decision-grid {
+    position: absolute;
+    left: 14.2%;
+    bottom: 22.2%;
+    z-index: 4;
+    width: 39%;
+    overflow: visible;
+}
+
+.options-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.82cqh;
+    overflow: visible;
+}
+
+.option-btn {
+    position: relative;
+    min-height: 8.1cqh;
+    display: flex;
+    align-items: center;
+    gap: 0.86cqw;
+    padding: 0.74cqh 1.48cqw 0.78cqh 6.25cqw;
+    border: 0;
+    border-radius: 0;
+    text-align: left;
+    overflow: visible;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    background-image: url('/images/ui/empress-letter/empress-letter-option.webp');
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    color: var(--empress-ink);
+    cursor: pointer;
+    box-shadow: none;
+    filter:
+        drop-shadow(0 0.52cqh 0.42cqh rgba(68, 46, 25, 0.22))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.32))
+        saturate(1.03)
+        brightness(1.015);
+    transition:
+        transform var(--transition-normal),
+        filter var(--transition-normal),
+        opacity var(--transition-normal);
+}
+
+.option-btn:hover {
+    transform: translate(4px, -1px);
+    filter:
+        drop-shadow(0 0.7cqh 0.58cqh rgba(68, 46, 25, 0.27))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.42))
+        brightness(1.06)
+        saturate(1.05);
+}
+
+.option-btn.selected {
+    transform: translate(7px, -1px);
+    filter:
+        drop-shadow(0 0.78cqh 0.64cqh rgba(89, 53, 24, 0.3))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.46))
+        brightness(1.09)
+        saturate(1.07);
+}
+
+.option-btn:focus-visible {
+    outline: 0;
+    filter:
+        drop-shadow(0 0.66cqh 0.56cqh rgba(68, 46, 25, 0.25))
+        drop-shadow(0 0 0.34cqw rgba(188, 145, 71, 0.24))
+        brightness(1.08)
+        saturate(1.06);
+}
+
+.option-index {
+    position: absolute;
+    left: -1.75cqw;
+    top: 50%;
+    z-index: 2;
+    width: 5.35cqw;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    overflow: visible;
+    transform: translateY(-50%);
+    color: #e6bd56;
+    font-family: var(--empress-kaiti-font);
+    font-size: 2.38cqw;
+    line-height: 1;
+    letter-spacing: 0;
+    background: url('/images/ui/empress-letter/empress-letter-badge.webp') center / contain no-repeat;
+    text-shadow:
+        0 1px 0 rgba(55, 70, 54, 0.9),
+        0 0 12px rgba(237, 215, 142, 0.36);
+}
+
+.option-copy {
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    flex: 1;
+}
+
+.option-text {
+    color: rgba(45, 50, 39, 0.92);
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.05cqw;
+    line-height: 1.28;
+}
+
+.option-risk {
+    margin-top: 3px;
+    color: rgba(68, 72, 58, 0.68);
+    font-family: var(--empress-kaiti-font);
+    font-size: 0.78cqw;
+    line-height: 1.32;
+}
+
+.option-stamp {
+    position: absolute;
+    right: 2.19cqw;
+    top: 50%;
+    z-index: 3;
+    display: block;
+    width: 3.35cqw;
+    height: auto;
+    object-fit: contain;
+    opacity: 0;
+    pointer-events: none;
+    mix-blend-mode: multiply;
+    filter:
+        drop-shadow(0 1px 1px rgba(92, 32, 22, 0.18))
+        saturate(1.08);
+    transform: translateY(-50%) rotate(-10deg);
+    animation: stampIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes stampIn {
+    0% {
+        transform: translateY(-50%) rotate(18deg) scale(1.8);
+        opacity: 0;
+    }
+
+    100% {
+        transform: translateY(-50%) rotate(-10deg) scale(1);
+        opacity: 0.82;
+    }
+}
+
+.empress-letter-chenqian {
+    position: absolute;
+    right: 0.1cqw;
+    bottom: -8.5cqh;
+    z-index: 4;
+    height: 98cqh;
+    width: auto;
+    object-fit: contain;
+    object-position: right bottom;
+    pointer-events: none;
+    filter:
+        drop-shadow(0 24px 34px rgba(55, 35, 18, 0.23))
+        saturate(1.02)
+        brightness(1.03);
+}
+
+.reason-panel {
+    position: absolute;
+    right: 5.2cqw;
+    bottom: 6.4cqh;
+    z-index: 6;
+    width: 36.5cqw;
+    min-height: 39.5cqh;
+    display: flex;
+    flex-direction: column;
+    gap: 1.02cqh;
+    padding: 2.7cqh 2.03cqw 3.8cqh;
+}
+
+.note-panel {
+    overflow: hidden;
+    border: 1px solid rgba(174, 138, 88, 0.42);
+    border-radius: 20px;
+    background: rgba(239, 228, 204, 0.36);
+    backdrop-filter: blur(2.5px) saturate(0.96);
+    -webkit-backdrop-filter: blur(2.5px) saturate(0.96);
+    box-shadow:
+        0 18px 36px rgba(82, 62, 35, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.34),
+        inset 0 0 30px rgba(251, 245, 230, 0.24);
+}
+
+.note-panel__texture {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    mix-blend-mode: multiply;
+    background:
+        repeating-linear-gradient(96deg, rgba(82, 71, 54, 0.1) 0 1px, transparent 1px 8px),
+        radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.42), transparent 28%),
+        radial-gradient(circle at 86% 92%, rgba(147, 119, 75, 0.14), transparent 34%);
+}
+
+.note-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02) 42%, rgba(180, 143, 91, 0.08)),
+        linear-gradient(90deg, rgba(255, 253, 242, 0.08), transparent 48%, rgba(112, 143, 126, 0.06));
+}
+
+.reason-header {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25cqw;
+}
+
+.reason-label {
+    color: #5a6c55;
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.72cqw;
+    letter-spacing: 0.39cqw;
+}
+
+.char-count {
+    color: rgba(58, 62, 48, 0.68);
+    font-size: 1.02cqw;
+}
+
+.reason-input {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    min-height: 17.8cqh;
+    padding: 1.94cqh 1.25cqw 2.5cqh;
+    resize: none;
+    border: 1px solid rgba(143, 116, 76, 0.34);
+    border-radius: 1.09cqw;
+    background: rgba(246, 239, 220, 0.28);
+    color: rgba(45, 47, 37, 0.94);
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.33cqw;
+    line-height: 1.68;
+    box-shadow:
+        inset 0 0 16px rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transition:
+        border-color var(--transition-normal),
+        background var(--transition-normal),
+        box-shadow var(--transition-normal);
+}
+
+.reason-input::placeholder {
+    color: rgba(61, 62, 48, 0.46);
+}
+
+.reason-input:focus {
+    outline: none;
+    border-color: rgba(170, 130, 65, 0.72);
+    background: rgba(249, 242, 222, 0.44);
+    box-shadow:
+        0 0 0 2px rgba(179, 146, 82, 0.12),
+        inset 0 0 18px rgba(255, 255, 255, 0.18);
+}
+
+.empress-letter-submit-wrap {
+    position: absolute;
+    right: 12.85cqw;
+    bottom: 5cqh;
+    z-index: 11;
+    width: 21.2cqw;
+    pointer-events: none;
+}
+
+.empress-letter-submit {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1711 / 616;
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: 0;
+    background-color: transparent;
+    background-image: url('/images/ui/empress-letter/empress-letter-submit.webp');
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    color: #453928;
+    font-family: var(--empress-kaiti-font);
+    font-size: 1.66cqw;
+    font-weight: 500;
+    letter-spacing: 0.26cqw;
+    text-indent: 0.26cqw;
+    line-height: 1;
+    margin: 0 auto;
+    text-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.76),
+        0 0 16px rgba(255, 230, 155, 0.22);
+    cursor: pointer;
+    pointer-events: auto;
+    filter:
+        drop-shadow(0 0.78cqh 0.56cqh rgba(57, 39, 22, 0.28))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.34))
+        saturate(1.03)
+        brightness(1.02);
+    transition:
+        transform var(--transition-normal),
+        filter var(--transition-normal),
+        opacity var(--transition-normal);
+}
+
+.empress-letter-submit-label {
+    position: absolute;
+    left: 50%;
+    top: 34%;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+}
+
+.empress-letter-submit:hover:not(:disabled) {
+    transform: translateY(-2px);
+    filter:
+        drop-shadow(0 0.94cqh 0.68cqh rgba(57, 39, 22, 0.34))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.46))
+        brightness(1.07)
+        saturate(1.05);
+}
+
+.empress-letter-submit:active:not(:disabled) {
+    transform: translateY(1px) scale(0.992);
+    filter:
+        drop-shadow(0 0.42cqh 0.38cqh rgba(57, 39, 22, 0.24))
+        brightness(0.97)
+        saturate(0.99);
+}
+
+.empress-letter-submit:focus-visible {
+    filter:
+        brightness(1.05)
+        drop-shadow(0 0 0.45cqw rgba(190, 145, 72, 0.34));
+}
+
+.empress-letter-submit:disabled {
+    cursor: not-allowed;
+    opacity: 0.68;
+    filter:
+        drop-shadow(0 0.62cqh 0.48cqh rgba(57, 39, 22, 0.22))
+        drop-shadow(0 -1px 0 rgba(255, 252, 233, 0.24))
+        grayscale(0.16)
+        saturate(0.88)
+        brightness(0.94);
+}
+
+@media (max-width: 980px) {
+    html:has(.empress-letter),
+    body:has(.empress-letter) {
+        overflow: hidden;
+    }
+
+    .empress-letter.page-container {
+        position: fixed;
+        height: 100dvh;
+        overflow: hidden auto;
+    }
+
+    .empress-letter-stage {
+        position: relative;
+        min-height: 1160px;
+        height: auto;
+        display: block;
+    }
+
+    .empress-letter-design-frame {
+        width: 100dvw;
+        height: 1160px;
+        aspect-ratio: auto;
+    }
+
+    .empress-letter-utility-row {
+        top: 10px;
+        right: 10px;
+    }
+
+    .letter-header {
+        top: 56px;
+        left: 18px;
+        width: calc(100% - 36px);
+        padding-inline: 18px;
+        gap: 10px;
+        justify-content: flex-start;
+    }
+
+    .letter-from {
+        font-size: clamp(28px, 6vw, 40px);
+        letter-spacing: 2px;
+        text-indent: 2px;
+        white-space: nowrap;
+        text-align: left;
+    }
+
+    .letter-label {
+        position: relative;
+        left: auto;
+        top: auto;
+        margin-left: 0;
+        transform: none;
+        min-height: 28px;
+        font-size: 14px;
+    }
+
+    .empress-letter-scroll {
+        left: 3vw;
+        top: 128px;
+        bottom: auto;
+        width: 94vw;
+        height: 860px;
+    }
+
+    .empress-letter-scroll-art {
+        object-fit: fill;
+    }
+
+    .empress-letter-south-seal {
+        left: 8.5%;
+        top: 10.8%;
+        width: 46px;
+    }
+
+    .letter-intro {
+        left: 12%;
+        top: 10%;
+        width: 77%;
+    }
+
+    .question-background-prominent {
+        font-size: 14px;
+        line-height: 1.72;
+    }
+
+    .question-text {
+        font-size: 24px;
+        line-height: 1.58;
+    }
+
+    .letter-decision-grid {
+        left: 11%;
+        top: 39.8%;
+        bottom: auto;
+        width: 78%;
+    }
+
+    .option-btn {
+        min-height: 78px;
+        padding-left: 80px;
+    }
+
+    .option-index {
+        left: -8px;
+        width: 70px;
+        font-size: 34px;
+    }
+
+    .empress-letter-chenqian {
+        right: -76px;
+        top: 236px;
+        bottom: auto;
+        height: 470px;
+        opacity: 0.2;
+    }
+
+    .reason-panel {
+        left: 8%;
+        right: auto;
+        top: 790px;
+        bottom: auto;
+        width: 84%;
+        min-height: 300px;
+    }
+
+    .empress-letter-submit-wrap {
+        left: 20%;
+        right: auto;
+        top: 1028px;
+        bottom: auto;
+        width: 60%;
+    }
+}
+
+@media (max-width: 640px) {
+    .empress-letter-stage {
+        min-height: 1130px;
+    }
+
+    .empress-letter-design-frame {
+        height: 1130px;
+    }
+
+    .empress-letter-utility-row {
+        right: 4px;
+    }
+
+    .letter-header {
+        top: 60px;
+        left: 12px;
+        width: calc(100% - 24px);
+        padding-inline: 0;
+        gap: 8px;
+    }
+
+    .letter-from {
+        max-width: calc(100vw - 86px);
+        font-size: clamp(23px, 6vw, 31px);
+        letter-spacing: 1px;
+        text-indent: 1px;
+    }
+
+    .letter-label {
+        min-width: 44px;
+        min-height: 25px;
+        padding-inline: 8px;
+        font-size: 13px;
+    }
+
+    .empress-letter-scroll {
+        left: -1vw;
+        top: 118px;
+        width: 102vw;
+        height: 852px;
+    }
+
+    .empress-letter-south-seal {
+        display: none;
+    }
+
+    .letter-intro {
+        left: 8%;
+        top: 8.5%;
+        width: 84%;
+    }
+
+    .question-background-prominent {
+        font-size: 13px;
+    }
+
+    .question-text {
+        font-size: 22px;
+        line-height: 1.6;
+    }
+
+    .letter-decision-grid {
+        left: 8%;
+        top: 38.4%;
+        width: 84%;
+    }
+
+    .options-container {
+        gap: 9px;
+    }
+
+    .option-btn {
+        min-height: 72px;
+        padding: 10px 15px 10px 74px;
+    }
+
+    .option-text {
+        font-size: 15px;
+    }
+
+    .option-risk {
+        font-size: 11px;
+    }
+
+    .option-index {
+        left: -8px;
+        width: 68px;
+        font-size: 33px;
+    }
+
+    .option-stamp {
+        right: 14px;
+        width: 42px;
+    }
+
+    .empress-letter-chenqian {
+        right: -102px;
+        top: 248px;
+        height: 400px;
+        opacity: 0.16;
+    }
+
+    .reason-panel {
+        left: 8%;
+        top: 768px;
+        width: 84%;
+        min-height: 304px;
+        padding: 20px 16px;
+    }
+
+    .empress-letter-submit-wrap {
+        left: 8%;
+        top: 1018px;
+        width: 84%;
+    }
+
+    .empress-letter-submit {
+        width: 100%;
+        min-height: 0;
+        font-size: 24px;
+    }
+}

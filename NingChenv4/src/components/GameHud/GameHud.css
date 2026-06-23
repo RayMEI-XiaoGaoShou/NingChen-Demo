@@ -1,0 +1,152 @@
+.game-hud-tools {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.game-hud-icon-button {
+    position: relative;
+    width: 56px;
+    height: 56px;
+    flex: 0 0 56px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    appearance: none;
+    -webkit-appearance: none;
+    background-color: transparent;
+    background-image: url('../../assets/ui/hud/hud-button-frame.webp');
+    background-position: center;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    color: var(--color-accent-gold);
+    cursor: pointer;
+    transition:
+        transform var(--transition-fast),
+        filter var(--transition-fast),
+        opacity var(--transition-fast);
+}
+
+.game-hud-icon-button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.16) drop-shadow(0 0 10px rgba(201, 176, 101, 0.3));
+}
+
+.game-hud-icon-button:active {
+    transform: translateY(1px) scale(0.97);
+    filter: brightness(0.9);
+}
+
+.game-hud-icon-button:focus-visible {
+    outline: 1px solid rgba(240, 211, 129, 0.9);
+    outline-offset: 2px;
+}
+
+.game-hud-icon-image {
+    width: 76%;
+    height: 76%;
+    object-fit: contain;
+    pointer-events: none;
+    filter:
+        drop-shadow(0 1px 2px rgba(0, 0, 0, 0.75))
+        drop-shadow(0 0 4px rgba(201, 176, 101, 0.12));
+}
+
+.game-hud-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.game-hud-status-chip {
+    min-height: 42px;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 15px;
+    border: 0;
+    background-image:
+        url('../../assets/ui/hud/hud-button-frame.webp'),
+        linear-gradient(90deg, rgba(5, 5, 7, 0.82), rgba(22, 16, 10, 0.62));
+    background-position: center, center;
+    background-size: 100% 100%, calc(100% - 20px) calc(100% - 16px);
+    background-repeat: no-repeat;
+    color: var(--color-text-secondary);
+    cursor: default;
+    pointer-events: none;
+    white-space: nowrap;
+    box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.32);
+}
+
+.game-hud-status-label {
+    color: rgba(214, 196, 147, 0.72);
+    font-family: var(--font-calligraphy);
+    font-size: 0.76rem;
+    letter-spacing: 2px;
+}
+
+.game-hud-status-value {
+    font-family: var(--font-calligraphy);
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+}
+
+.game-hud-status-value .ui-number {
+    font-family: Arial, Helvetica, sans-serif;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.power-level-鼎盛 {
+    color: var(--color-power-peak);
+}
+
+.power-level-强盛 {
+    color: var(--color-power-strong);
+}
+
+.power-level-中平 {
+    color: var(--color-power-moderate);
+}
+
+.power-level-式微 {
+    color: var(--color-power-declining);
+}
+
+.power-level-倾覆 {
+    color: var(--color-power-collapsed);
+}
+
+@media (max-width: 640px) {
+    .game-hud-tools {
+        gap: 6px;
+    }
+
+    .game-hud-icon-button {
+        width: 36px;
+        height: 36px;
+        flex-basis: 36px;
+    }
+
+    .game-hud-status-chip {
+        min-height: 30px;
+        padding: 4px 9px;
+        gap: 6px;
+    }
+
+    .game-hud-status-label,
+    .game-hud-status-value {
+        font-size: 0.68rem;
+    }
+}

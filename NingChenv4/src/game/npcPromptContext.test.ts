@@ -1,0 +1,262 @@
+import { describe, expect, it } from 'vitest'
+import { INITIAL_FACTIONS } from '../data/factions'
+import { INITIAL_NPCS } from '../data/npcs'
+import type { DelayedBacklash, RoundHistoryEntry, WorldMemoryLedger } from './types'
+import { buildNpcPromptDynamicContext } from './npcPromptContext'
+import { createRelationMemoryEntry, mergeRelationMemoryEntries } from './npcRelationshipMemory'
+
+describe('npcPromptContext', () => {
+    it('remembers how the protagonist treated the npc last round', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.name === '祖廷')! }
+        const roundHistory: RoundHistoryEntry[] = [{
+            round: 4,
+            eventName: '西征议起',
+            schemeCount: 3,
+            schemeSuccessCount: 2,
+            keyTargets: ['祖廷'],
+            schemeDetails: [{
+                targetNpcId: npc.id,
+                targetNpcName: npc.name,
+                schemeType: 'advise',
+                success: true,
+            }],
+            externalActionCount: 0,
+            relationshipBreakCount: 0,
+            factionCollapseCount: 0,
+            invasionTriggered: false,
+            northPower: 61,
+            southPower: 46,
+            summary: '本回合局势稍有变化。',
+        }]
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory,
+        })
+
+        expect(context.previousDealings).toContain('上一回合你曾以“献策”试他')
+        expect(context.previousDealings).toContain('已然得手')
+    })
+
+    it('summarizes the recent relationship temperature over the last two rounds', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.name === '宇文棣')! }
+        const roundHistory: RoundHistoryEntry[] = [
+            {
+                round: 5,
+                eventName: '西线议兵',
+                schemeCount: 3,
+                schemeSuccessCount: 1,
+                keyTargets: ['宇文棣'],
+                schemeDetails: [{
+                    targetNpcId: npc.id,
+                    targetNpcName: npc.name,
+                    schemeType: 'advise',
+                    success: true,
+                }],
+                externalActionCount: 0,
+                relationshipBreakCount: 0,
+                factionCollapseCount: 0,
+                invasionTriggered: false,
+                northPower: 59,
+                southPower: 48,
+                summary: '朝中仍在争西线。',
+            },
+            {
+                round: 6,
+                eventName: '宗室争权',
+                schemeCount: 3,
+                schemeSuccessCount: 0,
+                keyTargets: ['宇文棣'],
+                schemeDetails: [{
+                    targetNpcId: npc.id,
+                    targetNpcName: npc.name,
+                    schemeType: 'frame',
+                    success: false,
+                }],
+                externalActionCount: 0,
+                relationshipBreakCount: 0,
+                factionCollapseCount: 0,
+                invasionTriggered: false,
+                northPower: 58,
+                southPower: 49,
+                summary: '宗室与后党互不相让。',
+            },
+        ]
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory,
+        })
+
+        expect(context.relationshipTemperature).toContain('时而拉拢、时而敲打')
+    })
+
+    it('uses recent backlash and faction pressure to describe live court dynamics', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.name === '独孤文约')! }
+        const factions = INITIAL_FACTIONS.map(faction => ({ ...faction }))
+        factions[1].courtInfluence += 10
+        const recentBacklash: DelayedBacklash[] = [{
+            npcId: npc.id,
+            npcName: npc.name,
+            type: 'guarded',
+            intensity: 0.52,
+            summary: '独孤文约表面仍循旧章，然近来言语间已多了一层提防。',
+            sourceRound: 6,
+        }]
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions,
+            roundHistory: [],
+            recentBacklash,
+        })
+
+        expect(context.recentCourtFortune).toContain('近来独孤文约表面仍循旧章')
+        expect(context.factionPressure).toContain('后党想把他当压舱石')
+    })
+
+    it('surfaces court favor deterioration in dynamic prompt context', () => {
+        const npc = {
+            ...INITIAL_NPCS.find(item => item.id === 'zuting')!,
+            emperorFavor: 30,
+            empressDowagerFavor: 29,
+            courtStatus: 'active',
+        } as any
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+        })
+
+        expect(context.recentCourtFortune).toContain('御前恩宠')
+        expect(context.recentCourtFortune).toContain('帘前眷顾')
+    })
+
+    it('calls out when neither side is willing to protect a court target', () => {
+        const npc = {
+            ...INITIAL_NPCS.find(item => item.id === 'zuting')!,
+            emperorFavor: 18,
+            empressDowagerFavor: 17,
+            courtStatus: 'active',
+        } as any
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+        })
+
+        expect(context.recentCourtFortune).toContain('两边都不愿保')
+    })
+
+    it('summarizes only the related npc relation memory when a related line exists', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const relatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'duguwenyue')! }
+        const unrelatedNpc = { ...INITIAL_NPCS.find(item => item.id === 'yuwendi')! }
+        const relationMemoryLedger = mergeRelationMemoryEntries({}, [
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 6,
+                importance: 2,
+                summary: 'old suspicion on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: relatedNpc.id,
+                stance: 'suspicion',
+                sourceRound: 8,
+                importance: 3,
+                summary: 'fresh evidence on the grain route',
+            }),
+            createRelationMemoryEntry({
+                holderNpcId: npc.id,
+                subjectNpcId: unrelatedNpc.id,
+                stance: 'fear',
+                sourceRound: 9,
+                importance: 3,
+                summary: 'unrelated fear memory',
+            }),
+        ])
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            relatedNpcId: relatedNpc.id,
+            relationMemoryLedger,
+        })
+
+        expect(context.relationMemorySummary).toContain('fresh evidence on the grain route')
+        expect(context.relationMemorySummary).toContain('x2')
+        expect(context.relationMemorySummary).not.toContain('unrelated fear memory')
+    })
+
+    it('injects previous public world memory but not current-round or south intel memory', () => {
+        const npc = { ...INITIAL_NPCS.find(item => item.id === 'zuting')! }
+        const worldMemoryLedger: WorldMemoryLedger = [
+            {
+                id: 'public-old',
+                sourceRound: 3,
+                sourceActionId: 'a',
+                scope: 'court_public',
+                visibility: 'public',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['finance'],
+                schemeType: 'advise',
+                summary: '旧日朝堂公议',
+                reliability: 0.8,
+                secrecyRisk: 0.1,
+                tags: [],
+            },
+            {
+                id: 'current-public',
+                sourceRound: 4,
+                sourceActionId: 'b',
+                scope: 'court_public',
+                visibility: 'public',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['grain'],
+                schemeType: 'advise',
+                summary: '本回合朝堂公议',
+                reliability: 0.8,
+                secrecyRisk: 0.1,
+                tags: [],
+            },
+            {
+                id: 'south-only',
+                sourceRound: 3,
+                sourceActionId: 'c',
+                scope: 'south_intel',
+                visibility: 'secret',
+                involvedNpcIds: [npc.id],
+                affectedFactionIds: ['empress'],
+                dimensions: ['military'],
+                schemeType: 'advise',
+                summary: '南陈密线消息',
+                reliability: 0.8,
+                secrecyRisk: 0.6,
+                tags: [],
+            },
+        ]
+
+        const context = buildNpcPromptDynamicContext({
+            npc,
+            factions: INITIAL_FACTIONS.map(faction => ({ ...faction })),
+            roundHistory: [],
+            currentRound: 4,
+            schemeType: 'advise',
+            worldMemoryLedger,
+        })
+
+        expect(context.worldMemorySummary).toContain('旧日朝堂公议')
+        expect(context.worldMemorySummary).not.toContain('本回合朝堂公议')
+        expect(context.worldMemorySummary).not.toContain('南陈密线消息')
+    })
+})

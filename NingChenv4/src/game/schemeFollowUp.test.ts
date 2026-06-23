@@ -1,0 +1,293 @@
+import { describe, expect, it } from 'vitest'
+import type { NorthSchemeParseResult, SchemeAction, SchemeFollowUpParseResult } from './types'
+import {
+    applySchemeFollowUpToNorthParse,
+    buildContextualFallbackFollowUpQuestion,
+    extractFinalQuestion,
+    extractTerminalQuestion,
+    forceQuestionCandidateReplyText,
+    forceStatementReplyText,
+    getSchemeFollowUpImpactPresentation,
+    normalizeSchemeFollowUpParse,
+    sanitizeSchemeFollowUpFinalReplyText,
+    selectRequiredSchemeFollowUpCandidateId,
+    selectSchemeFollowUpCandidateId,
+    shouldBlockSettlementForFollowUp,
+} from './schemeFollowUp'
+
+function makeNorthParse(overrides: Partial<NorthSchemeParseResult> = {}): NorthSchemeParseResult {
+    return {
+        characterFit: 0.56,
+        eventFit: 0.56,
+        structuralPenetration: 0.56,
+        executability: 0.56,
+        exposureRisk: 0.24,
+        financeRelevance: 0.2,
+        grainRelevance: 0.2,
+        militaryRelevance: 0.2,
+        socialOrderRelevance: 0.2,
+        governanceRelevance: 0.2,
+        dominantIntent: 'neutral',
+        stateBenefit: 0,
+        targetBenefit: 0,
+        factionBenefit: 0,
+        legitimacyDirection: 0,
+        suspicionDirection: 0,
+        suspicionTransmission: 0,
+        fractureTransmission: 0,
+        proxyTransmission: 0,
+        evidence: ['base note'],
+        ...overrides,
+    }
+}
+
+function makeAction(id: string, schemeType: SchemeAction['schemeType'], northParse: NorthSchemeParseResult, followUp?: SchemeAction['followUp']): SchemeAction {
+    return {
+        id,
+        targetNpcId: `${id}-target`,
+        schemeType,
+        playerSpeech: `${id} speech`,
+        northParse,
+        followUp,
+    }
+}
+
+describe('schemeFollowUp helpers', () => {
+    it('normalizes follow-up parse bounds and trims evidence', () => {
+        const parsed = normalizeSchemeFollowUpParse({
+            clarificationFit: 2,
+            npcInterestFit: -1,
+            pressureControl: 1.4,
+            contradictionRisk: -0.2,
+            exposureRiskDelta: 0.5,
+            successRateDelta: -0.4,
+            effectMultiplierDelta: 0.3,
+            evidence: ['  first  ', '', ' second', 'third', 'fourth'],
+        })
+
+        expect(parsed).toEqual({
+            clarificationFit: 1,
+            npcInterestFit: 0,
+            pressureControl: 1,
+            contradictionRisk: 0,
+            exposureRiskDelta: 0.18,
+            successRateDelta: -0.08,
+            effectMultiplierDelta: 0.18,
+            evidence: ['first', 'second', 'third'],
+        })
+    })
+
+    it('selects the near-threshold probe candidate and ignores follow-up-heavy options', () => {
+        const actions: SchemeAction[] = [
+            makeAction('weak', 'probe', makeNorthParse({ characterFit: 0.1, eventFit: 0.12, executability: 0.14, structuralPenetration: 0.08, exposureRisk: 0.76 })),
+            makeAction('center', 'probe', makeNorthParse({ characterFit: 0.58, eventFit: 0.54, executability: 0.57, structuralPenetration: 0.55, exposureRisk: 0.22 })),
+            makeAction('strong', 'frame', makeNorthParse({ characterFit: 0.9, eventFit: 0.9, executability: 0.88, structuralPenetration: 0.86, exposureRisk: 0.06 })),
+            makeAction('followed', 'advise', makeNorthParse({ characterFit: 0.57, eventFit: 0.56, executability: 0.55, structuralPenetration: 0.54, exposureRisk: 0.21 }), {
+                questionText: 'Need another check?',
+                status: 'available',
+            }),
+        ]
+
+        expect(selectSchemeFollowUpCandidateId(actions)).toBe('center')
+    })
+
+    it('never selects an action that already has a follow-up', () => {
+        const actions: SchemeAction[] = [
+            makeAction('settled-strong', 'advise', makeNorthParse({ characterFit: 0.64, eventFit: 0.62, executability: 0.63, structuralPenetration: 0.61, exposureRisk: 0.2 }), {
+                questionText: 'Already resolved?',
+                status: 'answered',
+            }),
+            makeAction('open-too-weak', 'probe', makeNorthParse({ characterFit: 0.06, eventFit: 0.08, executability: 0.07, structuralPenetration: 0.05, exposureRisk: 0.85 })),
+        ]
+
+        expect(selectSchemeFollowUpCandidateId(actions)).toBeNull()
+    })
+
+    it('returns null when all actions are obviously weak or settled', () => {
+        const actions: SchemeAction[] = [
+            makeAction('weak-one', 'proxy', makeNorthParse({ characterFit: 0.1, eventFit: 0.14, executability: 0.12, structuralPenetration: 0.08, exposureRisk: 0.8 })),
+            makeAction('weak-two', 'omen', makeNorthParse({ characterFit: 0.18, eventFit: 0.16, executability: 0.2, structuralPenetration: 0.1, exposureRisk: 0.7 }), {
+                questionText: 'Already settled?',
+                status: 'skipped',
+            }),
+        ]
+
+        expect(selectSchemeFollowUpCandidateId(actions)).toBeNull()
+    })
+
+    it('falls back to one parsed action when a follow-up is required', () => {
+        const actions: SchemeAction[] = [
+            makeAction('weak-one', 'proxy', makeNorthParse({ characterFit: 0.1, eventFit: 0.14, executability: 0.12, structuralPenetration: 0.08, exposureRisk: 0.8 })),
+            makeAction('weak-two', 'omen', makeNorthParse({ characterFit: 0.18, eventFit: 0.16, executability: 0.2, structuralPenetration: 0.1, exposureRisk: 0.7 })),
+        ]
+
+        expect(selectRequiredSchemeFollowUpCandidateId(actions)).toBe('weak-one')
+    })
+
+    it('applies follow-up parse adjustments without mutating the original parse', () => {
+        const base = makeNorthParse({
+            characterFit: 0.4,
+            eventFit: 0.45,
+            executability: 0.5,
+            exposureRisk: 0.3,
+            evidence: ['base one', 'base two'],
+        })
+        const followUpParse: SchemeFollowUpParseResult = {
+            clarificationFit: 0.8,
+            npcInterestFit: 0.7,
+            pressureControl: 0.9,
+            contradictionRisk: 0.2,
+            exposureRiskDelta: -0.1,
+            successRateDelta: 0.05,
+            effectMultiplierDelta: 0.11,
+            evidence: ['follow one', 'follow two'],
+        }
+
+        const result = applySchemeFollowUpToNorthParse(base, {
+            questionText: 'Why now?',
+            status: 'answered',
+            parse: followUpParse,
+        })
+
+        expect(result).not.toBe(base)
+        expect(result.evidence).toEqual(['base one', 'base two', 'follow one'])
+        expect(result.evidence).not.toBe(base.evidence)
+        expect(base).toEqual(makeNorthParse({
+            characterFit: 0.4,
+            eventFit: 0.45,
+            executability: 0.5,
+            exposureRisk: 0.3,
+            evidence: ['base one', 'base two'],
+        }))
+        expect(result.characterFit).toBeGreaterThan(base.characterFit)
+        expect(result.structuralPenetration).toBeGreaterThan(base.structuralPenetration)
+        expect(result.executability).toBeGreaterThan(base.executability)
+        expect(result.exposureRisk).toBeCloseTo(0.2)
+    })
+
+    it('summarizes follow-up impact without exposing numeric deltas', () => {
+        const positive = getSchemeFollowUpImpactPresentation({
+            questionText: 'Why now?',
+            status: 'answered',
+            parse: {
+                clarificationFit: 0.82,
+                npcInterestFit: 0.72,
+                pressureControl: 0.76,
+                contradictionRisk: 0.12,
+                exposureRiskDelta: -0.03,
+                successRateDelta: 0.05,
+                effectMultiplierDelta: 0.08,
+                evidence: [],
+            },
+        })
+        const negative = getSchemeFollowUpImpactPresentation({
+            questionText: 'Why now?',
+            status: 'answered',
+            parse: {
+                clarificationFit: 0.22,
+                npcInterestFit: 0.18,
+                pressureControl: 0.2,
+                contradictionRisk: 0.78,
+                exposureRiskDelta: 0.1,
+                successRateDelta: -0.04,
+                effectMultiplierDelta: -0.05,
+                evidence: [],
+            },
+        })
+
+        expect(positive?.tone).toBe('positive')
+        expect(positive?.text).not.toMatch(/\d/)
+        expect(negative?.tone).toBe('negative')
+        expect(negative?.text).not.toMatch(/\d/)
+    })
+
+    it('extracts the final question segment for English and Chinese question marks', () => {
+        expect(extractFinalQuestion('First explain the plan. Then answer this: what happens next?')).toBe('Then answer this: what happens next?')
+        const chineseReply = 'First sentence\u3002Second question\uFF1F'
+        expect(extractFinalQuestion(chineseReply)).toBe('Second question\uFF1F')
+    })
+
+    it('only treats a terminal question as the follow-up hook', () => {
+        expect(extractTerminalQuestion('先问一句：你要如何？随后他把话收住。')).toBeNull()
+        expect(extractTerminalQuestion('先铺垫。你究竟要我如何？')).toBe('你究竟要我如何？')
+    })
+
+    it('forces non-candidate replies to end declaratively', () => {
+        const reply = forceStatementReplyText('他把杯盏放下，问你究竟要如何落笔？')
+
+        expect(reply).not.toMatch(/[?？]\s*$/)
+        expect(reply).toBe('他把杯盏放下。')
+    })
+
+    it('forces the selected candidate to expose exactly one terminal question hook', () => {
+        const reply = forceQuestionCandidateReplyText('他把话听完，只说此事可慢慢筹划。', '你究竟想让本公先压谁？')
+
+        expect(reply).toContain('他把话听完，只说此事可慢慢筹划。')
+        expect(extractTerminalQuestion(reply)).toBe('你究竟想让本公先压谁？')
+    })
+
+    it('promotes an embedded AI question instead of appending a fixed fallback hook', () => {
+        const reply = forceQuestionCandidateReplyText(
+            '他听到此处，先把话压低。你究竟想让我先疑谁？随后把话收住，说此事不可急。',
+            '你今日把这话递到我耳边，究竟想让我先疑谁？',
+        )
+
+        expect(reply).not.toContain('（稍作停顿）')
+        expect(reply).not.toContain('你今日把这话递到我耳边')
+        expect(extractTerminalQuestion(reply)).toBe('你究竟想让我先疑谁？')
+    })
+
+    it('builds contextual fallback questions from related npc and dominant dimension', () => {
+        const question = buildContextualFallbackFollowUpQuestion({
+            schemeType: 'alienate',
+            targetNpcName: '宗艾',
+            relatedNpcName: '令狐律光',
+            playerSpeech: '先查令狐律光粮道与军需调拨。',
+            northParse: makeNorthParse({
+                grainRelevance: 0.82,
+                militaryRelevance: 0.76,
+            }),
+        })
+
+        expect(question).toContain('令狐律光')
+        expect(question).toMatch(/粮道|军需/)
+        expect(question).not.toContain('究竟想让我先疑谁')
+    })
+
+    it('sanitizes follow-up final replies with rhetorical questions instead of dropping to fallback', () => {
+        const reply = sanitizeSchemeFollowUpFinalReplyText('他冷笑道：“你还要本官如何？”随即收住话锋，说此事先按账册查。')
+
+        expect(reply).toContain('随即收住话锋')
+        expect(reply).not.toMatch(/[?？]/)
+    })
+
+    it('blocks settlement while the single visible follow-up is available or being submitted', () => {
+        const availableAction = makeAction('available', 'advise', makeNorthParse(), {
+            questionText: 'Need response?',
+            status: 'available',
+        })
+        const answeredAction = makeAction('answered', 'probe', makeNorthParse(), {
+            questionText: 'Already done?',
+            status: 'answered',
+        })
+
+        expect(shouldBlockSettlementForFollowUp([availableAction], false)).toBe(true)
+        expect(shouldBlockSettlementForFollowUp([answeredAction], true)).toBe(true)
+        expect(shouldBlockSettlementForFollowUp([answeredAction], false)).toBe(false)
+    })
+
+    it('does not let stale available follow-ups block settlement after one has been resolved', () => {
+        const actions: SchemeAction[] = [
+            makeAction('answered', 'probe', makeNorthParse(), {
+                questionText: 'Already done?',
+                status: 'answered',
+            }),
+            makeAction('available', 'advise', makeNorthParse(), {
+                questionText: 'Need response?',
+                status: 'available',
+            }),
+        ]
+
+        expect(shouldBlockSettlementForFollowUp(actions, false)).toBe(false)
+    })
+})

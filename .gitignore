@@ -1,0 +1,24 @@
+.worktrees/
+.obsidian/
+_branch_cleanup_backups/
+佞臣V3_游戏纯净版/
+NingChenv4/NingChen-Demo-codex-difficulty-balance-inline-sync-36e3165/.gitignore
+*.log
+docx_extract_tmp.txt
+tmp_mujian_tutorial.txt
+live_balance_report_中文整理_2026-04-03.md
+
+# Local archives and generated working folders
+*.zip
+.playwright-cli/
+output/
+tmp/
+佞臣_Mujian Version/
+佞臣_MuleRun Version/
+
+# Local collaboration/process folders kept outside Git
+UXUI 优化/
+南陈女帝相关玩法/
+回合结算页/
+系统机制总审计_*.md
+过程文档归档说明_*.md
